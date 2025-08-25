@@ -645,7 +645,7 @@
             <!-- 控件面板已移除，图像叠加现在自动生成 -->
         </div>
         
-        <div class="search-control">
+        <div class="search-control" style="display: none;">
             <input type="text" class="search-input" placeholder="🔍 搜索地点..." id="searchInput">
             <button class="refresh-btn" id="refreshBtn" title="刷新数据">
                 🔄
@@ -658,7 +658,7 @@
         </div>
         
         <!-- 数据统计面板 -->
-        <div id="statsPanel" class="stats-panel">
+        <div id="statsPanel" class="stats-panel" style="display: none;">
             <h4>📊 数据统计</h4>
             <div id="statsContent">
                 <div class="stats-item">
@@ -684,7 +684,7 @@
             </div>
         </div>
         
-        <div class="legend">
+        <div class="legend" style="display: none;">
             <h4>🌟 波特尔暗空分类</h4>
             <div class="legend-item">
                 <div class="legend-color bortle-1"></div>
@@ -2093,7 +2093,7 @@
                             </radialGradient>
                         </defs>
                         <rect width="100%" height="100%" fill="url(#lightPollution)" />
-                        <text x="50%" y="50%" text-anchor="middle" fill="white" font-size="24" font-family="Arial">光污染图像叠加 (错误后备)</text>
+                        <!-- 移除错误后备文字显示 -->
                     </svg>
                 `)));
                 addImageOverlay(exampleImageUrl, mapBounds, 0.3);
@@ -2525,7 +2525,8 @@
             imperial: false
         }).addTo(map);
         
-        // 添加定位控件
+        // 添加定位控件 (已隐藏)
+        /*
         if (navigator.geolocation) {
             const locateControl = L.control({position: 'topright'});
             locateControl.onAdd = function(map) {
@@ -2547,6 +2548,7 @@
             };
             locateControl.addTo(map);
         }
+        */
         
         // 隐藏加载覆盖层
         setTimeout(() => {
