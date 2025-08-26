@@ -8,13 +8,38 @@
 
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# 添加src目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 from light_pollution_map import LightPollutionMap
 
 
 def main():
     """
-    主函数：演示光污染地图的各种功能
+    光污染地图可视化功能演示主函数
+    
+    展示LightPollutionMap和StyledMapGenerator类的完整使用流程
+    包括多种地图类型的生成和可视化效果对比
+    
+    演示功能：
+    1. 初始化地图可视化器并获取统计信息
+    2. 生成传统样式的综合地图分析报告
+    3. 生成现代化样式的地图可视化
+    4. 创建多种地图类型的对比展示
+    5. 生成完整的索引页面和使用说明
+    
+    地图类型：
+    - 热力图：连续的光污染强度分布
+    - 标记点地图：具体观测点的详细信息
+    - 聚类地图：密集区域的聚合显示
+    - 样式化地图：基于HTML的现代化界面
+    
+    输出内容：
+    - 多种格式的地图文件
+    - 完整的索引页面
+    - 详细的使用说明和颜色图例
+    - 统计信息和生成报告
     """
     # KML文件路径
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -85,11 +110,27 @@ def main():
 
 def create_index_page(output_dir: str, index_path: str):
     """
-    创建索引页面，列出所有生成的地图文件
+    创建光污染地图可视化的索引页面
+    
+    生成一个包含所有地图文件链接的HTML索引页面
+    提供清晰的导航和使用说明
+    
+    功能特点：
+    1. 自动扫描输出目录中的HTML文件
+    2. 按地图类型分类和排序
+    3. 提供图标和描述性标签
+    4. 包含详细的使用说明
+    5. 添加颜色图例和等级说明
+    
+    页面内容：
+    - 地图文件的分类列表
+    - 每种地图类型的功能说明
+    - 光污染等级的颜色对照表
+    - 生成时间和版本信息
     
     Args:
-        output_dir: 输出目录
-        index_path: 索引页面路径
+        output_dir (str): 包含地图文件的输出目录路径
+        index_path (str): 要生成的索引页面文件路径
     """
     html_files = [f for f in os.listdir(output_dir) if f.endswith('.html') and f != 'index.html']
     

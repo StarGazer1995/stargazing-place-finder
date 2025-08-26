@@ -10,6 +10,10 @@ import networkx as nx
 from typing import Tuple, Optional
 import logging
 from geopy.distance import geodesic
+try:
+    from .cache_config import get_cache_dir, setup_osmnx_cache
+except ImportError:
+    from cache_config import get_cache_dir, setup_osmnx_cache
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +34,12 @@ class RoadConnectivityChecker:
         """
         self.search_radius_km = search_radius_km
         self.graph_cache = {}  # 缓存已下载的道路网络
+        
+        # 设置OSMnx缓存目录
+        setup_osmnx_cache()
+        
+        # 设置道路网络缓存目录
+        self._road_cache_dir = get_cache_dir('road_networks')
     
     def is_road_accessible(self, lat: float, lon: float, 
                           network_type: str = 'drive') -> bool:

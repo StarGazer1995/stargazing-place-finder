@@ -9,12 +9,40 @@
 
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# 添加src目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 from location_finder import LocationFinder
 
 
 def main():
-    """主函数：演示LocationFinder的各种功能"""
+    """
+    地理位置查找器功能演示主函数
+    
+    展示LocationFinder类的完整使用流程
+    包括覆盖层查找、统计信息获取、附近区域搜索和错误处理
+    
+    演示功能：
+    1. 初始化LocationFinder并获取统计信息
+    2. 单个坐标的覆盖层查找
+    3. 多重覆盖层的查找和处理
+    4. 附近覆盖层的范围搜索
+    5. 详细信息的结构化获取
+    6. 错误处理和边界条件测试
+    
+    测试坐标：
+    - 全球主要城市的代表性坐标
+    - 包含极地和海洋区域的边界测试
+    - 验证查找器的覆盖范围和准确性
+    
+    输出内容：
+    - 覆盖层统计信息和边界范围
+    - 每个测试点的覆盖层详情
+    - 重叠覆盖层的处理结果
+    - 附近区域搜索的结果统计
+    - 结构化的详细信息展示
+    """
     # KML文件路径
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)

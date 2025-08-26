@@ -16,9 +16,11 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 try:
     from .location_finder import LocationFinder
     from .kml_parser import GroundOverlay
+    from .cache_config import get_cache_dir
 except ImportError:
     from location_finder import LocationFinder
     from kml_parser import GroundOverlay
+    from cache_config import get_cache_dir
 
 
 class LightPollutionAnalyzer:
@@ -52,6 +54,8 @@ class LightPollutionAnalyzer:
             
         # 缓存已加载的图像以提高性能
         self._image_cache = {}
+        # 设置图像缓存目录
+        self._image_cache_dir = get_cache_dir('images')
         
         print(f"光污染分析器初始化完成")
         print(f"图像基础路径: {self.images_base_path}")
@@ -173,12 +177,45 @@ class LightPollutionAnalyzer:
         Returns:
             PIL Image对象或None
         """
+        # 首先检查内存缓存
         if image_path in self._image_cache:
             return self._image_cache[image_path]
         
+        # 生成缓存文件名
+        import hashlib
+        cache_filename = hashlib.md5(image_path.encode()).hexdigest() + ".pkl"
+        cache_file_path = self._image_cache_dir / cache_filename
+        
+        # 检查磁盘缓存
+        if cache_file_path.exists():
+            try:
+                import pickle
+                with open(cache_file_path, 'rb') as f:
+                    image = pickle.load(f)
+                self._image_cache[image_path] = image
+                return image
+            except Exception as e:
+                print(f"从磁盘缓存加载图像失败 {cache_file_path}: {e}")
+                # 删除损坏的缓存文件
+                try:
+                    cache_file_path.unlink()
+                except:
+                    pass
+        
+        # 从原始文件加载图像
         try:
             image = Image.open(image_path)
+            # 保存到内存缓存
             self._image_cache[image_path] = image
+            
+            # 保存到磁盘缓存
+            try:
+                import pickle
+                with open(cache_file_path, 'wb') as f:
+                    pickle.dump(image, f)
+            except Exception as e:
+                print(f"保存图像到磁盘缓存失败 {cache_file_path}: {e}")
+            
             return image
         except Exception as e:
             print(f"加载图像失败 {image_path}: {e}")
@@ -266,13 +303,25 @@ class LightPollutionAnalyzer:
         """清除图像缓存
         
         用于释放内存，特别是在处理大量图像后。
+        同时清除内存缓存和磁盘缓存。
         """
+        # 清除内存缓存
         for image in self._image_cache.values():
             if hasattr(image, 'close'):
                 image.close()
         
         self._image_cache.clear()
-        print("图像缓存已清除")
+        
+        # 清除磁盘缓存
+        try:
+            import shutil
+            if self._image_cache_dir.exists():
+                shutil.rmtree(self._image_cache_dir)
+                self._image_cache_dir.mkdir(exist_ok=True)
+            print("图像缓存已清除（包括磁盘缓存）")
+        except Exception as e:
+            print(f"清除磁盘缓存时出错: {e}")
+            print("内存缓存已清除")
     
     def batch_analyze_coordinates(self, coordinates_list: list) -> list:
         """批量分析多个坐标的光污染信息

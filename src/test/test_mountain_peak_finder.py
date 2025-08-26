@@ -6,7 +6,8 @@
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+# 添加src目录到路径
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from mountain_peak_finder import MountainPeakFinder, find_peaks_with_height_difference
 import time
@@ -14,6 +15,12 @@ import time
 def test_distance_calculation():
     """
     测试距离计算功能
+    
+    使用北京到上海的已知距离（约1000公里）来验证
+    Haversine公式计算地理坐标间距离的准确性
+    
+    Returns:
+        bool: 测试是否通过（距离在合理范围内）
     """
     print("=== 测试1: 距离计算功能 ===")
     
@@ -37,6 +44,12 @@ def test_distance_calculation():
 def test_elevation_api():
     """
     测试海拔API功能
+    
+    通过查询珠穆朗玛峰的海拔数据来验证
+    外部海拔API服务的可用性和数据准确性
+    
+    Returns:
+        bool: 测试是否通过（API可用且数据合理）
     """
     print("\n=== 测试2: 海拔API功能 ===")
     
@@ -64,6 +77,14 @@ def test_elevation_api():
 def test_overpass_api():
     """
     测试Overpass API功能
+    
+    验证从OpenStreetMap Overpass API获取
+    山峰和城镇地理数据的功能是否正常
+    
+    测试区域：北京香山附近
+    
+    Returns:
+        bool: 测试是否通过（能够获取到山峰和城镇数据）
     """
     print("\n=== 测试3: Overpass API功能 ===")
     
@@ -89,7 +110,16 @@ def test_overpass_api():
 
 def test_small_area_search():
     """
-    测试小范围山峰搜索
+    测试小范围山峰搜索功能
+    
+    在指定的小范围区域内搜索符合条件的山峰，
+    验证山峰查找算法的完整性和准确性
+    
+    测试区域：北京香山地区
+    测试条件：高度差大于100米
+    
+    Returns:
+        bool: 测试是否通过（找到符合条件的山峰）
     """
     print("\n=== 测试4: 小范围山峰搜索 ===")
     
@@ -128,7 +158,16 @@ def test_small_area_search():
 
 def test_convenience_function():
     """
-    测试便捷函数
+    测试便捷函数功能
+    
+    验证find_peaks_with_height_difference便捷函数
+    是否能够正确封装复杂的山峰查找逻辑，
+    为用户提供简单易用的接口
+    
+    测试参数：更小的搜索区域和更低的高度差要求
+    
+    Returns:
+        bool: 测试是否通过（便捷函数正常工作）
     """
     print("\n=== 测试5: 便捷函数测试 ===")
     
@@ -154,7 +193,19 @@ def test_convenience_function():
 
 def test_error_handling():
     """
-    测试错误处理
+    测试错误处理机制
+    
+    验证系统在遇到无效输入、网络错误、
+    API限制等异常情况时的健壮性和
+    错误恢复能力
+    
+    测试场景：
+    - 无效的地理坐标边界
+    - 极端的参数值
+    - 网络连接问题模拟
+    
+    Returns:
+        bool: 测试是否通过（错误处理机制正常）
     """
     print("\n=== 测试6: 错误处理测试 ===")
     
@@ -182,7 +233,21 @@ def test_error_handling():
 
 def run_all_tests():
     """
-    运行所有测试
+    运行所有山峰查找器测试用例
+    
+    按顺序执行所有测试函数，统计测试结果，
+    并在测试间添加延迟以避免API请求过于频繁
+    
+    测试覆盖范围：
+    1. 距离计算算法验证
+    2. 海拔API服务可用性
+    3. Overpass API数据获取
+    4. 小范围山峰搜索功能
+    5. 便捷函数接口测试
+    6. 错误处理机制验证
+    
+    Returns:
+        bool: 所有测试是否全部通过
     """
     print("山峰查找器功能测试")
     print("=" * 50)

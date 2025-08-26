@@ -7,7 +7,8 @@
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+# 添加src目录到路径
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from simple_road_checker import quick_road_check, batch_road_check
 from road_connectivity_checker import RoadConnectivityChecker
@@ -15,7 +16,18 @@ import time
 
 def test_quick_check():
     """
-    测试快速检测功能
+    测试快速道路连通性检测功能
+    
+    使用已知可达的地点（天安门广场）验证
+    quick_road_check函数的基本功能和性能
+    
+    测试要点：
+    - 功能正确性：能否正确识别可达地点
+    - 性能表现：检测耗时是否在合理范围内
+    - 返回值格式：布尔值返回是否正确
+    
+    Returns:
+        bool: 测试地点是否被正确识别为可达
     """
     print("=== 测试快速检测功能 ===")
     
@@ -34,7 +46,23 @@ def test_quick_check():
 
 def test_batch_check():
     """
-    测试批量检测功能
+    测试批量道路连通性检测功能
+    
+    同时检测多个不同类型的地点，验证
+    batch_road_check函数的批处理能力和准确性
+    
+    测试地点类型：
+    - 城市中心（应该可达）
+    - 郊区地点（应该可达）
+    - 海洋区域（应该不可达）
+    
+    验证要点：
+    - 批量处理效率
+    - 结果准确性
+    - 不同地形的识别能力
+    
+    Returns:
+        list: 各地点的连通性检测结果列表
     """
     print("\n=== 测试批量检测功能 ===")
     
@@ -67,7 +95,20 @@ def test_batch_check():
 
 def test_detailed_checker():
     """
-    测试详细检测器功能
+    测试详细道路连通性检测器功能
+    
+    使用RoadConnectivityChecker类进行深度检测，
+    获取更详细的道路连通性信息和分析数据
+    
+    测试内容：
+    - 可达性判断的准确性
+    - 距离道路的精确测量
+    - 道路网络节点统计
+    - 最近道路类型识别
+    - 错误信息的完整性
+    
+    Returns:
+        bool: 详细检测功能是否正常工作
     """
     print("\n=== 测试详细检测器功能 ===")
     
@@ -94,7 +135,20 @@ def test_detailed_checker():
 
 def test_error_handling():
     """
-    测试错误处理功能
+    测试道路连通性检测的错误处理机制
+    
+    验证系统在遇到异常输入时的健壮性，
+    确保程序不会因为无效数据而崩溃
+    
+    测试场景：
+    - 超出有效范围的地理坐标
+    - 可能缺乏道路数据的特殊位置
+    - 网络请求异常情况的处理
+    
+    验证要点：
+    - 异常捕获的完整性
+    - 错误信息的清晰度
+    - 程序的稳定性
     """
     print("\n=== 测试错误处理功能 ===")
     
@@ -115,7 +169,24 @@ def test_error_handling():
 
 def run_all_tests():
     """
-    运行所有测试
+    运行所有道路连通性检测测试用例
+    
+    按顺序执行所有测试函数，收集测试结果，
+    并提供详细的测试报告和使用建议
+    
+    测试覆盖范围：
+    1. 快速检测功能验证
+    2. 批量检测能力测试
+    3. 详细检测器功能验证
+    4. 错误处理机制测试
+    
+    输出内容：
+    - 各项测试的通过状态
+    - 总体测试结果评估
+    - 功能使用建议
+    
+    Returns:
+        bool: 所有关键测试是否通过
     """
     print("🧪 道路连通性检测功能测试")
     print("=" * 50)

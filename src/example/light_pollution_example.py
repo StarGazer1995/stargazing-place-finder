@@ -8,12 +8,41 @@
 
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# 添加src目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 from light_pollution_analyzer import LightPollutionAnalyzer
 
 
 def main():
-    """主函数：演示光污染分析器的使用"""
+    """
+    光污染分析器功能演示主函数
+    
+    展示LightPollutionAnalyzer类的完整使用流程
+    包括初始化、单点分析、批量分析、统计分析和错误处理
+    
+    演示功能：
+    1. 分析器初始化和统计信息获取
+    2. 单个坐标的光污染分析
+    3. 批量坐标的光污染分析
+    4. 光污染等级分布统计
+    5. 亮度值统计分析
+    6. 缓存管理操作
+    7. 错误处理和边界条件测试
+    
+    测试坐标：
+    - 包含全球主要城市和偏远地区
+    - 覆盖不同光污染等级的区域
+    - 验证分析器的准确性和稳定性
+    
+    输出内容：
+    - 每个测试点的详细光污染信息
+    - 批量分析的统计摘要
+    - 光污染等级分布图
+    - 亮度值统计数据
+    - 使用说明和注意事项
+    """
     # KML文件路径
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)

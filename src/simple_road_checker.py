@@ -9,6 +9,10 @@ import osmnx as ox
 import networkx as nx
 from typing import Tuple, Optional
 import logging
+try:
+    from .cache_config import setup_osmnx_cache
+except ImportError:
+    from cache_config import setup_osmnx_cache
 
 # 配置日志
 logging.basicConfig(level=logging.WARNING)
@@ -30,6 +34,9 @@ class SimpleRoadChecker:
         """
         self.search_radius_km = search_radius_km
         self.max_distance_to_road_km = max_distance_to_road_km
+        
+        # 设置OSMnx缓存目录
+        setup_osmnx_cache()
     
     def is_connected(self, lat: float, lon: float) -> bool:
         """

@@ -15,12 +15,17 @@ import sys
 import os
 import json
 import tempfile
+try:
+    from ..cache_config import get_temp_file
+except ImportError:
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from cache_config import get_temp_file
 from datetime import datetime
 
 # 添加src目录到路径
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from src.stargazing_location_analyzer import (
+from stargazing_location_analyzer import (
     StargazingLocationAnalyzer, 
     StargazingLocation,
     analyze_stargazing_area
@@ -28,7 +33,21 @@ from src.stargazing_location_analyzer import (
 
 def test_analyzer_initialization():
     """
-    测试分析器初始化功能
+    测试观星地点分析器的初始化功能
+    
+    验证StargazingLocationAnalyzer类的构造函数
+    是否能够正确初始化各个组件模块
+    
+    测试内容：
+    - 无光污染数据时的初始化（测试环境）
+    - 自定义参数的正确设置
+    - 各子模块的初始化状态验证
+    - 参数传递的准确性
+    
+    注意：生产环境中光污染数据是必需的
+    
+    Returns:
+        bool: 初始化功能是否正常工作
     """
     print("\n=== 测试1: 分析器初始化 ===")
     
@@ -66,7 +85,21 @@ def test_analyzer_initialization():
 
 def test_basic_analysis():
     """
-    测试基础分析功能
+    测试观星地点的基础分析功能
+    
+    验证分析器能否在指定区域内找到
+    符合条件的观星地点并进行基本评估
+    
+    测试流程：
+    1. 在小范围区域内搜索山峰
+    2. 检测道路连通性
+    3. 计算基础评分
+    4. 验证结果数据结构
+    
+    测试区域：北京香山地区
+    
+    Returns:
+        bool: 基础分析功能是否正常工作
     """
     print("\n=== 测试2: 基础分析功能 ===")
     
@@ -113,7 +146,25 @@ def test_basic_analysis():
 
 def test_scoring_system():
     """
-    测试评分系统
+    测试观星地点评分系统的准确性
+    
+    验证评分算法能否根据不同的地理和环境因素
+    计算出合理的观星适宜性评分
+    
+    测试要素：
+    - 高度差对评分的影响
+    - 光污染亮度的权重计算
+    - 道路可达性的评分贡献
+    - 推荐等级的分类准确性
+    - 分析备注的生成质量
+    
+    验证范围：
+    - 评分在0-100范围内
+    - 不同条件下的评分合理性
+    - 推荐等级与评分的对应关系
+    
+    Returns:
+        bool: 评分系统是否工作正常
     """
     print("\n=== 测试3: 评分系统 ===")
     
@@ -178,7 +229,26 @@ def test_scoring_system():
 
 def test_data_persistence():
     """
-    测试数据保存和加载功能
+    测试观星地点数据的持久化功能
+    
+    验证分析结果能否正确保存到JSON文件
+    并确保数据的完整性和格式正确性
+    
+    测试流程：
+    1. 创建测试观星地点数据
+    2. 保存到临时JSON文件
+    3. 验证文件存在性
+    4. 加载并验证数据完整性
+    5. 检查数据格式和字段正确性
+    
+    验证要点：
+    - JSON文件结构的正确性
+    - 数据字段的完整性
+    - 数值精度的保持
+    - 中文字符的正确编码
+    
+    Returns:
+        bool: 数据持久化功能是否正常工作
     """
     print("\n=== 测试4: 数据保存功能 ===")
     
@@ -206,8 +276,7 @@ def test_data_persistence():
         ]
         
         # 保存到临时文件
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            temp_filename = f.name
+        temp_filename = get_temp_file(suffix='.json', prefix='test_results_')
         
         analyzer.save_results_to_json(test_locations, temp_filename)
         
@@ -241,7 +310,25 @@ def test_data_persistence():
 
 def test_top_recommendations():
     """
-    测试推荐排序功能
+    测试观星地点推荐排序功能的准确性
+    
+    验证系统能否根据评分正确排序观星地点
+    并返回指定数量的最佳推荐
+    
+    测试内容：
+    1. 创建不同评分的测试地点
+    2. 验证排序算法的正确性
+    3. 测试获取前N个推荐的功能
+    4. 验证推荐摘要的生成
+    
+    验证要点：
+    - 按评分从高到低的正确排序
+    - 返回数量与请求数量的一致性
+    - 推荐摘要的完整性
+    - 边界条件的处理
+    
+    Returns:
+        bool: 推荐排序功能是否正常工作
     """
     print("\n=== 测试5: 推荐排序功能 ===")
     
@@ -289,7 +376,25 @@ def test_top_recommendations():
 
 def test_convenience_function():
     """
-    测试便捷函数
+    测试观星地点分析的便捷函数接口
+    
+    验证analyze_stargazing_area函数能否
+    提供简化的一站式分析服务
+    
+    测试场景：
+    - 小范围区域的快速分析
+    - 参数传递的正确性
+    - 返回结果的数据类型
+    - 限制条件的有效性
+    
+    测试参数：
+    - 地理边界坐标
+    - 最大山峰数量限制
+    - 最小高度差阈值
+    - KML文件路径（可选）
+    
+    Returns:
+        bool: 便捷函数是否正常工作
     """
     print("\n=== 测试6: 便捷函数 ===")
     
@@ -319,7 +424,25 @@ def test_convenience_function():
 
 def test_error_handling():
     """
-    测试错误处理
+    测试观星地点分析器的错误处理机制
+    
+    验证系统在遇到异常情况时能否
+    优雅地处理错误并保持稳定运行
+    
+    测试场景：
+    1. 无效的地理边界框
+    2. 不存在的KML文件路径
+    3. 网络连接异常
+    4. 数据格式错误
+    
+    验证要点：
+    - 异常捕获的完整性
+    - 错误信息的清晰度
+    - 程序的稳定性
+    - 降级处理的合理性
+    
+    Returns:
+        bool: 错误处理机制是否正常工作
     """
     print("\n=== 测试7: 错误处理 ===")
     
@@ -361,7 +484,27 @@ def test_error_handling():
 
 def run_all_tests():
     """
-    运行所有测试
+    运行观星地点分析器的完整测试套件
+    
+    执行所有测试用例并生成测试报告
+    验证系统各个模块的功能完整性
+    
+    测试覆盖范围：
+    1. 分析器初始化 - 验证组件初始化
+    2. 基础分析功能 - 验证核心分析流程
+    3. 评分系统 - 验证评分算法准确性
+    4. 数据保存功能 - 验证数据持久化
+    5. 推荐排序功能 - 验证排序和推荐
+    6. 便捷函数 - 验证简化接口
+    7. 错误处理 - 验证异常处理机制
+    
+    输出内容：
+    - 每个测试的执行状态
+    - 测试通过/失败统计
+    - 总体测试结果摘要
+    
+    Returns:
+        bool: 所有测试是否全部通过
     """
     print("观星地点综合分析器 - 功能测试")
     print("=" * 50)
