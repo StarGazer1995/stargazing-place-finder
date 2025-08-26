@@ -208,3 +208,6 @@ __marimo__/
 visualization_output
 map_output
 .DS_Store
+world_atlas/
+cache/
+*.json
