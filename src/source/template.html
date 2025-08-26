@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh" id="html-root">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光污染地图 | 观星地点查找器</title>
+    <meta name="description" content="专业的光污染地图，提供波特尔暗空分类、SQM数值查询，帮助天文爱好者找到最佳观星地点">
+    <meta name="keywords" content="光污染地图,波特尔暗空分类,SQM值,观星地点,星空摄影,天文观测">
+    
+    <!-- 外部CSS库 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+    <!-- 无障碍访问支持 -->
+    <div class="sr-only">
+        <h1 data-i18n="accessibility.title">光污染地图 - 观星地点查找器</h1>
+        <p data-i18n="accessibility.description">这是一个交互式光污染地图，帮助您找到最佳的观星地点。使用键盘导航或屏幕阅读器浏览地图信息。</p>
+    </div>
+
+    <!-- 加载覆盖层 -->
+    <div id="loading-overlay" role="status" aria-live="polite">
+        <div class="loading-content">
+            <h1 class="loading-title">星空观测地点查找器</h1>
+            <p class="loading-subtitle">正在加载光污染数据...</p>
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <p class="loading-text">请稍候</p>
+        </div>
+    </div>
+
+    <!-- 主地图容器 -->
+    <div id="map" role="application" aria-label="光污染地图" tabindex="0"></div>
+
+    <!-- 加载指示器 -->
+    <div id="loading-indicator" class="loading-indicator" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <span>正在加载数据...</span>
+    </div>
+
+    <!-- 搜索容器 -->
+    <div id="search-container" class="search-container">
+        <input type="text" id="search-input" placeholder="搜索地点..." 
+               aria-label="搜索地点" autocomplete="off" />
+    </div>
+
+    <!-- 统计面板 -->
+    <div class="stats-panel" role="complementary">
+        <h3>光污染统计</h3>
+        <div class="stats-content">
+            <!-- 统计内容将由JavaScript动态生成 -->
+        </div>
+    </div>
+
+    <!-- 信息面板 -->
+    <div class="info-panel" role="complementary">
+        <h3>位置信息</h3>
+        <div class="info-content">
+            <!-- 信息内容将由JavaScript动态生成 -->
+        </div>
+    </div>
+
+    <!-- 图例面板 -->
+    <div class="legend-panel" role="complementary">
+        <h3>波特尔暗空分类</h3>
+        <div class="legend-content">
+            <!-- 图例内容将由JavaScript动态生成 -->
+        </div>
+    </div>
+
+    <!-- 语言切换按钮 -->
+    <button id="language-btn" class="language-btn" aria-label="切换语言">中/EN</button>
+
+    <!-- 外部JavaScript库 -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
+    
+    <!-- 自定义JavaScript -->
+    <script src="assets/js/app.js"></script>
+</body>
+</html>

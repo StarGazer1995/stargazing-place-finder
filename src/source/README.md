@@ -45,7 +45,7 @@
 ## 📁 文件结构
 
 ```
-/Users/gongzhao/workspace/stargazing-place-finder/styled_map_output/
+/Users/gongzhao/workspace/stargazing-place-finder/src/source/
 ├── index.html              # 主地图页面
 ├── light_pollution_data.json  # 光污染数据文件
 └── README.md               # 说明文档

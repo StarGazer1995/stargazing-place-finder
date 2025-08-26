@@ -20,6 +20,16 @@ echo "📦 检查项目依赖..."
 echo "📦 Checking project dependencies..."
 uv sync
 
+# 生成地图文件
+echo "🗺️  生成地图文件..."
+echo "🗺️  Generating map files..."
+uv run python src/styled_map_generator.py
+
+# 复制资源文件
+echo "📁 复制资源文件..."
+echo "📁 Copying resource files..."
+cp -r src/source/assets/* styled_map_output/assets/
+
 # 启动光污染API服务（后台运行）
 echo "🚀 启动光污染API服务..."
 echo "🚀 Starting Light Pollution API service..."
