@@ -8,6 +8,53 @@ let currentLanguage = 'zh';
 let isLoading = false;
 let loadingIndicator;
 
+// 观星区域选择器相关变量
+let drawControl = null;
+let drawnItems = null;
+let currentPolygon = null;
+let analysisResults = [];
+let isAnalysisMode = false;
+let statusIndicator = null;
+let resultsPanel = null;
+
+// API配置
+const API_CONFIG = {
+    baseUrl: 'http://localhost:5002',
+    endpoints: {
+        analyze: '/api/analyze_stargazing_area',
+        health: '/api/health'
+    }
+};
+
+// 标记样式配置
+const MARKER_STYLES = {
+    stargazing: {
+        className: 'stargazing-marker',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    },
+    excellent: {
+        className: 'stargazing-marker excellent-marker',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+    },
+    good: {
+        className: 'stargazing-marker good-marker',
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+    },
+    fair: {
+        className: 'stargazing-marker fair-marker',
+        iconSize: [12, 12],
+        iconAnchor: [6, 6]
+    },
+    poor: {
+        className: 'stargazing-marker poor-marker',
+        iconSize: [10, 10],
+        iconAnchor: [5, 5]
+    }
+};
+
 /**
  * 检测用户浏览器语言偏好
  * @returns {string} 检测到的语言代码 ('zh' 或 'en')
@@ -1284,9 +1331,485 @@ function initializeApp() {
     }, 1000);
 }
 
-// 当DOM加载完成后初始化应用
+// ==================== 观星区域选择器功能 ====================
+
+/**
+ * 初始化绘制控件
+ */
+function initializeDrawControls() {
+    // 创建绘制图层组
+    drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    // 创建绘制控件
+    drawControl = new L.Control.Draw({
+        position: 'topleft',
+        draw: {
+            polygon: {
+                allowIntersection: false,
+                drawError: {
+                    color: '#e1e100',
+                    message: '<strong>错误:</strong> 形状边缘不能交叉!'
+                },
+                shapeOptions: {
+                    color: '#4a90e2',
+                    weight: 3,
+                    opacity: 0.8,
+                    fillOpacity: 0.2
+                }
+            },
+            rectangle: {
+                shapeOptions: {
+                    color: '#4a90e2',
+                    weight: 3,
+                    opacity: 0.8,
+                    fillOpacity: 0.2
+                }
+            },
+            polyline: false,
+            circle: false,
+            marker: false,
+            circlemarker: false
+        },
+        edit: {
+            featureGroup: drawnItems,
+            remove: true
+        }
+    });
+
+    map.addControl(drawControl);
+    bindDrawEventListeners();
+}
+
+/**
+ * 绑定绘制事件监听器
+ */
+function bindDrawEventListeners() {
+    map.on(L.Draw.Event.CREATED, function(e) {
+        const layer = e.layer;
+        
+        // 清除之前的多边形
+        drawnItems.clearLayers();
+        
+        // 添加新的多边形
+        drawnItems.addLayer(layer);
+        currentPolygon = layer;
+        
+        // 启用分析按钮
+        const analyzeBtn = document.getElementById('analyze-button');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = false;
+        }
+        
+        updateStatus('已绘制分析区域，点击"分析观星区域"开始分析', 'success');
+    });
+
+    map.on(L.Draw.Event.DELETED, function(e) {
+        currentPolygon = null;
+        
+        // 禁用分析按钮
+        const analyzeBtn = document.getElementById('analyze-button');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = true;
+        }
+        
+        // 清除分析结果
+        clearAnalysisResults();
+        updateStatus('已清除绘制区域', 'success');
+    });
+}
+
+/**
+ * 分析观星区域
+ */
+async function analyzeStargazingArea() {
+    if (!currentPolygon) {
+        updateStatus('请先绘制一个分析区域', 'error');
+        return;
+    }
+
+    const analyzeBtn = document.getElementById('analyze-button');
+    if (analyzeBtn) {
+        analyzeBtn.disabled = true;
+        analyzeBtn.innerHTML = '<span class="loading-spinner"></span>分析中...';
+    }
+
+    updateStatus('正在分析观星区域...', 'loading');
+
+    try {
+        // 获取多边形坐标
+        const coordinates = currentPolygon.getLatLngs()[0].map(latlng => [latlng.lng, latlng.lat]);
+        
+        // 计算边界框
+        const lats = coordinates.map(coord => coord[1]);
+        const lngs = coordinates.map(coord => coord[0]);
+        const bbox = {
+            south: Math.min(...lats),
+            west: Math.min(...lngs),
+            north: Math.max(...lats),
+            east: Math.max(...lngs)
+        };
+        
+        // 获取表单数据
+        const maxPeaks = parseInt(document.getElementById('max-peaks').value) || 10;
+        const transportMode = document.getElementById('network-type').value || 'drive';
+        const analyzeLightPollution = document.getElementById('include-light-pollution').checked;
+        const checkRoadConnectivity = document.getElementById('include-road-connectivity').checked;
+
+        // 构建请求数据
+        const requestData = {
+            bbox: bbox,
+            max_peaks: maxPeaks,
+            network_type: transportMode,
+            include_light_pollution: analyzeLightPollution,
+            include_road_connectivity: checkRoadConnectivity
+        };
+
+        console.log('发送分析请求:', requestData);
+
+        // 发送API请求
+        const response = await fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoints.analyze}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API请求失败: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('分析结果:', result);
+
+        // 显示分析结果
+        displayAnalysisResults(result);
+        updateStatus(`分析完成，找到 ${result.locations?.length || 0} 个观星地点`, 'success');
+
+    } catch (error) {
+        console.error('分析失败:', error);
+        updateStatus(`分析失败: ${error.message}`, 'error');
+    } finally {
+        // 恢复按钮状态
+        if (analyzeBtn) {
+            analyzeBtn.disabled = false;
+            analyzeBtn.innerHTML = '分析观星区域';
+        }
+    }
+}
+
+/**
+ * 显示分析结果
+ */
+function displayAnalysisResults(result) {
+    // 清除之前的结果
+    clearAnalysisResults();
+    
+    if (!result.locations || result.locations.length === 0) {
+        updateStatus('未找到合适的观星地点', 'error');
+        return;
+    }
+
+    // 保存结果
+    analysisResults = result.locations;
+
+    // 在地图上添加标记
+    analysisResults.forEach((location, index) => {
+        const marker = createStargazingMarker(location);
+        drawnItems.addLayer(marker);
+    });
+
+    // 显示结果面板
+    showResultsPanel(result);
+
+    // 调整地图视图以包含所有标记
+    if (analysisResults.length > 0) {
+        const group = new L.featureGroup(drawnItems.getLayers());
+        map.fitBounds(group.getBounds().pad(0.1));
+    }
+}
+
+/**
+ * 创建观星地点标记
+ */
+function createStargazingMarker(location) {
+    const { latitude, longitude, score, name } = location;
+    
+    // 根据评分选择标记样式
+    let styleKey = 'poor';
+    if (score >= 8) styleKey = 'excellent';
+    else if (score >= 6) styleKey = 'good';
+    else if (score >= 4) styleKey = 'fair';
+    
+    const style = MARKER_STYLES[styleKey];
+    
+    // 创建自定义图标
+    const icon = L.divIcon({
+        className: style.className,
+        iconSize: style.iconSize,
+        iconAnchor: style.iconAnchor
+    });
+    
+    // 创建标记
+    const marker = L.marker([latitude, longitude], { icon });
+    
+    // 添加弹出窗口
+    const popupContent = `
+        <div class="stargazing-popup">
+            <h4>${name || '观星地点'}</h4>
+            <p><strong>评分:</strong> ${score.toFixed(1)}/10</p>
+            <p><strong>坐标:</strong> ${latitude.toFixed(4)}, ${longitude.toFixed(4)}</p>
+            ${location.light_pollution_level ? `<p><strong>光污染等级:</strong> ${location.light_pollution_level}</p>` : ''}
+            ${location.accessibility ? `<p><strong>可达性:</strong> ${location.accessibility}</p>` : ''}
+        </div>
+    `;
+    
+    marker.bindPopup(popupContent);
+    
+    return marker;
+}
+
+/**
+ * 显示结果面板
+ */
+function showResultsPanel(result) {
+    let panel = document.getElementById('results-panel');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'results-panel';
+        panel.className = 'results-panel';
+        document.body.appendChild(panel);
+    }
+    
+    const locations = result.locations || [];
+    const summary = result.summary || {};
+    
+    panel.innerHTML = `
+        <h4>分析结果</h4>
+        <div class="summary-stats">
+            <div class="stat-item">
+                <div class="stat-value">${locations.length}</div>
+                <div>观星地点</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">${summary.avg_score ? summary.avg_score.toFixed(1) : 'N/A'}</div>
+                <div>平均评分</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">${summary.excellent_count || 0}</div>
+                <div>优秀地点</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">${summary.good_count || 0}</div>
+                <div>良好地点</div>
+            </div>
+        </div>
+        <div class="locations-list">
+            ${locations.slice(0, 5).map((location, index) => `
+                <div class="location-item">
+                    <div class="location-name">${location.name || `地点 ${index + 1}`}</div>
+                    <div class="location-score">评分: ${location.score.toFixed(1)}/10</div>
+                    <div class="location-details">
+                        坐标: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}
+                        ${location.light_pollution_level ? `<br>光污染: ${location.light_pollution_level}` : ''}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    panel.style.display = 'block';
+    resultsPanel = panel;
+}
+
+/**
+ * 清除分析结果
+ */
+function clearAnalysisResults() {
+    // 清除标记（保留多边形）
+    if (drawnItems) {
+        drawnItems.eachLayer(layer => {
+            if (layer !== currentPolygon) {
+                drawnItems.removeLayer(layer);
+            }
+        });
+    }
+    
+    // 隐藏结果面板
+    if (resultsPanel) {
+        resultsPanel.style.display = 'none';
+    }
+    
+    // 清空结果数组
+    analysisResults = [];
+}
+
+/**
+ * 清除所有内容
+ */
+function clearAll() {
+    // 清除绘制的图层
+    if (drawnItems) {
+        drawnItems.clearLayers();
+    }
+    
+    // 重置变量
+    currentPolygon = null;
+    analysisResults = [];
+    
+    // 隐藏结果面板
+    if (resultsPanel) {
+        resultsPanel.style.display = 'none';
+    }
+    
+    // 禁用分析按钮
+    const analyzeBtn = document.getElementById('analyze-button');
+    if (analyzeBtn) {
+        analyzeBtn.disabled = true;
+    }
+    
+    // 确保绘制控件仍然可用
+    if (isAnalysisMode && drawControl && map) {
+        if (!map.hasControl(drawControl)) {
+            map.addControl(drawControl);
+        }
+    }
+    
+    updateStatus('已清除所有内容', 'success');
+}
+
+/**
+ * 更新状态指示器
+ */
+function updateStatus(message, type = 'info') {
+    let indicator = document.getElementById('status-indicator');
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'status-indicator';
+        indicator.className = 'status-indicator';
+        document.body.appendChild(indicator);
+    }
+    
+    indicator.textContent = message;
+    indicator.className = `status-indicator ${type}`;
+    statusIndicator = indicator;
+    
+    // 3秒后自动隐藏成功和错误消息
+    if (type === 'success' || type === 'error') {
+        setTimeout(() => {
+            if (indicator.textContent === message) {
+                indicator.style.display = 'none';
+            }
+        }, 3000);
+    } else {
+        indicator.style.display = 'block';
+    }
+}
+
+/**
+ * 切换模式
+ */
+function toggleMode() {
+    isAnalysisMode = !isAnalysisMode;
+    
+    const modeBtn = document.getElementById('mode-toggle-btn');
+    const controlPanel = document.querySelector('.control-panel');
+    
+    if (isAnalysisMode) {
+        // 切换到分析模式
+        modeBtn.textContent = '切换到浏览模式';
+        modeBtn.classList.add('active');
+        controlPanel.style.display = 'block';
+        
+        // 初始化绘制控件
+        if (!drawControl) {
+            initializeDrawControls();
+        } else {
+            // 确保绘制控件已添加到地图
+            if (map && !map.hasControl(drawControl)) {
+                map.addControl(drawControl);
+            }
+        }
+        
+        updateStatus('已切换到分析模式，请绘制分析区域', 'info');
+    } else {
+        // 切换到浏览模式
+        modeBtn.textContent = '切换到分析模式';
+        modeBtn.classList.remove('active');
+        controlPanel.style.display = 'none';
+        
+        // 移除绘制控件
+        if (drawControl && map && map.hasControl(drawControl)) {
+            map.removeControl(drawControl);
+        }
+        
+        // 清除所有分析内容
+        clearAll();
+        
+        updateStatus('已切换到浏览模式', 'info');
+    }
+}
+
+/**
+ * 检查API健康状态
+ */
+async function checkApiHealth() {
+    try {
+        const response = await fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoints.health}`);
+        if (response.ok) {
+            const data = await response.json();
+            console.log('API健康检查通过:', data);
+            return true;
+        }
+    } catch (error) {
+        console.warn('API健康检查失败:', error);
+    }
+    return false;
+}
+
+/**
+ * 初始化观星区域选择器
+ */
+function initializeStargazingSelector() {
+    // 绑定按钮事件
+    const analyzeBtn = document.getElementById('analyze-button');
+    const clearBtn = document.getElementById('clear-button');
+    const modeToggleBtn = document.getElementById('mode-toggle-btn');
+    
+    if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', analyzeStargazingArea);
+        analyzeBtn.disabled = true; // 初始状态禁用
+    }
+    
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearAll);
+    }
+    
+    if (modeToggleBtn) {
+        modeToggleBtn.addEventListener('click', toggleMode);
+    }
+    
+    // 初始隐藏控制面板
+    const controlPanel = document.querySelector('.control-panel');
+    if (controlPanel) {
+        controlPanel.style.display = 'none';
+    }
+    
+    // 检查API健康状态
+    checkApiHealth();
+}
+
+// ==================== 应用初始化 ====================
+
+// 初始化应用
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeApp);
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeApp();
+        initializeStargazingSelector();
+    });
 } else {
     initializeApp();
+    initializeStargazingSelector();
 }

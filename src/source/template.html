@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>光污染地图 | 观星地点查找器</title>
-    <meta name="description" content="专业的光污染地图，提供波特尔暗空分类、SQM数值查询，帮助天文爱好者找到最佳观星地点">
-    <meta name="keywords" content="光污染地图,波特尔暗空分类,SQM值,观星地点,星空摄影,天文观测">
+    <title>观星地点查找器 | 光污染地图与区域分析</title>
+    <meta name="description" content="专业的光污染地图与观星区域分析工具，提供波特尔暗空分类、SQM数值查询和交互式区域选择功能">
+    <meta name="keywords" content="光污染地图,波特尔暗空分类,SQM值,观星地点,星空摄影,天文观测,观星区域选择,观星地点分析">
     
     <!-- 外部CSS库 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
     
     <!-- 自定义样式 -->
     <link rel="stylesheet" href="assets/css/styles.css" />
@@ -71,6 +73,68 @@
         </div>
     </div>
 
+    <!-- 观星区域分析控制面板 -->
+    <div class="control-panel" id="stargazing-control-panel" style="display: none;">
+        <h3>🌟 观星区域分析</h3>
+        
+        <div class="control-group">
+            <label>📍 绘制分析区域</label>
+            <p style="font-size: 12px; color: #b8b8d1; margin-bottom: 10px;">
+                使用地图上的绘制工具选择要分析的区域
+            </p>
+        </div>
+
+        <div class="control-group">
+            <label for="max-peaks">🏔️ 最大山峰数量</label>
+            <input type="number" id="max-peaks" min="5" max="100" value="30">
+        </div>
+
+        <div class="control-group">
+            <label for="network-type">🚗 交通方式</label>
+            <select id="network-type">
+                <option value="drive">驾车</option>
+                <option value="walk">步行</option>
+                <option value="bike">骑行</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="include-light-pollution" checked>
+                <label for="include-light-pollution">🌃 包含光污染分析</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="include-road-connectivity" checked>
+                <label for="include-road-connectivity">🛣️ 包含道路连通性</label>
+            </div>
+        </div>
+
+        <button id="analyze-button" class="analyze-button" disabled>
+            🔍 分析观星地点
+        </button>
+        
+        <button id="clear-button" class="clear-button">
+            🗑️ 清除结果
+        </button>
+    </div>
+
+    <!-- 状态指示器 -->
+    <div id="status-indicator" class="status-indicator">
+        💡 在地图上绘制一个区域开始分析
+    </div>
+
+    <!-- 结果面板 -->
+    <div id="results-panel" class="results-panel">
+        <h4>📊 分析结果</h4>
+        <div id="summary-stats" class="summary-stats"></div>
+        <div id="locations-list"></div>
+    </div>
+
+    <!-- 模式切换按钮 -->
+    <div class="mode-toggle-container">
+        <button id="mode-toggle-btn" class="mode-toggle-btn" aria-label="切换模式">🎯 区域分析</button>
+    </div>
+
     <!-- 语言切换按钮 -->
     <button id="language-btn" class="language-btn" aria-label="切换语言">中/EN</button>
 
@@ -78,6 +142,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script src="https://unpkg.com/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
+    <!-- Leaflet Draw JavaScript -->
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
     
     <!-- 自定义JavaScript -->
     <script src="assets/js/app.js"></script>
