@@ -9,7 +9,7 @@ import os
 # 添加src目录到路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from mountain_peak_finder import MountainPeakFinder
+from mountain_peak_finder import StarGazingPlaceFinder
 from light_pollution_analyzer import LightPollutionAnalyzer
 import unittest
 from unittest.mock import Mock, patch
@@ -30,7 +30,7 @@ class TestLightPollutionSorting(unittest.TestCase):
         """
         # 创建模拟的光污染分析器
         self.mock_light_analyzer = Mock(spec=LightPollutionAnalyzer)
-        self.finder = MountainPeakFinder(
+        self.finder = StarGazingPlaceFinder(
             min_height_difference=100.0,
             light_pollution_analyzer=self.mock_light_analyzer
         )
@@ -48,7 +48,7 @@ class TestLightPollutionSorting(unittest.TestCase):
         
         验证当没有光污染分析器时，函数应该返回原始列表不变
         """
-        finder_no_analyzer = MountainPeakFinder(min_height_difference=100.0)
+        finder_no_analyzer = StarGazingPlaceFinder(min_height_difference=100.0)
         result = finder_no_analyzer._sort_places_by_lightpollution(self.test_places)
         
         # 应该返回原始列表

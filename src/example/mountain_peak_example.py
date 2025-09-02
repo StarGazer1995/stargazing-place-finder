@@ -10,7 +10,7 @@ import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
-from mountain_peak_finder import MountainPeakFinder, find_peaks_with_height_difference
+from mountain_peak_finder import StarGazingPlaceFinder, find_peaks_with_height_difference
 import json
 
 def example_beijing_area():
@@ -77,7 +77,7 @@ def example_zhangjiajie_area():
     # 张家界地区
     bbox = (29.0, 110.0, 29.8, 110.8)
     
-    finder = MountainPeakFinder(min_height_difference=200.0)
+    finder = StarGazingPlaceFinder(min_height_difference=200.0)
     peaks = finder.find_peaks_in_area(bbox, max_peaks=10)
     
     print(f"找到 {len(peaks)} 个符合条件的山峰：")
@@ -114,7 +114,7 @@ def example_huangshan_area():
     # 黄山地区
     bbox = (29.8, 118.0, 30.5, 118.8)
     
-    finder = MountainPeakFinder(min_height_difference=100.0)
+    finder = StarGazingPlaceFinder(min_height_difference=100.0)
     peaks = finder.find_peaks_in_area(bbox, max_peaks=12)
     
     if peaks:
@@ -157,7 +157,7 @@ def example_custom_search():
     bbox = (35.8, 116.8, 36.5, 117.5)
     
     # 创建查找器，设置更高的高度差要求
-    finder = MountainPeakFinder(min_height_difference=300.0)
+    finder = StarGazingPlaceFinder(min_height_difference=300.0)
     
     print("搜索参数：")
     print(f"- 区域: 纬度 {bbox[0]}-{bbox[2]}, 经度 {bbox[1]}-{bbox[3]}")
@@ -220,7 +220,7 @@ def example_batch_search():
     for region_name, bbox in regions.items():
         print(f"\n正在搜索 {region_name}...")
         
-        finder = MountainPeakFinder(min_height_difference=120.0)
+        finder = StarGazingPlaceFinder(min_height_difference=120.0)
         peaks = finder.find_peaks_in_area(bbox, max_peaks=5)
         
         all_results[region_name] = {
@@ -284,7 +284,7 @@ def example_integration_with_stargazing():
     bbox = (40.0, 116.0, 40.5, 116.8)  # 北京北部山区
     
     # 查找适合观星的山峰（远离城镇，高度差大）
-    finder = MountainPeakFinder(min_height_difference=200.0)
+    finder = StarGazingPlaceFinder(min_height_difference=200.0)
     peaks = finder.find_peaks_in_area(bbox, max_peaks=10)
     
     if peaks:

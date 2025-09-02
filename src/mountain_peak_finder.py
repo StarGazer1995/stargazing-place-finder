@@ -53,7 +53,7 @@ Peak = Location
 Observatory = Location
 Viewpoint = Location
 
-class MountainPeakFinder:
+class StarGazingPlaceFinder:
     """
     山峰查找器类
     用于查找指定范围内符合条件的山峰
@@ -737,7 +737,7 @@ def find_peaks_with_height_difference(south: float, west: float, north: float, e
     Returns:
         符合条件的山峰列表
     """
-    finder = MountainPeakFinder(min_height_difference=min_height_diff, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
+    finder = StarGazingPlaceFinder(min_height_difference=min_height_diff, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
     return finder.find_peaks_in_area((south, west, north, east), max_peaks)
 
 def find_viewpoints(south: float, west: float, north: float, east: float,
@@ -752,7 +752,7 @@ def find_viewpoints(south: float, west: float, north: float, east: float,
     Returns:
         观景台列表，按海拔高度排序
     """
-    finder = MountainPeakFinder(min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
+    finder = StarGazingPlaceFinder(min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
     return finder.find_viewpoints_in_area((south, west, north, east), max_viewpoints)
 
 if __name__ == "__main__":
@@ -763,7 +763,7 @@ if __name__ == "__main__":
     bbox = (39.5, 115.5, 40.5, 117.5)  # (south, west, north, east)
     
     # 创建查找器
-    finder = MountainPeakFinder(min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
+    finder = StarGazingPlaceFinder(min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
     
     # 查找山峰
     peaks = finder.find_peaks_in_area(bbox, max_peaks=20)

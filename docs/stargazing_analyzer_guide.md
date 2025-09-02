@@ -252,11 +252,11 @@ analyzer = StargazingLocationAnalyzer(
 
 ```python
 # 结合山峰查找器
-from src.mountain_peak_finder import MountainPeakFinder
+from src.mountain_peak_finder import StarGazingPlaceFinder
 from src.stargazing_location_analyzer import StargazingLocationAnalyzer
 
 # 先用山峰查找器获取候选地点
-mountain_finder = MountainPeakFinder(min_height_difference=200.0)
+mountain_finder = StarGazingPlaceFinder(min_height_difference=200.0)
 peaks = mountain_finder.find_peaks_in_area((39.5, 115.5, 40.5, 117.0))
 
 # 再用综合分析器进行详细评估

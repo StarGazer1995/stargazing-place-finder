@@ -14,7 +14,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.mountain_peak_finder import MountainPeakFinder
+from src.mountain_peak_finder import StarGazingPlaceFinder
 import time
 
 def demo_robust_api_calls():
@@ -30,7 +30,7 @@ def demo_robust_api_calls():
     print()
     
     # 创建查找器实例
-    finder = MountainPeakFinder()
+    finder = StarGazingPlaceFinder()
     
     # 测试不同类型的地点查找
     test_areas = [
@@ -135,7 +135,7 @@ def demo_error_scenarios():
     print("演示如何处理各种API错误情况...")
     print()
     
-    finder = MountainPeakFinder()
+    finder = StarGazingPlaceFinder()
     
     # 测试无效的查询范围
     print("1. 测试无效查询范围...")

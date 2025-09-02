@@ -10,7 +10,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.mountain_peak_finder import MountainPeakFinder
+from src.mountain_peak_finder import StarGazingPlaceFinder
 
 def test_overpass_retry():
     """
@@ -20,7 +20,7 @@ def test_overpass_retry():
     print()
     
     # 创建查找器实例
-    finder = MountainPeakFinder()
+    finder = StarGazingPlaceFinder()
     
     # 测试一个小范围的查询，减少超时概率
     print("1. 测试观景台查询（小范围，带调试信息）...")
@@ -67,7 +67,7 @@ def test_simple_query():
     """
     print("\n=== 测试简单查询 ===")
     
-    finder = MountainPeakFinder()
+    finder = StarGazingPlaceFinder()
     
     # 构建一个简单的查询
     simple_query = """

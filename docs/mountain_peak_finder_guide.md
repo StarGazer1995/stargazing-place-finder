@@ -93,10 +93,10 @@ for peak in peaks:
 ### 详细使用
 
 ```python
-from src.mountain_peak_finder import MountainPeakFinder, Location
+from src.mountain_peak_finder import StarGazingPlaceFinder, Location
 
 # 创建查找器实例
-finder = MountainPeakFinder(min_height_difference=150.0)
+finder = StarGazingPlaceFinder(min_height_difference=150.0)
 
 # 定义搜索区域
 bbox = (39.8, 115.8, 40.8, 117.2)  # (south, west, north, east)
@@ -123,7 +123,7 @@ finder.save_results_to_json(peaks, "mountain_results.json")
 
 ```python
 # 查找适合观星的山峰（高海拔、远离城镇）
-finder = MountainPeakFinder(min_height_difference=200.0)
+finder = StarGazingPlaceFinder(min_height_difference=200.0)
 peaks = finder.find_peaks_in_area((40.0, 116.0, 40.5, 116.8))
 
 # 筛选距离城镇较远的山峰
@@ -149,7 +149,7 @@ regions = {
 
 all_results = {}
 for region_name, bbox in regions.items():
-    finder = MountainPeakFinder(min_height_difference=120.0)
+    finder = StarGazingPlaceFinder(min_height_difference=120.0)
     peaks = finder.find_peaks_in_area(bbox, max_peaks=10)
     all_results[region_name] = peaks
     
@@ -162,7 +162,7 @@ for region_name, bbox in regions.items():
 
 ```python
 # 查找特定条件的山峰
-finder = MountainPeakFinder(min_height_difference=100.0)
+finder = StarGazingPlaceFinder(min_height_difference=100.0)
 peaks = finder.find_peaks_in_area((29.0, 110.0, 29.8, 110.8))
 
 # 按不同标准筛选
@@ -177,7 +177,7 @@ print(f"陡峭山峰: {len(steep_peaks)}个")
 
 ## 参数配置
 
-### MountainPeakFinder 参数
+### StarGazingPlaceFinder 参数
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
@@ -252,13 +252,13 @@ class Peak:
 ### 2. 调整搜索参数
 ```python
 # 城市周边：较低高度差要求
-finder = MountainPeakFinder(min_height_difference=50.0)
+finder = StarGazingPlaceFinder(min_height_difference=50.0)
 
 # 山区：较高高度差要求
-finder = MountainPeakFinder(min_height_difference=200.0)
+finder = StarGazingPlaceFinder(min_height_difference=200.0)
 
 # 高原地区：更高高度差要求
-finder = MountainPeakFinder(min_height_difference=500.0)
+finder = StarGazingPlaceFinder(min_height_difference=500.0)
 ```
 
 ### 3. 批量处理优化
@@ -317,14 +317,14 @@ for region in regions:
 # 结合光污染分析和道路连通性检测
 from src.light_pollution_analyzer import LightPollutionAnalyzer
 from src.simple_road_checker import quick_road_check
-from src.mountain_peak_finder import MountainPeakFinder
+from src.mountain_peak_finder import StarGazingPlaceFinder
 
 def find_optimal_stargazing_peaks(bbox, min_height_diff=150.0):
     """
     综合分析找到最佳观星山峰
     """
     # 1. 查找山峰
-    finder = MountainPeakFinder(min_height_difference=min_height_diff)
+    finder = StarGazingPlaceFinder(min_height_difference=min_height_diff)
     peaks = finder.find_peaks_in_area(bbox)
     
     # 2. 检查道路连通性
@@ -383,7 +383,7 @@ for i, peak in enumerate(best_peaks[:5], 1):
 
 ### 1. 添加更多筛选条件
 ```python
-class AdvancedMountainPeakFinder(MountainPeakFinder):
+class AdvancedMountainPeakFinder(StarGazingPlaceFinder):
     def filter_by_accessibility(self, peaks, max_distance_to_road=5.0):
         """按道路可达性筛选"""
         pass

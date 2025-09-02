@@ -17,7 +17,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.mountain_peak_finder import MountainPeakFinder
+from src.mountain_peak_finder import StarGazingPlaceFinder
 from src.light_pollution_analyzer import LightPollutionAnalyzer
 
 def display_location_info(location, index):
@@ -74,7 +74,7 @@ def test_light_pollution_integration():
         light_analyzer = None
     
     # 初始化山峰查找器
-    finder = MountainPeakFinder(
+    finder = StarGazingPlaceFinder(
         min_height_difference=100.0,
         light_pollution_analyzer=light_analyzer
     )
@@ -143,9 +143,9 @@ def test_different_regions():
     # 初始化查找器
     try:
         light_analyzer = LightPollutionAnalyzer("world_atlas/doc.xml")
-        finder = MountainPeakFinder(light_pollution_analyzer=light_analyzer)
+        finder = StarGazingPlaceFinder(light_pollution_analyzer=light_analyzer)
     except:
-        finder = MountainPeakFinder()
+        finder = StarGazingPlaceFinder()
     
     # 测试区域列表
     regions = [

@@ -13,7 +13,7 @@ import os
 # 添加src目录到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from mountain_peak_finder import MountainPeakFinder, Location
+from mountain_peak_finder import StarGazingPlaceFinder, Location
 
 def main():
     """
@@ -23,7 +23,7 @@ def main():
     print()
     
     # 创建天文台查找器实例
-    finder = MountainPeakFinder()
+    finder = StarGazingPlaceFinder()
     
     # 定义搜索区域（以北京周边为例）
     # 边界框格式：(south, west, north, east)

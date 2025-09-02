@@ -61,7 +61,7 @@ class StargazingLocationAnalyzer:
             enable_caching (bool): Enable data caching for improved performance
         """
         # Initialize component analyzers
-        self.peak_finder = MountainPeakFinder()
+        self.peak_finder = StarGazingPlaceFinder()
         self.road_checker = RoadConnectivityChecker()
         self.light_pollution_analyzer = LightPollutionAnalyzer(light_pollution_kml_path)
         
