@@ -16,11 +16,11 @@ from datetime import datetime
 
 # 导入相关模块
 try:
-    from .mountain_peak_finder import MountainPeakFinder, Peak
+    from .mountain_peak_finder import StarGazingPlaceFinder, Peak
     from .light_pollution_analyzer import LightPollutionAnalyzer
     from .road_connectivity_checker import RoadConnectivityChecker
 except ImportError:
-    from mountain_peak_finder import MountainPeakFinder, Peak
+    from mountain_peak_finder import StarGazingPlaceFinder, Peak
     from light_pollution_analyzer import LightPollutionAnalyzer
     from road_connectivity_checker import RoadConnectivityChecker
 
@@ -83,7 +83,7 @@ class StargazingLocationAnalyzer:
             road_search_radius_km: 道路连通性检测的搜索半径（公里）
         """
         # 初始化山峰查找器
-        self.mountain_finder = MountainPeakFinder(min_height_difference=min_height_difference)
+        self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference)
         
         # 初始化光污染分析器（如果提供了KML文件）
         self.light_pollution_analyzer = None

@@ -13,7 +13,7 @@ import os
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from mountain_peak_finder import find_viewpoints, MountainPeakFinder, Location
+from mountain_peak_finder import find_viewpoints, StarGazingPlaceFinder, Location
 
 def main():
     """
@@ -62,7 +62,7 @@ def main():
             
         # 演示使用类方法
         print("\n=== 使用MountainPeakFinder类方法 ===")
-        finder = MountainPeakFinder()
+        finder = StarGazingPlaceFinder()
         viewpoints_class = finder.find_viewpoints_in_area(bbox_coords, max_viewpoints=10)
         
         if viewpoints_class:

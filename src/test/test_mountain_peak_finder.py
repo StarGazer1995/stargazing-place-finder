@@ -9,7 +9,7 @@ import os
 # 添加src目录到路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from mountain_peak_finder import MountainPeakFinder, find_peaks_with_height_difference
+from mountain_peak_finder import StarGazingPlaceFinder, find_peaks_with_height_difference
 import time
 
 def test_distance_calculation():
@@ -24,7 +24,7 @@ def test_distance_calculation():
     """
     print("=== 测试1: 距离计算功能 ===")
     
-    finder = MountainPeakFinder()
+    finder = StarGazingPlaceFinder()
     
     # 测试北京到上海的距离（已知约1000公里）
     beijing_lat, beijing_lon = 39.9042, 116.4074
@@ -53,7 +53,7 @@ def test_elevation_api():
     """
     print("\n=== 测试2: 海拔API功能 ===")
     
-    finder = MountainPeakFinder()
+    finder = StarGazingPlaceFinder()
     
     # 测试珠穆朗玛峰的海拔（应该接近8848米）
     everest_lat, everest_lon = 27.9881, 86.9250
@@ -88,7 +88,7 @@ def test_overpass_api():
     """
     print("\n=== 测试3: Overpass API功能 ===")
     
-    finder = MountainPeakFinder()
+    finder = StarGazingPlaceFinder()
     
     # 测试小范围区域的数据获取（北京香山附近）
     bbox = (39.98, 116.18, 40.02, 116.22)
@@ -209,7 +209,7 @@ def test_error_handling():
     """
     print("\n=== 测试6: 错误处理测试 ===")
     
-    finder = MountainPeakFinder()
+    finder = StarGazingPlaceFinder()
     
     # 测试无效坐标
     print("测试无效坐标处理...")

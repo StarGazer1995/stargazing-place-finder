@@ -29,14 +29,14 @@
 ### 1. 基本使用
 
 ```python
-from src.mountain_peak_finder import MountainPeakFinder
+from src.mountain_peak_finder import StarGazingPlaceFinder
 from src.light_pollution_analyzer import LightPollutionAnalyzer
 
 # 初始化光污染分析器
 light_analyzer = LightPollutionAnalyzer("world_atlas/doc.xml")
 
 # 初始化查找器并集成光污染分析
-finder = MountainPeakFinder(
+finder = StarGazingPlaceFinder(
     min_height_difference=100.0,
     light_pollution_analyzer=light_analyzer
 )
@@ -138,7 +138,7 @@ light_analyzer = LightPollutionAnalyzer(
 )
 
 # 不使用光污染分析器（将显示"未知污染等级"）
-finder = MountainPeakFinder(light_pollution_analyzer=None)
+finder = StarGazingPlaceFinder(light_pollution_analyzer=None)
 ```
 
 ### 排序配置
@@ -157,7 +157,7 @@ def find_best_stargazing_spots(bbox, max_results=10):
     """
     查找最佳观星地点
     """
-    finder = MountainPeakFinder(light_pollution_analyzer=light_analyzer)
+    finder = StarGazingPlaceFinder(light_pollution_analyzer=light_analyzer)
     
     # 获取所有类型的地点
     all_locations = []
@@ -200,7 +200,7 @@ def generate_stargazing_report(bbox):
     """
     生成包含光污染信息的观星报告
     """
-    finder = MountainPeakFinder(light_pollution_analyzer=light_analyzer)
+    finder = StarGazingPlaceFinder(light_pollution_analyzer=light_analyzer)
     
     print("=== 观星地点分析报告 ===")
     print(f"搜索区域: {bbox}")
@@ -262,7 +262,7 @@ def generate_stargazing_report(bbox):
 
 ```python
 # 启用调试模式查看详细信息
-finder = MountainPeakFinder(light_pollution_analyzer=light_analyzer)
+finder = StarGazingPlaceFinder(light_pollution_analyzer=light_analyzer)
 locations = finder.get_viewpoints_from_overpass(bbox, debug=True)
 ```
 

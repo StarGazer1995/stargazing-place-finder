@@ -99,9 +99,9 @@ def calculate_settlement_distances(peak_coord: Tuple[float, float],
 
 ### 3. Flexible Search Parameters
 
-#### **Class**: `MountainPeakFinder`
+#### **Class**: `StarGazingPlaceFinder`
 ```python
-class MountainPeakFinder:
+class StarGazingPlaceFinder:
     """
     Advanced geographic location discovery and analysis system
     Now supports unified Location model for peaks, observatories, and viewpoints
@@ -371,7 +371,7 @@ def find_stargazing_peaks(bbox: BoundingBox,
     Returns:
         List[Peak]: Peaks optimized for stargazing activities
     """
-    finder = MountainPeakFinder(min_height_difference=min_height_diff)
+    finder = StarGazingPlaceFinder(min_height_difference=min_height_diff)
     peaks = finder.find_peaks_in_area(bbox)
     
     # Additional stargazing-specific filtering
@@ -414,7 +414,7 @@ def find_hiking_challenges(bbox: BoundingBox,
     }
     
     criteria = difficulty_criteria[difficulty_level]
-    finder = MountainPeakFinder(min_height_difference=criteria['min_height_diff'])
+    finder = StarGazingPlaceFinder(min_height_difference=criteria['min_height_diff'])
     peaks = finder.find_peaks_in_area(bbox)
     
     # Filter by elevation limits
@@ -439,7 +439,7 @@ def analyze_regional_topography(bbox: BoundingBox) -> TopographyReport:
     Returns:
         TopographyReport: Detailed topographical characteristics
     """
-    finder = MountainPeakFinder(min_height_difference=50.0)  # Lower threshold for comprehensive analysis
+    finder = StarGazingPlaceFinder(min_height_difference=50.0)  # Lower threshold for comprehensive analysis
     all_peaks = finder.find_peaks_in_area(bbox, max_peaks=200)
     
     report = TopographyReport()
@@ -558,7 +558,7 @@ def batch_process_regions(regions: List[BoundingBox],
         dict: Results mapped by region identifier
     """
     results = {}
-    finder = MountainPeakFinder(min_height_difference=criteria.min_height_diff)
+    finder = StarGazingPlaceFinder(min_height_difference=criteria.min_height_diff)
     
     for i, bbox in enumerate(regions):
         try:

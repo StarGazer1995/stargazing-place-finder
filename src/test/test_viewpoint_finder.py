@@ -14,7 +14,7 @@ from unittest.mock import patch, MagicMock
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from mountain_peak_finder import MountainPeakFinder, Location, Viewpoint, find_viewpoints
+from mountain_peak_finder import StarGazingPlaceFinder, Location, Viewpoint, find_viewpoints
 
 class TestViewpointFinder(unittest.TestCase):
     """
@@ -25,7 +25,7 @@ class TestViewpointFinder(unittest.TestCase):
         """
         测试前的设置
         """
-        self.finder = MountainPeakFinder()
+        self.finder = StarGazingPlaceFinder()
         self.test_bbox = (39.5, 115.5, 40.5, 117.5)  # 北京周边
     
     def test_viewpoint_dataclass(self):
@@ -90,7 +90,7 @@ class TestViewpointFinder(unittest.TestCase):
         """
         测试便捷函数find_viewpoints
         """
-        with patch.object(MountainPeakFinder, 'find_viewpoints_in_area') as mock_method:
+        with patch.object(StarGazingPlaceFinder, 'find_viewpoints_in_area') as mock_method:
             # 模拟返回结果
             mock_viewpoint = Viewpoint(
                 name="测试观景台",

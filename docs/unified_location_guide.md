@@ -208,12 +208,12 @@ for location in locations:
 
 ## 与查找器类的集成
 
-### MountainPeakFinder
+### StarGazingPlaceFinder
 
 ```python
-from src.mountain_peak_finder import MountainPeakFinder
+from src.mountain_peak_finder import StarGazingPlaceFinder
 
-finder = MountainPeakFinder(min_height_difference=150.0)
+finder = StarGazingPlaceFinder(min_height_difference=150.0)
 bbox = (39.8, 115.8, 40.8, 117.2)
 
 # 查找山峰（返回Location对象，location_type="mountain_peak"）

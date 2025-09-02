@@ -11,7 +11,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.mountain_peak_finder import MountainPeakFinder
+from src.mountain_peak_finder import StarGazingPlaceFinder
 from src.light_pollution_analyzer import LightPollutionAnalyzer
 
 def test_error_handling():
@@ -23,7 +23,7 @@ def test_error_handling():
     # 初始化查找器
     try:
         light_analyzer = LightPollutionAnalyzer("world_atlas/doc.xml")
-        finder = MountainPeakFinder(light_pollution_analyzer=light_analyzer)
+        finder = StarGazingPlaceFinder(light_pollution_analyzer=light_analyzer)
         print("✓ 查找器初始化成功")
     except Exception as e:
         print(f"✗ 查找器初始化失败: {e}")
