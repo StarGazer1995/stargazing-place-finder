@@ -23,6 +23,19 @@ class Peak:
     nearest_town_name: str  # 最近城镇名称
     height_difference: float  # 与最近城镇的高度差（米）
 
+@dataclass
+class Observatory:
+    """天文台数据类"""
+    name: str
+    latitude: float
+    longitude: float
+    elevation: float  # 海拔高度（米）
+    observatory_type: str  # 天文台类型
+    description: str  # 描述信息
+    distance_to_nearest_town: float  # 到最近城镇的距离（公里）
+    nearest_town_name: str  # 最近城镇名称
+    light_pollution_level: Optional[str] = None  # 光污染等级
+
 class MountainPeakFinder:
     """
     山峰查找器类
@@ -126,6 +139,42 @@ class MountainPeakFinder:
             return data.get('elements', [])
         except Exception as e:
             print(f"获取城镇数据时出错: {e}")
+            return []
+    
+    def get_observatories_from_overpass(self, bbox: Tuple[float, float, float, float]) -> List[Dict]:
+        """
+        从Overpass API获取指定边界框内的天文台数据
+        
+        Args:
+            bbox: 边界框 (south, west, north, east)
+            
+        Returns:
+            天文台数据列表
+        """
+        south, west, north, east = bbox
+        
+        # Overpass QL查询语句 - 获取天文台、观测站等
+        query = f"""
+        [out:json][timeout:25];
+        (
+          node["man_made"="observatory"]({south},{west},{north},{east});
+          way["man_made"="observatory"]({south},{west},{north},{east});
+          relation["man_made"="observatory"]({south},{west},{north},{east});
+          node["amenity"="planetarium"]({south},{west},{north},{east});
+          way["amenity"="planetarium"]({south},{west},{north},{east});
+          node["building"="observatory"]({south},{west},{north},{east});
+          way["building"="observatory"]({south},{west},{north},{east});
+        );
+        out center geom;
+        """
+        
+        try:
+            response = requests.post(self.overpass_url, data=query, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            return data.get('elements', [])
+        except Exception as e:
+            print(f"获取天文台数据时出错: {e}")
             return []
     
     def get_elevation_from_api(self, lat: float, lon: float) -> Optional[float]:
@@ -277,6 +326,112 @@ class MountainPeakFinder:
         
         print(f"\n总共找到 {len(qualified_peaks)} 个符合条件的山峰")
         return qualified_peaks
+    
+    def find_observatories_in_area(self, bbox: Tuple[float, float, float, float], 
+                                  max_observatories: int = 50) -> List[Observatory]:
+        """
+        在指定区域内查找天文台
+        
+        Args:
+            bbox: 边界框 (south, west, north, east)
+            max_observatories: 最大返回天文台数量
+            
+        Returns:
+            天文台列表
+        """
+        print(f"正在搜索天文台区域: {bbox}")
+        
+        # 获取天文台数据
+        print("正在获取天文台数据...")
+        observatories_data = self.get_observatories_from_overpass(bbox)
+        print(f"找到 {len(observatories_data)} 个天文台")
+        
+        # 获取城镇数据
+        print("正在获取城镇数据...")
+        towns_data = self.get_towns_from_overpass(bbox)
+        print(f"找到 {len(towns_data)} 个城镇")
+        
+        if not observatories_data:
+            print("未找到天文台数据")
+            return []
+        
+        observatories = []
+        
+        for i, obs_data in enumerate(observatories_data[:max_observatories]):
+            if i % 5 == 0:
+                print(f"处理进度: {i+1}/{min(len(observatories_data), max_observatories)}")
+            
+            # 获取天文台坐标
+            if obs_data['type'] == 'node':
+                obs_lat = obs_data['lat']
+                obs_lon = obs_data['lon']
+            elif 'center' in obs_data:
+                obs_lat = obs_data['center']['lat']
+                obs_lon = obs_data['center']['lon']
+            else:
+                continue
+            
+            tags = obs_data.get('tags', {})
+            obs_name = tags.get('name', f'天文台_{i+1}')
+            
+            # 确定天文台类型
+            observatory_type = "未知类型"
+            if tags.get('man_made') == 'observatory':
+                observatory_type = "天文观测台"
+            elif tags.get('amenity') == 'planetarium':
+                observatory_type = "天象馆"
+            elif tags.get('building') == 'observatory':
+                observatory_type = "天文台建筑"
+            
+            # 获取描述信息
+            description = tags.get('description', '')
+            if not description:
+                description = tags.get('note', '')
+            if not description:
+                description = f"{observatory_type}，位于({obs_lat:.4f}, {obs_lon:.4f})"
+            
+            # 获取天文台海拔
+            obs_elevation = None
+            if 'ele' in tags:
+                try:
+                    obs_elevation = float(tags['ele'])
+                except ValueError:
+                    pass
+            
+            if obs_elevation is None:
+                obs_elevation = self.get_elevation_from_api(obs_lat, obs_lon)
+                time.sleep(0.1)  # 避免API请求过于频繁
+            
+            if obs_elevation is None:
+                obs_elevation = 0.0  # 默认海拔
+            
+            # 查找最近的城镇
+            nearest_town = "未知"
+            distance_to_town = 0.0
+            
+            if towns_data:
+                nearest_town, distance_to_town, _ = self.find_nearest_town(
+                    obs_lat, obs_lon, towns_data
+                )
+            
+            observatory = Observatory(
+                name=obs_name,
+                latitude=obs_lat,
+                longitude=obs_lon,
+                elevation=obs_elevation,
+                observatory_type=observatory_type,
+                description=description,
+                distance_to_nearest_town=distance_to_town,
+                nearest_town_name=nearest_town or "未知"
+            )
+            observatories.append(observatory)
+            print(f"找到天文台: {obs_name} ({observatory_type})")
+        
+        # 按海拔高度排序
+        observatories.sort(key=lambda o: o.elevation, reverse=True)
+        
+        print(f"\n总共找到 {len(observatories)} 个天文台")
+        return observatories
     
     def save_results_to_json(self, peaks: List[Peak], filename: str) -> None:
         """
