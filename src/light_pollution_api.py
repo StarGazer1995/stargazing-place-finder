@@ -19,8 +19,10 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
     from .light_pollution_analyzer import LightPollutionAnalyzer
+    from .stargazing_location_analyzer import analyze_stargazing_area
 except ImportError:
     from light_pollution_analyzer import LightPollutionAnalyzer
+    from stargazing_location_analyzer import analyze_stargazing_area
 
 app = Flask(__name__)
 CORS(app)  # 允许跨域请求
@@ -497,6 +499,127 @@ def analyze_coordinate():
         }), 500
 
 
+@app.route('/api/analyze_stargazing_area', methods=['GET', 'POST', 'OPTIONS'])
+def analyze_stargazing_area_endpoint():
+    """
+    分析指定区域的观星地点
+    
+    参数:
+        south: 南边界纬度
+        west: 西边界经度  
+        north: 北边界纬度
+        east: 东边界经度
+        max_peaks: 最大山峰数量（可选，默认30）
+        min_height_diff: 最小高度差（可选，默认100.0）
+        road_radius_km: 道路搜索半径（可选，默认10.0）
+    """
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    try:
+        # 根据请求方法获取参数
+        if request.method == 'POST':
+            # POST请求从JSON body获取参数
+            data = request.get_json()
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'error': 'Missing JSON data',
+                    'message': '缺少JSON数据'
+                }), 400
+            
+            bbox = data.get('bbox', {})
+            south = float(bbox.get('south', 0))
+            west = float(bbox.get('west', 0))
+            north = float(bbox.get('north', 0))
+            east = float(bbox.get('east', 0))
+            max_peaks = int(data.get('max_peaks', 30))
+            min_height_diff = float(data.get('min_height_diff', 100.0))
+            road_radius_km = float(data.get('road_radius_km', 10.0))
+            network_type = data.get('network_type', 'drive')
+            include_light_pollution = data.get('include_light_pollution', True)
+            include_road_connectivity = data.get('include_road_connectivity', True)
+        else:
+            # GET请求从URL参数获取
+            south = float(request.args.get('south', 0))
+            west = float(request.args.get('west', 0))
+            north = float(request.args.get('north', 0))
+            east = float(request.args.get('east', 0))
+            max_peaks = int(request.args.get('max_peaks', 30))
+            min_height_diff = float(request.args.get('min_height_diff', 100.0))
+            road_radius_km = float(request.args.get('road_radius_km', 10.0))
+            network_type = request.args.get('network_type', 'drive')
+            include_light_pollution = request.args.get('include_light_pollution', 'true').lower() == 'true'
+            include_road_connectivity = request.args.get('include_road_connectivity', 'true').lower() == 'true'
+        
+        print(f"分析观星区域: 北{north}° 南{south}° 东{east}° 西{west}°")
+        
+        # 获取KML文件路径
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
+        kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
+        
+        # 调用分析函数
+        locations = analyze_stargazing_area(
+            south=south,
+            west=west, 
+            north=north,
+            east=east,
+            kml_file_path=kml_file if os.path.exists(kml_file) else None,
+            max_peaks=max_peaks,
+            min_height_diff=min_height_diff,
+            road_radius_km=road_radius_km
+        )
+        
+        # 转换为JSON格式
+        locations_data = []
+        for loc in locations:
+            loc_dict = {
+                'name': loc.name,
+                'latitude': loc.latitude,
+                'longitude': loc.longitude,
+                'elevation': loc.elevation,
+                'prominence': loc.prominence,
+                'distance_to_nearest_town': loc.distance_to_nearest_town,
+                'nearest_town_name': loc.nearest_town_name,
+                'height_difference': loc.height_difference,
+                'light_pollution_rgb': loc.light_pollution_rgb,
+                'light_pollution_hex': loc.light_pollution_hex,
+                'light_pollution_brightness': loc.light_pollution_brightness,
+                'light_pollution_level': loc.light_pollution_level,
+                'light_pollution_overlay': loc.light_pollution_overlay,
+                'road_accessible': loc.road_accessible,
+                'distance_to_road_km': loc.distance_to_road_km,
+                'road_network_type': loc.road_network_type,
+                'road_check_error': loc.road_check_error,
+                'stargazing_score': loc.stargazing_score,
+                'recommendation_level': loc.recommendation_level,
+                'analysis_notes': loc.analysis_notes
+            }
+            locations_data.append(loc_dict)
+        
+        print(f"✅ 成功分析 {len(locations_data)} 个观星地点")
+        
+        return jsonify({
+            'success': True,
+            'count': len(locations_data),
+            'locations': locations_data,
+            'bounds': {
+                'south': south,
+                'west': west,
+                'north': north,
+                'east': east
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ 观星区域分析失败: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': '观星区域分析失败'
+        }), 500
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """
@@ -517,6 +640,7 @@ if __name__ == '__main__':
     print("  - GET /api/light_pollution - 获取光污染数据")
     print("  - GET /api/light_pollution_images - 获取光污染图片数据")
     print("  - GET /api/coordinate_analysis - 分析单个坐标点")
+    print("  - GET/POST /api/analyze_stargazing_area - 分析观星区域")
     print("  - GET /api/health - 健康检查")
     print("🌐 服务器地址: http://localhost:5001")
     
