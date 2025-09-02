@@ -2,7 +2,7 @@
 
 ## 功能概述
 
-山峰查找器是一个强大的工具，用于在指定地理坐标范围内查找与周围城镇有足够高度差的山峰。这个功能特别适用于：
+山峰查找器是一个强大的工具，用于在指定地理坐标范围内查找与周围城镇有足够高度差的山峰。基于统一的Location数据模型，该工具现在支持山峰、天文台和观景台等多种地点类型。这个功能特别适用于：
 
 - 🌟 **观星地点选择**：寻找远离城市光污染、海拔较高的观测点
 - 🏔️ **登山路线规划**：发现具有挑战性的山峰
@@ -26,6 +26,46 @@
 - 可限制搜索结果数量
 - 支持任意地理边界框搜索
 
+## 数据模型说明
+
+### 统一Location类
+
+项目现在使用统一的Location类来表示所有类型的地理位置：
+
+```python
+from src.mountain_peak_finder import Location, Peak, Observatory, Viewpoint
+
+# 直接使用Location类创建山峰
+mountain = Location(
+    name="泰山",
+    latitude=36.2532,
+    longitude=117.1011,
+    elevation=1545.0,
+    location_type="mountain_peak",  # 指定类型
+    prominence=1545.0,
+    distance_to_nearest_town=5.2,
+    nearest_town_name="泰安市",
+    height_difference=200.0
+)
+
+# 使用类型别名（向后兼容）
+peak = Peak(
+    name="华山",
+    latitude=34.4749,
+    longitude=110.0851,
+    elevation=2154.9,
+    location_type="mountain_peak",
+    prominence=2154.9,
+    distance_to_nearest_town=8.1,
+    nearest_town_name="华阴市",
+    height_difference=300.0
+)
+
+# 类型检查方法
+print(mountain.is_mountain_peak())  # True
+print(peak.is_observatory())        # False
+```
+
 ## 快速开始
 
 ### 基本使用
@@ -46,12 +86,14 @@ peaks = find_peaks_with_height_difference(
 # 显示结果
 for peak in peaks:
     print(f"{peak.name}: 高度差 {peak.height_difference:.1f}m")
+    print(f"类型: {peak.location_type}")
+    print(f"是否为山峰: {peak.is_mountain_peak()}")
 ```
 
 ### 详细使用
 
 ```python
-from src.mountain_peak_finder import MountainPeakFinder
+from src.mountain_peak_finder import MountainPeakFinder, Location
 
 # 创建查找器实例
 finder = MountainPeakFinder(min_height_difference=150.0)
@@ -61,6 +103,15 @@ bbox = (39.8, 115.8, 40.8, 117.2)  # (south, west, north, east)
 
 # 执行搜索
 peaks = finder.find_peaks_in_area(bbox, max_peaks=15)
+
+# 查看结果类型
+for peak in peaks:
+    print(f"{peak.name} - 类型: {peak.location_type}")
+    print(f"是否为山峰: {peak.is_mountain_peak()}")
+
+# 按类型过滤
+mountain_peaks = [p for p in peaks if p.is_mountain_peak()]
+print(f"找到 {len(mountain_peaks)} 个山峰")
 
 # 保存结果
 finder.save_results_to_json(peaks, "mountain_results.json")

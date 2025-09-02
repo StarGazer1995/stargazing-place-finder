@@ -13,7 +13,7 @@ import os
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from mountain_peak_finder import find_viewpoints, MountainPeakFinder
+from mountain_peak_finder import find_viewpoints, MountainPeakFinder, Location
 
 def main():
     """
@@ -43,15 +43,19 @@ def main():
         if viewpoints:
             print(f"\n=== 找到 {len(viewpoints)} 个观景台 ===")
             for i, viewpoint in enumerate(viewpoints, 1):
+                # 验证这是观景台类型的Location对象
+                assert viewpoint.is_viewpoint(), f"期望观景台类型，但得到：{viewpoint.location_type}"
+                
                 print(f"{i}. {viewpoint.name}")
-                print(f"   类型: {viewpoint.viewpoint_type}")
+                print(f"   位置类型: {viewpoint.location_type}")
+                print(f"   观景台类型: {viewpoint.viewpoint_type}")
                 print(f"   坐标: ({viewpoint.latitude:.4f}, {viewpoint.longitude:.4f})")
                 print(f"   海拔: {viewpoint.elevation:.1f}m")
                 print(f"   距离最近城镇: {viewpoint.distance_to_nearest_town:.1f}km ({viewpoint.nearest_town_name})")
                 if viewpoint.description:
                     print(f"   描述: {viewpoint.description}")
                 if viewpoint.scenic_value:
-                    print(f"   景观价值: {viewpoint.scenic_value}")
+                    print(f"   景观价值: {viewpoint.scenic_value}/10")
                 print()
         else:
             print("\n未找到符合条件的观景台")
@@ -62,10 +66,14 @@ def main():
         viewpoints_class = finder.find_viewpoints_in_area(bbox_coords, max_viewpoints=10)
         
         if viewpoints_class:
-            print(f"通过类方法找到 {len(viewpoints_class)} 个观景台")
+            # 验证所有结果都是观景台类型
+            viewpoint_count = sum(1 for vp in viewpoints_class if vp.is_viewpoint())
+            print(f"通过类方法找到 {viewpoint_count} 个观景台")
+            
             # 显示前3个结果
             for i, viewpoint in enumerate(viewpoints_class[:3], 1):
-                print(f"{i}. {viewpoint.name} - 海拔: {viewpoint.elevation:.1f}m")
+                assert viewpoint.is_viewpoint(), f"期望观景台类型，但得到：{viewpoint.location_type}"
+                print(f"{i}. {viewpoint.name} - 海拔: {viewpoint.elevation:.1f}m - 类型: {viewpoint.location_type}")
         
     except Exception as e:
         print(f"搜索过程中发生错误: {e}")
