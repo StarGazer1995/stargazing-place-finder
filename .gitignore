@@ -210,5 +210,6 @@ map_output
 .DS_Store
 world_atlas/
 styled_map_output/
-cache/
+*cache*/
+maps*
 *.json
