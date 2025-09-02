@@ -10,6 +10,10 @@ from typing import List, Dict, Tuple, Optional
 import math
 from dataclasses import dataclass
 import time
+try:
+    from src.light_pollution_analyzer import LightPollutionAnalyzer
+except ImportError:
+    from light_pollution_analyzer import LightPollutionAnalyzer
 
 @dataclass
 class Peak:
@@ -55,7 +59,7 @@ class MountainPeakFinder:
     用于查找指定范围内符合条件的山峰
     """
     
-    def __init__(self, min_height_difference: float = 100.0):
+    def __init__(self, min_height_difference: float = 100.0, light_pollution_analyzer: Optional[LightPollutionAnalyzer] = None):
         """
         初始化山峰查找器
         
@@ -64,6 +68,7 @@ class MountainPeakFinder:
         """
         self.min_height_difference = min_height_difference
         self.overpass_url = "https://overpass-api.de/api/interpreter"
+        self.light_pollution_analyzer = light_pollution_analyzer
         
     def calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """
@@ -291,6 +296,33 @@ class MountainPeakFinder:
                 time.sleep(0.1)  # 避免API请求过于频繁
         
         return nearest_town, min_distance, nearest_town_elevation
+
+    def _sort_places_by_lightpollution(self, places: List[Dict]) -> List[Dict]: 
+        """
+        根据光污染程度对地点进行排序
+        
+        Args:
+            places: 地点列表，每个地点包含lat和lon字段
+            
+        Returns:
+            按光污染程度排序的地点列表（光污染越低排在前面，适合观星）
+        """
+        # 如果没有光污染分析器或列表为空，直接返回原列表
+        if not self.light_pollution_analyzer or not places:
+            return places
+             
+        places_coord = [[place['lat'], place['lon']] for place in places]
+        places_light_pollutions = self.light_pollution_analyzer.batch_analyze_coordinates(places_coord)
+        # 按光污染程度排序，光污染越低越适合观星，所以reverse=False
+        places_light_pollutions = sorted(places_light_pollutions, key=lambda x: x['pollution_info']["brightness"], reverse=False)
+        # 根据排序后的索引重新排列places列表
+        places = [places[place_light_pollution['index']] for place_light_pollution in places_light_pollutions]
+        # 添加光污染信息
+        for place, light_pollution in zip(places, places_light_pollutions):
+            place['light_pollution'] = light_pollution['pollution_info']
+        print(f"排序后的地点: {places[:3]}")
+        
+        return places
     
     def find_peaks_in_area(self, bbox: Tuple[float, float, float, float], 
                           max_peaks: int = 50) -> List[Peak]:
@@ -310,6 +342,7 @@ class MountainPeakFinder:
         # 获取山峰数据
         print("正在获取山峰数据...")
         peaks_data = self.get_peaks_from_overpass(bbox)
+        peaks_data = self._sort_places_by_lightpollution(peaks_data)
         print(f"找到 {len(peaks_data)} 个山峰")
         
         # 获取城镇数据
@@ -371,9 +404,6 @@ class MountainPeakFinder:
                 )
                 qualified_peaks.append(peak)
                 print(f"找到符合条件的山峰: {peak_name} (高度差: {height_difference:.1f}m)")
-        
-        # 按高度差排序
-        qualified_peaks.sort(key=lambda p: p.height_difference, reverse=True)
         
         print(f"\n总共找到 {len(qualified_peaks)} 个符合条件的山峰")
         return qualified_peaks
@@ -477,9 +507,6 @@ class MountainPeakFinder:
             )
             observatories.append(observatory)
             print(f"找到天文台: {obs_name} ({observatory_type})")
-        
-        # 按海拔高度排序
-        observatories.sort(key=lambda o: o.elevation, reverse=True)
         
         print(f"\n总共找到 {len(observatories)} 个天文台")
         return observatories
@@ -594,9 +621,6 @@ class MountainPeakFinder:
             viewpoints.append(viewpoint)
             print(f"找到观景台: {vp_name} ({viewpoint_type})")
         
-        # 按海拔高度排序
-        viewpoints.sort(key=lambda v: v.elevation, reverse=True)
-        
         print(f"\n总共找到 {len(viewpoints)} 个观景台")
         return viewpoints
     
@@ -647,7 +671,7 @@ def find_peaks_with_height_difference(south: float, west: float, north: float, e
     Returns:
         符合条件的山峰列表
     """
-    finder = MountainPeakFinder(min_height_difference=min_height_diff)
+    finder = MountainPeakFinder(min_height_difference=min_height_diff, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
     return finder.find_peaks_in_area((south, west, north, east), max_peaks)
 
 def find_viewpoints(south: float, west: float, north: float, east: float,
@@ -662,7 +686,7 @@ def find_viewpoints(south: float, west: float, north: float, east: float,
     Returns:
         观景台列表，按海拔高度排序
     """
-    finder = MountainPeakFinder()
+    finder = MountainPeakFinder(min_height_difference=min_height_diff, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
     return finder.find_viewpoints_in_area((south, west, north, east), max_viewpoints)
 
 if __name__ == "__main__":
@@ -673,7 +697,7 @@ if __name__ == "__main__":
     bbox = (39.5, 115.5, 40.5, 117.5)  # (south, west, north, east)
     
     # 创建查找器
-    finder = MountainPeakFinder(min_height_difference=100.0)
+    finder = MountainPeakFinder(min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
     
     # 查找山峰
     peaks = finder.find_peaks_in_area(bbox, max_peaks=20)

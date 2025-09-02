@@ -287,6 +287,9 @@ def run_all_tests():
     print("2. 某些API可能有访问限制或延迟")
     print("3. 可以调整搜索参数以适应不同地区")
     print("4. 建议在实际使用前先测试目标区域")
+    
+    # 返回测试是否全部通过
+    return passed == total
 
 if __name__ == "__main__":
     run_all_tests()
