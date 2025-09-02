@@ -509,7 +509,7 @@ def analyze_stargazing_area_endpoint():
         west: 西边界经度  
         north: 北边界纬度
         east: 东边界经度
-        max_peaks: 最大山峰数量（可选，默认30）
+        max_locations: 最大山峰数量（可选，默认30）
         min_height_diff: 最小高度差（可选，默认100.0）
         road_radius_km: 道路搜索半径（可选，默认10.0）
     """
@@ -533,7 +533,7 @@ def analyze_stargazing_area_endpoint():
             west = float(bbox.get('west', 0))
             north = float(bbox.get('north', 0))
             east = float(bbox.get('east', 0))
-            max_peaks = int(data.get('max_peaks', 30))
+            max_locations = int(data.get('max_locations', 30))
             min_height_diff = float(data.get('min_height_diff', 100.0))
             road_radius_km = float(data.get('road_radius_km', 10.0))
             network_type = data.get('network_type', 'drive')
@@ -545,7 +545,7 @@ def analyze_stargazing_area_endpoint():
             west = float(request.args.get('west', 0))
             north = float(request.args.get('north', 0))
             east = float(request.args.get('east', 0))
-            max_peaks = int(request.args.get('max_peaks', 30))
+            max_locations = int(request.args.get('max_locations', 30))
             min_height_diff = float(request.args.get('min_height_diff', 100.0))
             road_radius_km = float(request.args.get('road_radius_km', 10.0))
             network_type = request.args.get('network_type', 'drive')
@@ -566,7 +566,7 @@ def analyze_stargazing_area_endpoint():
             north=north,
             east=east,
             kml_file_path=kml_file if os.path.exists(kml_file) else None,
-            max_peaks=max_peaks,
+            max_locations=max_locations,
             min_height_diff=min_height_diff,
             road_radius_km=road_radius_km
         )

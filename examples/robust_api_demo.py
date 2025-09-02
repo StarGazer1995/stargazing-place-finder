@@ -75,7 +75,7 @@ def demo_robust_api_calls():
         # 测试山峰查找
         print("   🏔️ 查找山峰...")
         try:
-            peaks = finder.find_peaks_in_area(area['bbox'], max_peaks=3)
+            peaks = finder.find_peaks_in_area(area['bbox'], max_locations=3)
             print(f"   ✅ 成功找到 {len(peaks)} 个山峰")
             
             if peaks:

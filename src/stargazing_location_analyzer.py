@@ -29,17 +29,24 @@ except ImportError:
 class StargazingLocation:
     """
     观星地点数据类
-    包含山峰信息、光污染数据和道路连通性信息
+    支持山峰、天文台、观景台等多种类型的观星地点
+    包含基本地点信息、光污染数据和道路连通性信息
     """
-    # 基本山峰信息
+    # 基本地点信息（适配统一的Location类）
     name: str
     latitude: float
     longitude: float
     elevation: float
-    prominence: float
     distance_to_nearest_town: float
     nearest_town_name: str
-    height_difference: float
+    
+    # 地点类型和描述
+    location_type: str = "mountain_peak"  # "mountain_peak", "observatory", "viewpoint"
+    description: Optional[str] = None
+    
+    # 山峰特有信息
+    prominence: Optional[float] = None
+    height_difference: Optional[float] = None
     
     # 光污染信息
     light_pollution_rgb: Optional[Tuple[int, int, int]] = None
@@ -58,6 +65,18 @@ class StargazingLocation:
     stargazing_score: Optional[float] = None
     recommendation_level: Optional[str] = None
     analysis_notes: Optional[str] = None
+    
+    def is_mountain_peak(self) -> bool:
+        """判断是否为山峰"""
+        return self.location_type == "mountain_peak"
+    
+    def is_observatory(self) -> bool:
+        """判断是否为天文台"""
+        return self.location_type == "observatory"
+    
+    def is_viewpoint(self) -> bool:
+        """判断是否为观景台"""
+        return self.location_type == "viewpoint"
 
 
 class StargazingLocationAnalyzer:
@@ -83,7 +102,7 @@ class StargazingLocationAnalyzer:
             road_search_radius_km: 道路连通性检测的搜索半径（公里）
         """
         # 初始化山峰查找器
-        self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference)
+        
         
         # 初始化光污染分析器（如果提供了KML文件）
         self.light_pollution_analyzer = None
@@ -97,6 +116,7 @@ class StargazingLocationAnalyzer:
             except Exception as e:
                 print(f"光污染分析器初始化失败: {e}")
                 self.light_pollution_analyzer = None
+            self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference, light_pollution_analyzer=self.light_pollution_analyzer)
         else:
             if kml_file_path:
                 print(f"⚠️  警告: KML文件 {kml_file_path} 不存在")
@@ -106,6 +126,7 @@ class StargazingLocationAnalyzer:
             print("⚠️  建议从以下网站下载光污染地图KML文件:")
             print("   - Light Pollution Map: https://www.lightpollutionmap.info/")
             print("   - Dark Site Finder: https://darksitefinder.com/")
+            self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference)
         
         # 初始化道路连通性检测器
         self.road_checker = RoadConnectivityChecker(search_radius_km=road_search_radius_km)
@@ -114,16 +135,19 @@ class StargazingLocationAnalyzer:
     
     def analyze_area(self, 
                     bbox: Tuple[float, float, float, float],
-                    max_peaks: int = 50,
+                    max_locations: int = 50,
+                    location_types: List[str] = None,
                     network_type: str = 'drive',
                     include_light_pollution: bool = True,
                     include_road_connectivity: bool = True) -> List[StargazingLocation]:
         """
-        分析指定区域内的观星地点
+        分析指定区域内的观星地点（支持山峰、天文台、观景台等多种类型）
         
         Args:
             bbox: 边界框 (south, west, north, east)
-            max_peaks: 最大山峰数量
+            max_locations: 最大地点数量
+            location_types: 地点类型列表，可选值：['mountain_peak', 'observatory', 'viewpoint']
+                          如果为None，则默认查找所有类型
             network_type: 道路网络类型 ('drive', 'walk', 'bike', 'all')
             include_light_pollution: 是否包含光污染分析
             include_road_connectivity: 是否包含道路连通性分析
@@ -133,31 +157,59 @@ class StargazingLocationAnalyzer:
         """
         print(f"开始分析区域: {bbox}")
         
-        # 1. 查找山峰
-        print("正在查找山峰...")
-        peaks = self.mountain_finder.find_peaks_in_area(bbox, max_peaks=max_peaks)
+        # 默认查找所有类型的地点
+        if location_types is None:
+            location_types = ['mountain_peak', 'observatory', 'viewpoint']
         
-        if not peaks:
-            print("未找到符合条件的山峰")
+        all_locations = []
+        
+        # 1. 根据指定类型查找地点
+        for location_type in location_types:
+            print(f"正在查找{location_type}...")
+            
+            if location_type == 'mountain_peak':
+                locations = self.mountain_finder.find_peaks_in_area(bbox, max_locations=max_locations)
+            elif location_type == 'observatory':
+                locations = self.mountain_finder.find_observatories_in_area(bbox, max_observatories=max_locations)
+            elif location_type == 'viewpoint':
+                locations = self.mountain_finder.find_viewpoints_in_area(bbox, max_viewpoints=max_locations)
+            else:
+                print(f"  警告: 不支持的地点类型 {location_type}")
+                continue
+            
+            if locations:
+                print(f"找到 {len(locations)} 个 {location_type}")
+                all_locations.extend(locations)
+            else:
+                print(f"未找到符合条件的 {location_type}")
+        
+        if not all_locations:
+            print("未找到符合条件的观星地点")
             return []
         
-        print(f"找到 {len(peaks)} 座山峰，开始详细分析...")
+        # 限制总数量
+        if len(all_locations) > max_locations:
+            all_locations = all_locations[:max_locations]
         
-        # 2. 为每个山峰进行综合分析
+        print(f"总共找到 {len(all_locations)} 个地点，开始详细分析...")
+        
+        # 2. 为每个地点进行综合分析
         stargazing_locations = []
-        for i, peak in enumerate(peaks, 1):
-            print(f"分析第 {i}/{len(peaks)} 座山峰: {peak.name}")
+        for i, location in enumerate(all_locations, 1):
+            print(f"分析第 {i}/{len(all_locations)} 个地点: {location.name} ({location.location_type})")
             
-            # 创建观星地点对象
-            location = StargazingLocation(
-                name=peak.name,
-                latitude=peak.latitude,
-                longitude=peak.longitude,
-                elevation=peak.elevation,
-                prominence=peak.prominence,
-                distance_to_nearest_town=peak.distance_to_nearest_town,
-                nearest_town_name=peak.nearest_town_name,
-                height_difference=peak.height_difference
+            # 创建观星地点对象，适配统一的Location类
+            stargazing_location = StargazingLocation(
+                name=location.name,
+                latitude=location.latitude,
+                longitude=location.longitude,
+                elevation=location.elevation,
+                prominence=location.prominence if hasattr(location, 'prominence') and location.prominence else 0.0,
+                distance_to_nearest_town=location.distance_to_nearest_town,
+                nearest_town_name=location.nearest_town_name,
+                height_difference=location.height_difference if hasattr(location, 'height_difference') and location.height_difference else 0.0,
+                location_type=location.location_type,
+                description=location.description if hasattr(location, 'description') else None
             )
             
             # 3. 光污染分析
@@ -165,39 +217,39 @@ class StargazingLocationAnalyzer:
                 if self.light_pollution_analyzer:
                     try:
                         light_info = self.light_pollution_analyzer.get_light_pollution_color(
-                            peak.latitude, peak.longitude
+                            location.latitude, location.longitude
                         )
                         if light_info:
-                            location.light_pollution_rgb = light_info['rgb']
-                            location.light_pollution_hex = light_info['hex']
-                            location.light_pollution_brightness = light_info['brightness']
-                            location.light_pollution_level = light_info['pollution_level']
-                            location.light_pollution_overlay = light_info.get('overlay_name')
+                            stargazing_location.light_pollution_rgb = light_info['rgb']
+                            stargazing_location.light_pollution_hex = light_info['hex']
+                            stargazing_location.light_pollution_brightness = light_info['brightness']
+                            stargazing_location.light_pollution_level = light_info['pollution_level']
+                            stargazing_location.light_pollution_overlay = light_info.get('overlay_name')
                     except Exception as e:
                         print(f"  光污染分析失败: {e}")
                 else:
-                    print(f"  ⚠️  警告: 无法获取 {peak.name} 的光污染数据 - 未提供光污染数据文件")
+                    print(f"  ⚠️  警告: 无法获取 {location.name} 的光污染数据 - 未提供光污染数据文件")
             
             # 4. 道路连通性分析
             if include_road_connectivity:
                 try:
                     road_info = self.road_checker.get_accessibility_info(
-                        peak.latitude, peak.longitude, network_type=network_type
+                        location.latitude, location.longitude, network_type=network_type
                     )
-                    location.road_accessible = road_info['accessible']
-                    location.distance_to_road_km = road_info['distance_to_road_km']
-                    location.road_network_type = network_type
-                    location.road_check_error = road_info.get('error')
+                    stargazing_location.road_accessible = road_info['accessible']
+                    stargazing_location.distance_to_road_km = road_info['distance_to_road_km']
+                    stargazing_location.road_network_type = network_type
+                    stargazing_location.road_check_error = road_info.get('error')
                 except Exception as e:
                     print(f"  道路连通性分析失败: {e}")
-                    location.road_check_error = str(e)
+                    stargazing_location.road_check_error = str(e)
             
             # 5. 计算综合评分
-            location.stargazing_score = self._calculate_stargazing_score(location)
-            location.recommendation_level = self._get_recommendation_level_with_warning(location)
-            location.analysis_notes = self._generate_analysis_notes(location)
+            stargazing_location.stargazing_score = self._calculate_stargazing_score(stargazing_location)
+            stargazing_location.recommendation_level = self._get_recommendation_level_with_warning(stargazing_location)
+            stargazing_location.analysis_notes = self._generate_analysis_notes(stargazing_location)
             
-            stargazing_locations.append(location)
+            stargazing_locations.append(stargazing_location)
             
             # 添加延迟以避免API限制
             time.sleep(0.5)
@@ -210,48 +262,86 @@ class StargazingLocationAnalyzer:
     
     def _calculate_stargazing_score(self, location: StargazingLocation) -> float:
         """
-        计算观星地点的综合评分（0-100分）
+        计算观星地点的综合评分（适配多种地点类型）
+        
+        评分标准:
+        - 海拔高度 (0-30分): 海拔越高越好
+        - 地点类型特有评分 (0-25分): 根据不同类型计算
+        - 光污染等级 (0-25分): 光污染越少越好
+        - 道路可达性 (0-20分): 可达且距离适中最好
         
         Args:
             location: 观星地点对象
             
         Returns:
-            综合评分
+            综合评分 (0-100分)
         """
         score = 0.0
         
-        # 1. 高度差评分（30分）
-        height_score = min(location.height_difference / 500.0 * 30, 30)
-        score += height_score
+        # 1. 海拔高度评分 (0-30分)
+        if location.elevation:
+            # 海拔每100米得1分，最高30分
+            elevation_score = min(location.elevation / 100 * 1, 30)
+            score += elevation_score
         
-        # 2. 光污染评分（40分）
-        if location.light_pollution_brightness is not None:
-            # 亮度越低，评分越高
-            light_score = max(0, (255 - location.light_pollution_brightness) / 255.0 * 40)
+        # 2. 地点类型特有评分 (0-25分)
+        if location.is_mountain_peak():
+            # 山峰：相对高度评分
+            if location.prominence:
+                # 相对高度每50米得1分，最高25分
+                prominence_score = min(location.prominence / 50 * 1, 25)
+                score += prominence_score
+        elif location.is_observatory():
+            # 天文台：固定高分（因为是专业观测设施）
+            score += 25
+        elif location.is_viewpoint():
+            # 观景台：根据高度差评分
+            if location.height_difference:
+                # 高度差每40米得1分，最高25分
+                height_diff_score = min(location.height_difference / 40 * 1, 25)
+                score += height_diff_score
+            else:
+                score += 15  # 默认中等评分
+        
+        # 3. 光污染评分 (0-25分)
+        if location.light_pollution_level:
+            pollution_scores = {
+                '极低': 25, '很低': 20, '低': 15, '中等': 10, 
+                '高': 5, '很高': 2, '极高': 0
+            }
+            score += pollution_scores.get(location.light_pollution_level, 0)
+        elif location.light_pollution_brightness is not None:
+            # 如果没有等级但有亮度数据，根据亮度计算
+            light_score = max(0, (255 - location.light_pollution_brightness) / 255.0 * 25)
             score += light_score
         else:
             # 如果没有光污染数据，给予警告并使用默认评分
             print(f"⚠️  警告: {location.name} 缺少光污染数据，评分准确性受影响")
-            # 给予中等评分，但标记为不完整
-            score += 20  # 40分权重的一半
+            score += 12  # 25分权重的一半
         
-        # 3. 道路可达性评分（20分）
-        if location.road_accessible is True:
-            score += 20
-        elif location.road_accessible is False:
-            score += 5  # 不可达但给予少量分数
+        # 4. 道路可达性评分 (0-20分)
+        if location.road_accessible is not None:
+            if location.road_accessible:
+                # 可达的情况下，距离道路越近越好（但不能太近）
+                if location.distance_to_road_km is not None:
+                    if 0.5 <= location.distance_to_road_km <= 5:
+                        # 理想距离：0.5-5公里
+                        score += 20
+                    elif location.distance_to_road_km <= 10:
+                        # 可接受距离：5-10公里
+                        score += 15
+                    elif location.distance_to_road_km <= 20:
+                        # 较远距离：10-20公里
+                        score += 10
+                    else:
+                        # 很远距离：>20公里
+                        score += 5
+                else:
+                    score += 10  # 可达但距离未知
+            else:
+                score += 0  # 不可达
         else:
             score += 10  # 未知状态给予中等分数
-        
-        # 4. 距离城镇评分（10分）
-        if location.distance_to_nearest_town > 50:
-            score += 10
-        elif location.distance_to_nearest_town > 20:
-            score += 7
-        elif location.distance_to_nearest_town > 10:
-            score += 5
-        else:
-            score += 2
         
         return round(score, 1)
     
@@ -438,7 +528,8 @@ class StargazingLocationAnalyzer:
 
 def analyze_stargazing_area(south: float, west: float, north: float, east: float,
                            kml_file_path: Optional[str] = None,
-                           max_peaks: int = 30,
+                           max_locations: int = 30,
+                           location_types: List[str] = None,
                            min_height_diff: float = 100.0,
                            road_radius_km: float = 10.0,
                            network_type: str = 'drive') -> List[StargazingLocation]:
@@ -448,8 +539,9 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
     Args:
         south, west, north, east: 边界框坐标
         kml_file_path: 光污染KML文件路径（强烈推荐提供）
-        max_peaks: 最大山峰数量
-        min_height_diff: 最小高度差
+        max_locations: 最大地点数量
+        location_types: 地点类型列表，可选值：['mountain_peak', 'observatory', 'viewpoint']
+        min_height_diff: 最小高度差（仅对山峰有效）
         road_radius_km: 道路搜索半径
         network_type: 网络类型
         
@@ -473,7 +565,8 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
     bbox = (south, west, north, east)
     locations = analyzer.analyze_area(
         bbox=bbox,
-        max_peaks=max_peaks,
+        max_locations=max_locations,
+        location_types=location_types,
         network_type=network_type,
         include_light_pollution=(kml_file_path is not None),
         include_road_connectivity=True
@@ -502,7 +595,8 @@ if __name__ == "__main__":
     # 分析区域
     locations = analyzer.analyze_area(
         bbox=bbox,
-        max_peaks=20,
+        max_locations=20,
+        location_types=['mountain_peak', 'observatory', 'viewpoint'],
         network_type='drive',
         include_light_pollution=False,  # 没有KML文件时设为False
         include_road_connectivity=True

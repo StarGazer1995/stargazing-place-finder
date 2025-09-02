@@ -43,7 +43,7 @@ finder = StarGazingPlaceFinder(
 
 # 查找包含光污染信息的地点
 bbox = (39.5, 115.5, 40.5, 117.5)  # 北京周边
-peaks = finder.find_peaks_in_area(bbox, max_peaks=10)
+peaks = finder.find_peaks_in_area(bbox, max_locations=10)
 ```
 
 ### 2. 查看光污染信息
@@ -63,7 +63,7 @@ for peak in peaks:
 #### 山峰查找
 ```python
 # 查找山峰（自动包含光污染信息）
-peaks = finder.find_peaks_in_area(bbox, max_peaks=20)
+peaks = finder.find_peaks_in_area(bbox, max_locations=20)
 for peak in peaks:
     if peak.light_pollution_level:
         print(f"{peak.name}: {peak.light_pollution_level}")
@@ -161,7 +161,7 @@ def find_best_stargazing_spots(bbox, max_results=10):
     
     # 获取所有类型的地点
     all_locations = []
-    all_locations.extend(finder.find_peaks_in_area(bbox, max_peaks=20))
+    all_locations.extend(finder.find_peaks_in_area(bbox, max_locations=20))
     all_locations.extend(finder.find_observatories_in_area(bbox, max_observatories=10))
     all_locations.extend(finder.find_viewpoints_in_area(bbox, max_viewpoints=20))
     

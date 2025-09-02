@@ -59,7 +59,7 @@ def example_1_basic_analysis():
     # 执行分析
     locations = analyzer.analyze_area(
         bbox=bbox,
-        max_peaks=15,
+        max_locations=15,
         network_type='drive',
         include_light_pollution=False,
         include_road_connectivity=True
@@ -141,7 +141,7 @@ def example_2_with_light_pollution():
     
     locations = analyzer.analyze_area(
         bbox=bbox,
-        max_peaks=10,
+        max_locations=10,
         network_type='drive',
         include_light_pollution=True,
         include_road_connectivity=True
@@ -213,7 +213,7 @@ def example_3_multiple_areas():
         
         locations = analyzer.analyze_area(
             bbox=bbox,
-            max_peaks=8,
+            max_locations=8,
             network_type='drive',
             include_light_pollution=False,
             include_road_connectivity=True
@@ -315,7 +315,7 @@ def example_4_custom_parameters():
     
     locations = analyzer.analyze_area(
         bbox=bbox,
-        max_peaks=12,
+        max_locations=12,
         network_type='all',  # 检查所有类型的道路网络
         include_light_pollution=False,
         include_road_connectivity=True
@@ -390,7 +390,7 @@ def example_5_convenience_function():
     locations = analyze_stargazing_area(
         south=43.0, west=86.5, north=43.5, east=87.0,  # 天山地区
         kml_file_path=None,
-        max_peaks=10,
+        max_locations=10,
         min_height_diff=150.0
     )
     

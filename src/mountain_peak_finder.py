@@ -10,6 +10,7 @@ from typing import List, Dict, Tuple, Optional
 import math
 from dataclasses import dataclass
 import time
+import random
 try:
     from src.light_pollution_analyzer import LightPollutionAnalyzer
 except ImportError:
@@ -631,13 +632,13 @@ class StarGazingPlaceFinder:
         )
      
     def find_peaks_in_area(self, bbox: Tuple[float, float, float, float], 
-                           max_peaks: int = 50) -> List[Peak]:
+                           max_locations: int = 50) -> List[Peak]:
         """
         在指定区域内查找符合条件的山峰
         
         Args:
             bbox: 边界框 (south, west, north, east)
-            max_peaks: 最大返回山峰数量
+            max_locations: 最大返回山峰数量
             
         Returns:
             符合条件的山峰列表
@@ -645,7 +646,7 @@ class StarGazingPlaceFinder:
         return self._find_locations_in_area(
             bbox=bbox,
             location_type="山峰",
-            max_locations=max_peaks,
+            max_locations=max_locations,
             data_getter_func=self.get_peaks_from_overpass,
             location_processor_func=self._process_peak_data
         )
@@ -725,20 +726,20 @@ class StarGazingPlaceFinder:
 # 便捷函数
 def find_peaks_with_height_difference(south: float, west: float, north: float, east: float,
                                      min_height_diff: float = 100.0,
-                                     max_peaks: int = 50) -> List[Peak]:
+                                     max_locations: int = 50) -> List[Peak]:
     """
     在指定区域查找与周围城镇有足够高度差的山峰
     
     Args:
         south, west, north, east: 边界框坐标
         min_height_diff: 最小高度差（米）
-        max_peaks: 最大搜索山峰数量
+        max_locations: 最大搜索山峰数量
         
     Returns:
         符合条件的山峰列表
     """
     finder = StarGazingPlaceFinder(min_height_difference=min_height_diff, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
-    return finder.find_peaks_in_area((south, west, north, east), max_peaks)
+    return finder.find_peaks_in_area((south, west, north, east), max_locations)
 
 def find_viewpoints(south: float, west: float, north: float, east: float,
                    max_viewpoints: int = 50) -> List[Viewpoint]:
@@ -766,7 +767,7 @@ if __name__ == "__main__":
     finder = StarGazingPlaceFinder(min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
     
     # 查找山峰
-    peaks = finder.find_peaks_in_area(bbox, max_peaks=20)
+    peaks = finder.find_peaks_in_area(bbox, max_locations=20)
     
     # 显示结果
     if peaks:

@@ -79,7 +79,7 @@ class StargazingLocationAnalyzer:
                     center_lat: float, 
                     center_lon: float,
                     search_radius_km: float = 50.0,
-                    max_peaks: int = 20) -> StargazingAnalysisResult:
+                    max_locations: int = 20) -> StargazingAnalysisResult:
         """
         Perform comprehensive stargazing location analysis for a geographic area
         
@@ -87,7 +87,7 @@ class StargazingLocationAnalyzer:
             center_lat (float): Center latitude for search area
             center_lon (float): Center longitude for search area
             search_radius_km (float): Search radius in kilometers
-            max_peaks (int): Maximum number of peaks to analyze
+            max_locations (int): Maximum number of peaks to analyze
         
         Returns:
             StargazingAnalysisResult: Comprehensive analysis results with ranked locations
@@ -626,7 +626,7 @@ def analyze_stargazing_area(analyzer: StargazingLocationAnalyzer,
                           center_lat: float,
                           center_lon: float,
                           search_radius_km: float = 50.0,
-                          max_peaks: int = 20) -> StargazingAnalysisResult:
+                          max_locations: int = 20) -> StargazingAnalysisResult:
     """
     Perform comprehensive stargazing analysis for a geographic area
     
@@ -635,7 +635,7 @@ def analyze_stargazing_area(analyzer: StargazingLocationAnalyzer,
         center_lat (float): Search center latitude
         center_lon (float): Search center longitude
         search_radius_km (float): Search radius in kilometers
-        max_peaks (int): Maximum peaks to analyze
+        max_locations (int): Maximum peaks to analyze
     
     Returns:
         StargazingAnalysisResult: Comprehensive analysis results
@@ -651,7 +651,7 @@ def analyze_stargazing_area(analyzer: StargazingLocationAnalyzer,
             center_lat=center_lat,
             center_lon=center_lon,
             search_radius_km=search_radius_km,
-            max_peaks=max_peaks
+            max_locations=max_locations
         )
         
         if not peaks:
@@ -747,7 +747,7 @@ def analyze_stargazing_area(analyzer: StargazingLocationAnalyzer,
         return StargazingAnalysisResult(
             search_center=(center_lat, center_lon),
             search_radius_km=search_radius_km,
-            max_peaks_analyzed=max_peaks,
+            max_peaks_analyzed=max_locations,
             stargazing_locations=stargazing_locations,
             total_peaks_found=len(peaks),
             accessible_locations=accessible_count,
@@ -802,7 +802,7 @@ def batch_analyze_regions(analyzer: StargazingLocationAnalyzer,
                 center_lat=region.center_lat,
                 center_lon=region.center_lon,
                 search_radius_km=region.search_radius_km,
-                max_peaks=region.max_peaks
+                max_locations=region.max_locations
             )
         except Exception as e:
             logger.error(f"Failed to analyze region {region.name}: {e}")
@@ -1162,7 +1162,7 @@ def plan_astronomy_event(event_requirements: AstronomyEventRequirements) -> Astr
         center_lat=event_requirements.preferred_center_lat,
         center_lon=event_requirements.preferred_center_lon,
         search_radius_km=event_requirements.max_travel_distance_km,
-        max_peaks=50
+        max_locations=50
     )
     
     # Filter locations suitable for group events
@@ -1277,7 +1277,7 @@ def optimize_astrophotography_location(target_object: AstronomicalObject,
             center_lat=photographer_requirements.preferred_lat,
             center_lon=photographer_requirements.preferred_lon,
             search_radius_km=photographer_requirements.max_travel_distance_km,
-            max_peaks=30
+            max_locations=30
         )
         
         # Filter and rank locations for this observation window
@@ -1383,7 +1383,7 @@ class StargazingAnalysisCache:
                           center_lat: float, 
                           center_lon: float,
                           search_radius: float,
-                          max_peaks: int,
+                          max_locations: int,
                           scoring_weights: Dict[str, float]) -> str:
         """
         Generate unique cache key for analysis parameters
@@ -1392,7 +1392,7 @@ class StargazingAnalysisCache:
             center_lat (float): Search center latitude
             center_lon (float): Search center longitude
             search_radius (float): Search radius
-            max_peaks (int): Maximum peaks
+            max_locations (int): Maximum peaks
             scoring_weights (dict): Scoring weights
         
         Returns:
@@ -1409,7 +1409,7 @@ class StargazingAnalysisCache:
         weight_signature = '_'.join(f"{k}:{v:.2f}" for k, v in sorted(scoring_weights.items()))
         
         # Generate hash
-        cache_string = f"{lat_rounded},{lon_rounded},{radius_rounded},{max_peaks},{weight_signature}"
+        cache_string = f"{lat_rounded},{lon_rounded},{radius_rounded},{max_locations},{weight_signature}"
         return hashlib.md5(cache_string.encode()).hexdigest()
     
     def _evict_oldest_entries(self, evict_count: int = 100):
@@ -1535,7 +1535,7 @@ class ParallelStargazingAnalyzer:
             center_lat=request.center_lat,
             center_lon=request.center_lon,
             search_radius_km=request.search_radius_km,
-            max_peaks=request.max_peaks
+            max_locations=request.max_locations
         )
     
     def __del__(self):
@@ -1618,7 +1618,7 @@ class MemoryEfficientAnalyzer:
             center_lat=lat,
             center_lon=lon,
             search_radius_km=5.0,  # Small radius for memory efficiency
-            max_peaks=1
+            max_locations=1
         )
         
         if not peaks:
@@ -1773,13 +1773,13 @@ class GeographicDataValidator:
         return True
     
     @staticmethod
-    def validate_search_parameters(search_radius_km: float, max_peaks: int) -> bool:
+    def validate_search_parameters(search_radius_km: float, max_locations: int) -> bool:
         """
         Validate search parameters
         
         Args:
             search_radius_km (float): Search radius
-            max_peaks (int): Maximum peaks
+            max_locations (int): Maximum peaks
         
         Returns:
             bool: Whether parameters are valid
@@ -1787,8 +1787,8 @@ class GeographicDataValidator:
         if search_radius_km <= 0 or search_radius_km > 200:
             raise InvalidParameterError(f"Invalid search radius: {search_radius_km}km")
         
-        if max_peaks <= 0 or max_peaks > 1000:
-            raise InvalidParameterError(f"Invalid max peaks: {max_peaks}")
+        if max_locations <= 0 or max_locations > 1000:
+            raise InvalidParameterError(f"Invalid max peaks: {max_locations}")
         
         return True
     
@@ -1854,11 +1854,11 @@ def analyze_stargazing_area_api():
         center_lat = float(data['center_lat'])
         center_lon = float(data['center_lon'])
         search_radius = float(data.get('search_radius_km', 50.0))
-        max_peaks = int(data.get('max_peaks', 20))
+        max_locations = int(data.get('max_locations', 20))
         
         # Validate parameters
         GeographicDataValidator.validate_coordinates(center_lat, center_lon)
-        GeographicDataValidator.validate_search_parameters(search_radius, max_peaks)
+        GeographicDataValidator.validate_search_parameters(search_radius, max_locations)
         
         # Perform analysis
         result = analyze_stargazing_area(
@@ -1866,7 +1866,7 @@ def analyze_stargazing_area_api():
             center_lat=center_lat,
             center_lon=center_lon,
             search_radius_km=search_radius,
-            max_peaks=max_peaks
+            max_locations=max_locations
         )
         
         # Convert to JSON-serializable format
@@ -1915,7 +1915,7 @@ def batch_analyze_api():
                 center_lat=float(region_data['center_lat']),
                 center_lon=float(region_data['center_lon']),
                 search_radius_km=float(region_data.get('search_radius_km', 50.0)),
-                max_peaks=int(region_data.get('max_peaks', 20))
+                max_locations=int(region_data.get('max_locations', 20))
             )
             analysis_regions.append(region)
         
@@ -2034,7 +2034,7 @@ def main():
             center_lat=args.lat,
             center_lon=args.lon,
             search_radius_km=args.radius,
-            max_peaks=args.max_peaks
+            max_locations=args.max_locations
         )
         
         # Generate output

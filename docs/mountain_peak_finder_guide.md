@@ -80,7 +80,7 @@ peaks = find_peaks_with_height_difference(
     north=40.5,    # 北边界
     east=117.5,    # 东边界
     min_height_diff=100.0,  # 最小高度差（米）
-    max_peaks=20   # 最大搜索数量
+    max_locations=20   # 最大搜索数量
 )
 
 # 显示结果
@@ -102,7 +102,7 @@ finder = StarGazingPlaceFinder(min_height_difference=150.0)
 bbox = (39.8, 115.8, 40.8, 117.2)  # (south, west, north, east)
 
 # 执行搜索
-peaks = finder.find_peaks_in_area(bbox, max_peaks=15)
+peaks = finder.find_peaks_in_area(bbox, max_locations=15)
 
 # 查看结果类型
 for peak in peaks:
@@ -150,7 +150,7 @@ regions = {
 all_results = {}
 for region_name, bbox in regions.items():
     finder = StarGazingPlaceFinder(min_height_difference=120.0)
-    peaks = finder.find_peaks_in_area(bbox, max_peaks=10)
+    peaks = finder.find_peaks_in_area(bbox, max_locations=10)
     all_results[region_name] = peaks
     
     if peaks:
@@ -188,7 +188,7 @@ print(f"陡峭山峰: {len(steep_peaks)}个")
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `bbox` | tuple | 边界框 (south, west, north, east) |
-| `max_peaks` | int | 最大搜索山峰数量，默认50 |
+| `max_locations` | int | 最大搜索山峰数量，默认50 |
 
 ### 便捷函数参数
 
@@ -199,7 +199,7 @@ find_peaks_with_height_difference(
     north: float,           # 北边界纬度
     east: float,            # 东边界经度
     min_height_diff=100.0,  # 最小高度差（米）
-    max_peaks=50           # 最大搜索数量
+    max_locations=50           # 最大搜索数量
 )
 ```
 

@@ -79,7 +79,7 @@ analyzer = StargazingLocationAnalyzer(
 bbox = (39.5, 115.5, 40.5, 117.0)  # (south, west, north, east)
 locations = analyzer.analyze_area(
     bbox=bbox,
-    max_peaks=20,
+    max_locations=20,
     include_light_pollution=True,
     include_road_connectivity=True
 )
@@ -100,7 +100,7 @@ from src.stargazing_location_analyzer import analyze_stargazing_area
 locations = analyze_stargazing_area(
     south=39.5, west=115.5, north=40.5, east=117.0,
     kml_file_path="light_pollution_map.kml",
-    max_peaks=15,
+    max_locations=15,
     min_height_diff=150.0
 )
 
@@ -148,7 +148,7 @@ analyzer = StargazingLocationAnalyzer(
 ```python
 locations = analyzer.analyze_area(
     bbox=(south, west, north, east),          # 搜索边界框
-    max_peaks=20,                             # 最大山峰数量
+    max_locations=20,                             # 最大山峰数量
     network_type='drive',                     # 网络类型：'drive', 'walk', 'bike'
     include_light_pollution=True,             # 是否包含光污染分析
     include_road_connectivity=True            # 是否包含道路连通性分析
@@ -194,7 +194,7 @@ bbox = (39.5, 115.5, 40.5, 117.0)
 locations = analyze_stargazing_area(
     south=39.5, west=115.5, north=40.5, east=117.0,
     kml_file_path="light_pollution_map.kml",
-    max_peaks=15,
+    max_locations=15,
     min_height_diff=150.0
 )
 ```
@@ -214,7 +214,7 @@ for region_name, bbox in regions.items():
     locations = analyze_stargazing_area(
         south=bbox[0], west=bbox[1], north=bbox[2], east=bbox[3],
         kml_file_path="light_pollution_map.kml",
-        max_peaks=10
+        max_locations=10
     )
     all_results[region_name] = locations
 ```
@@ -233,7 +233,7 @@ analyzer = StargazingLocationAnalyzer(
 ## 性能优化建议
 
 1. **合理设置搜索范围**：避免过大的边界框
-2. **限制山峰数量**：使用 `max_peaks` 参数控制结果数量
+2. **限制山峰数量**：使用 `max_locations` 参数控制结果数量
 3. **缓存光污染数据**：系统会自动缓存已加载的KML数据
 4. **批量处理**：对多个区域使用同一个分析器实例
 
@@ -280,7 +280,7 @@ def analyze_stargazing():
     
     locations = analyzer.analyze_area(
         bbox=bbox,
-        max_peaks=data.get('max_peaks', 20),
+        max_locations=data.get('max_locations', 20),
         include_light_pollution=True,
         include_road_connectivity=True
     )
