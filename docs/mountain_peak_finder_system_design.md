@@ -49,7 +49,7 @@ def find_peaks_with_height_difference(
     north: float,
     east: float,
     min_height_diff: float = 100.0,
-    max_peaks: int = 50
+    max_locations: int = 50
 ) -> List[Peak]:
     """
     Discover mountain peaks with significant elevation advantage over nearby settlements
@@ -60,7 +60,7 @@ def find_peaks_with_height_difference(
         north (float): Northern boundary latitude
         east (float): Eastern boundary longitude
         min_height_diff (float): Minimum height difference requirement in meters
-        max_peaks (int): Maximum number of peaks to return
+        max_locations (int): Maximum number of peaks to return
     
     Returns:
         List[Peak]: Filtered list of qualifying mountain peaks
@@ -119,13 +119,13 @@ class StarGazingPlaceFinder:
         self.osm_client = OSMDataClient()
     
     def find_peaks_in_area(self, bbox: Tuple[float, float, float, float], 
-                          max_peaks: int = 50) -> List[Location]:
+                          max_locations: int = 50) -> List[Location]:
         """
         Execute location discovery within specified bounding box
         
         Args:
             bbox (tuple): Bounding box coordinates (south, west, north, east)
-            max_peaks (int): Maximum number of results to return
+            max_locations (int): Maximum number of results to return
         
         Returns:
             List[Location]: Discovered and filtered locations with location_type="mountain_peak"
@@ -440,7 +440,7 @@ def analyze_regional_topography(bbox: BoundingBox) -> TopographyReport:
         TopographyReport: Detailed topographical characteristics
     """
     finder = StarGazingPlaceFinder(min_height_difference=50.0)  # Lower threshold for comprehensive analysis
-    all_peaks = finder.find_peaks_in_area(bbox, max_peaks=200)
+    all_peaks = finder.find_peaks_in_area(bbox, max_locations=200)
     
     report = TopographyReport()
     report.total_peaks = len(all_peaks)
@@ -562,7 +562,7 @@ def batch_process_regions(regions: List[BoundingBox],
     
     for i, bbox in enumerate(regions):
         try:
-            peaks = finder.find_peaks_in_area(bbox, max_peaks=criteria.max_peaks)
+            peaks = finder.find_peaks_in_area(bbox, max_locations=criteria.max_locations)
             results[f"region_{i}"] = peaks
             
             # Rate limiting to avoid API restrictions
@@ -780,7 +780,7 @@ def generate_interactive_map(peaks: List[Peak],
     },
     "search_criteria": {
       "min_height_difference": 100.0,
-      "max_peaks": 20
+      "max_locations": 20
     },
     "search_timestamp": "2024-01-15T10:30:00Z",
     "total_peaks_found": 15

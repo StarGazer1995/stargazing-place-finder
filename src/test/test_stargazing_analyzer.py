@@ -115,7 +115,7 @@ def test_basic_analysis():
         
         locations = analyzer.analyze_area(
             bbox=bbox,
-            max_peaks=5,
+            max_locations=5,
             network_type='drive',
             include_light_pollution=False,
             include_road_connectivity=True
@@ -403,7 +403,7 @@ def test_convenience_function():
         locations = analyze_stargazing_area(
             south=39.98, west=116.18, north=40.02, east=116.22,
             kml_file_path=None,
-            max_peaks=3,
+            max_locations=3,
             min_height_diff=50.0
         )
         
@@ -455,7 +455,7 @@ def test_error_handling():
         try:
             locations = analyzer.analyze_area(
                 bbox=invalid_bbox,
-                max_peaks=5,
+                max_locations=5,
                 include_light_pollution=False,
                 include_road_connectivity=False
             )

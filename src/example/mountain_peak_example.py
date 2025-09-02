@@ -42,7 +42,7 @@ def example_beijing_area():
     peaks = find_peaks_with_height_difference(
         south=bbox[0], west=bbox[1], north=bbox[2], east=bbox[3],
         min_height_diff=150.0,
-        max_peaks=15
+        max_locations=15
     )
     
     print(f"找到 {len(peaks)} 个符合条件的山峰：")
@@ -78,7 +78,7 @@ def example_zhangjiajie_area():
     bbox = (29.0, 110.0, 29.8, 110.8)
     
     finder = StarGazingPlaceFinder(min_height_difference=200.0)
-    peaks = finder.find_peaks_in_area(bbox, max_peaks=10)
+    peaks = finder.find_peaks_in_area(bbox, max_locations=10)
     
     print(f"找到 {len(peaks)} 个符合条件的山峰：")
     for i, peak in enumerate(peaks[:3], 1):  # 只显示前3个
@@ -115,7 +115,7 @@ def example_huangshan_area():
     bbox = (29.8, 118.0, 30.5, 118.8)
     
     finder = StarGazingPlaceFinder(min_height_difference=100.0)
-    peaks = finder.find_peaks_in_area(bbox, max_peaks=12)
+    peaks = finder.find_peaks_in_area(bbox, max_locations=12)
     
     if peaks:
         print(f"找到 {len(peaks)} 个符合条件的山峰：")
@@ -163,7 +163,7 @@ def example_custom_search():
     print(f"- 区域: 纬度 {bbox[0]}-{bbox[2]}, 经度 {bbox[1]}-{bbox[3]}")
     print(f"- 最小高度差: {finder.min_height_difference}米")
     
-    peaks = finder.find_peaks_in_area(bbox, max_peaks=8)
+    peaks = finder.find_peaks_in_area(bbox, max_locations=8)
     
     if peaks:
         print(f"\n找到 {len(peaks)} 个符合条件的山峰：")
@@ -221,7 +221,7 @@ def example_batch_search():
         print(f"\n正在搜索 {region_name}...")
         
         finder = StarGazingPlaceFinder(min_height_difference=120.0)
-        peaks = finder.find_peaks_in_area(bbox, max_peaks=5)
+        peaks = finder.find_peaks_in_area(bbox, max_locations=5)
         
         all_results[region_name] = {
             "peak_count": len(peaks),
@@ -285,7 +285,7 @@ def example_integration_with_stargazing():
     
     # 查找适合观星的山峰（远离城镇，高度差大）
     finder = StarGazingPlaceFinder(min_height_difference=200.0)
-    peaks = finder.find_peaks_in_area(bbox, max_peaks=10)
+    peaks = finder.find_peaks_in_area(bbox, max_locations=10)
     
     if peaks:
         print("适合观星的山峰候选：")
@@ -327,7 +327,7 @@ if __name__ == "__main__":
         print("\n=== 所有示例运行完成 ===")
         print("提示：")
         print("1. 可以调整 min_height_difference 参数来改变高度差要求")
-        print("2. 可以调整 max_peaks 参数来限制搜索的山峰数量")
+        print("2. 可以调整 max_locations 参数来限制搜索的山峰数量")
         print("3. 可以调整边界框来改变搜索区域")
         print("4. 结果会自动保存为JSON文件供后续使用")
         

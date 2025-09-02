@@ -88,7 +88,7 @@ def test_light_pollution_integration():
     print("1. 查找山峰（包含光污染信息）")
     print("=" * 50)
     try:
-        peaks = finder.find_peaks_in_area(bbox, max_peaks=5)
+        peaks = finder.find_peaks_in_area(bbox, max_locations=5)
         if peaks:
             print(f"\n找到 {len(peaks)} 个山峰:")
             print()

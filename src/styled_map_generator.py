@@ -267,22 +267,18 @@ def main():
         # 初始化生成器
         generator = StyledMapGenerator(kml_file)
         
-        # 生成区域选取功能的观星地图
-        print("\n📍 生成区域选取观星地图...")
-        area_selector_file = generator.generate_comprehensive_styled_maps("index.html")
-        
         # 生成综合样式化地图
         output_dir = os.path.join(project_root, 'styled_map_output')
         results = generator.generate_comprehensive_styled_maps(output_dir)
         
         print("\n✅ 所有地图生成完成!")
         print("\n📋 生成的文件:")
-        print(f"  主页面(区域选取): {area_selector_file}")
+        print(f"  主页面(区域选取): {results['main_map']}")
         for key, path in results.items():
             print(f"  {key}: {path}")
         
         print("\n🌐 使用方法:")
-        print(f"  1. 主页面: 在浏览器中打开 {area_selector_file}")
+        print(f"  1. 主页面: 在浏览器中打开 {results['main_map']}")
         print("     - 支持区域选取和观星地点分析")
         print("     - 需要启动API服务器 (python stargazing_area_api.py)")
         print(f"  2. 光污染地图: 在浏览器中打开 {results['main_map']}")

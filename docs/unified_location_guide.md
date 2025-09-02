@@ -217,7 +217,7 @@ finder = StarGazingPlaceFinder(min_height_difference=150.0)
 bbox = (39.8, 115.8, 40.8, 117.2)
 
 # 查找山峰（返回Location对象，location_type="mountain_peak"）
-peaks = finder.find_peaks_in_area(bbox, max_peaks=10)
+peaks = finder.find_peaks_in_area(bbox, max_locations=10)
 
 # 验证结果类型
 for peak in peaks:

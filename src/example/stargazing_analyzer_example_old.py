@@ -47,7 +47,7 @@ def example_basic_analysis():
     # 执行分析
     locations = analyzer.analyze_area(
         bbox=bbox,
-        max_peaks=5,
+        max_locations=5,
         network_type='drive',
         include_light_pollution=True,  # 强制包含光污染分析
         include_road_connectivity=True
@@ -98,7 +98,7 @@ def example_advanced_analysis():
     
     locations = analyzer.analyze_area(
         bbox=bbox,
-        max_peaks=8,
+        max_locations=8,
         network_type='drive',
         include_light_pollution=True,  # 强制包含光污染分析
         include_road_connectivity=True
@@ -147,7 +147,7 @@ def example_batch_analysis():
         
         locations = analyzer.analyze_area(
             bbox=bbox,
-            max_peaks=3,
+            max_locations=3,
             network_type='drive',
             include_light_pollution=True,  # 强制包含光污染分析
             include_road_connectivity=True
@@ -208,7 +208,7 @@ def example_custom_parameters():
     
     locations = analyzer.analyze_area(
         bbox=bbox,
-        max_peaks=10,
+        max_locations=10,
         network_type='drive',
         include_light_pollution=True,  # 强制包含光污染分析
         include_road_connectivity=True
@@ -258,7 +258,7 @@ def example_convenience_function():
     locations = analyze_stargazing_area(
         south=40.0, west=116.2, north=40.1, east=116.3,
         kml_file_path=kml_file,  # 强制使用光污染数据
-        max_peaks=5,
+        max_locations=5,
         min_height_diff=80.0,
         road_radius_km=8.0,
         network_type='drive'

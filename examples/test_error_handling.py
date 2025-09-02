@@ -76,7 +76,7 @@ def test_error_handling():
     
     try:
         print("正在测试山峰查找...")
-        peaks = finder.find_peaks_in_area(test_bbox, max_peaks=5)
+        peaks = finder.find_peaks_in_area(test_bbox, max_locations=5)
         print(f"✓ 山峰查找完成，找到 {len(peaks)} 个山峰")
         
         print("\n正在测试天文台查找...")

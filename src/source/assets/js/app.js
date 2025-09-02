@@ -1460,7 +1460,7 @@ async function analyzeStargazingArea() {
         // 构建请求数据
         const requestData = {
             bbox: bbox,
-            max_peaks: maxPeaks,
+            max_locations: maxPeaks,
             network_type: transportMode,
             include_light_pollution: analyzeLightPollution,
             include_road_connectivity: checkRoadConnectivity

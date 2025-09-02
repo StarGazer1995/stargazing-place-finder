@@ -133,7 +133,7 @@ def test_small_area_search():
         peaks = find_peaks_with_height_difference(
             south=bbox[0], west=bbox[1], north=bbox[2], east=bbox[3],
             min_height_diff=50.0,  # 降低要求以便找到结果
-            max_peaks=5
+            max_locations=5
         )
         
         print(f"找到 {len(peaks)} 个符合条件的山峰")
@@ -180,7 +180,7 @@ def test_convenience_function():
         peaks = find_peaks_with_height_difference(
             south=bbox[0], west=bbox[1], north=bbox[2], east=bbox[3],
             min_height_diff=30.0,  # 进一步降低要求
-            max_peaks=3
+            max_locations=3
         )
         
         print(f"便捷函数返回 {len(peaks)} 个结果")
