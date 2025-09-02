@@ -36,6 +36,19 @@ class Observatory:
     nearest_town_name: str  # 最近城镇名称
     light_pollution_level: Optional[str] = None  # 光污染等级
 
+@dataclass
+class Viewpoint:
+    """观景台数据类"""
+    name: str
+    latitude: float
+    longitude: float
+    elevation: float  # 海拔高度（米）
+    viewpoint_type: str  # 观景台类型
+    description: str  # 描述信息
+    distance_to_nearest_town: float  # 到最近城镇的距离（公里）
+    nearest_town_name: str  # 最近城镇名称
+    scenic_value: Optional[str] = None  # 景观价值等级
+
 class MountainPeakFinder:
     """
     山峰查找器类
@@ -175,6 +188,44 @@ class MountainPeakFinder:
             return data.get('elements', [])
         except Exception as e:
             print(f"获取天文台数据时出错: {e}")
+            return []
+    
+    def get_viewpoints_from_overpass(self, bbox: Tuple[float, float, float, float]) -> List[Dict]:
+        """
+        从Overpass API获取指定边界框内的观景台数据
+        
+        Args:
+            bbox: 边界框 (south, west, north, east)
+            
+        Returns:
+            观景台数据列表
+        """
+        south, west, north, east = bbox
+        
+        # Overpass QL查询语句 - 获取观景台、观景点等
+        query = f"""
+        [out:json][timeout:25];
+        (
+          node["tourism"="viewpoint"]({south},{west},{north},{east});
+          way["tourism"="viewpoint"]({south},{west},{north},{east});
+          relation["tourism"="viewpoint"]({south},{west},{north},{east});
+          node["man_made"="tower"]["tower:type"="observation"]({south},{west},{north},{east});
+          way["man_made"="tower"]["tower:type"="observation"]({south},{west},{north},{east});
+          node["amenity"="observation_deck"]({south},{west},{north},{east});
+          way["amenity"="observation_deck"]({south},{west},{north},{east});
+          node["leisure"="viewing_platform"]({south},{west},{north},{east});
+          way["leisure"="viewing_platform"]({south},{west},{north},{east});
+        );
+        out center geom;
+        """
+        
+        try:
+            response = requests.post(self.overpass_url, data=query, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            return data.get('elements', [])
+        except Exception as e:
+            print(f"获取观景台数据时出错: {e}")
             return []
     
     def get_elevation_from_api(self, lat: float, lon: float) -> Optional[float]:
@@ -433,6 +484,122 @@ class MountainPeakFinder:
         print(f"\n总共找到 {len(observatories)} 个天文台")
         return observatories
     
+    def find_viewpoints_in_area(self, bbox: Tuple[float, float, float, float], 
+                               max_viewpoints: int = 50) -> List[Viewpoint]:
+        """
+        在指定区域内查找观景台
+        
+        Args:
+            bbox: 边界框 (south, west, north, east)
+            max_viewpoints: 最大返回观景台数量
+            
+        Returns:
+            观景台列表
+        """
+        print(f"正在搜索观景台区域: {bbox}")
+        
+        # 获取观景台数据
+        print("正在获取观景台数据...")
+        viewpoints_data = self.get_viewpoints_from_overpass(bbox)
+        print(f"找到 {len(viewpoints_data)} 个观景台")
+        
+        # 获取城镇数据
+        print("正在获取城镇数据...")
+        towns_data = self.get_towns_from_overpass(bbox)
+        print(f"找到 {len(towns_data)} 个城镇")
+        
+        if not viewpoints_data:
+            print("未找到观景台数据")
+            return []
+        
+        viewpoints = []
+        
+        for i, vp_data in enumerate(viewpoints_data[:max_viewpoints]):
+            if i % 5 == 0:
+                print(f"处理进度: {i+1}/{min(len(viewpoints_data), max_viewpoints)}")
+            
+            # 获取观景台坐标
+            if vp_data['type'] == 'node':
+                vp_lat = vp_data['lat']
+                vp_lon = vp_data['lon']
+            elif 'center' in vp_data:
+                vp_lat = vp_data['center']['lat']
+                vp_lon = vp_data['center']['lon']
+            else:
+                continue
+            
+            tags = vp_data.get('tags', {})
+            vp_name = tags.get('name', f'观景台_{i+1}')
+            
+            # 确定观景台类型
+            viewpoint_type = "未知类型"
+            if tags.get('tourism') == 'viewpoint':
+                viewpoint_type = "观景点"
+            elif tags.get('man_made') == 'tower' and tags.get('tower:type') == 'observation':
+                viewpoint_type = "观景塔"
+            elif tags.get('amenity') == 'observation_deck':
+                viewpoint_type = "观景台"
+            elif tags.get('leisure') == 'viewing_platform':
+                viewpoint_type = "观景平台"
+            
+            # 获取描述信息
+            description = tags.get('description', '')
+            if not description:
+                description = tags.get('note', '')
+            if not description:
+                description = f"{viewpoint_type}，位于({vp_lat:.4f}, {vp_lon:.4f})"
+            
+            # 获取观景台海拔
+            vp_elevation = None
+            if 'ele' in tags:
+                try:
+                    vp_elevation = float(tags['ele'])
+                except ValueError:
+                    pass
+            
+            if vp_elevation is None:
+                vp_elevation = self.get_elevation_from_api(vp_lat, vp_lon)
+                time.sleep(0.1)  # 避免API请求过于频繁
+            
+            if vp_elevation is None:
+                vp_elevation = 0.0  # 默认海拔
+            
+            # 查找最近的城镇
+            nearest_town = "未知"
+            distance_to_town = 0.0
+            
+            if towns_data:
+                nearest_town, distance_to_town, _ = self.find_nearest_town(
+                    vp_lat, vp_lon, towns_data
+                )
+            
+            # 评估景观价值
+            scenic_value = "一般"
+            if vp_elevation > 500:
+                scenic_value = "优秀"
+            elif vp_elevation > 200:
+                scenic_value = "良好"
+            
+            viewpoint = Viewpoint(
+                name=vp_name,
+                latitude=vp_lat,
+                longitude=vp_lon,
+                elevation=vp_elevation,
+                viewpoint_type=viewpoint_type,
+                description=description,
+                distance_to_nearest_town=distance_to_town,
+                nearest_town_name=nearest_town or "未知",
+                scenic_value=scenic_value
+            )
+            viewpoints.append(viewpoint)
+            print(f"找到观景台: {vp_name} ({viewpoint_type})")
+        
+        # 按海拔高度排序
+        viewpoints.sort(key=lambda v: v.elevation, reverse=True)
+        
+        print(f"\n总共找到 {len(viewpoints)} 个观景台")
+        return viewpoints
+    
     def save_results_to_json(self, peaks: List[Peak], filename: str) -> None:
         """
         将结果保存到JSON文件
@@ -482,6 +649,21 @@ def find_peaks_with_height_difference(south: float, west: float, north: float, e
     """
     finder = MountainPeakFinder(min_height_difference=min_height_diff)
     return finder.find_peaks_in_area((south, west, north, east), max_peaks)
+
+def find_viewpoints(south: float, west: float, north: float, east: float,
+                   max_viewpoints: int = 50) -> List[Viewpoint]:
+    """
+    在指定区域查找观景台
+    
+    Args:
+        south, west, north, east: 边界框坐标
+        max_viewpoints: 最大搜索观景台数量
+        
+    Returns:
+        观景台列表，按海拔高度排序
+    """
+    finder = MountainPeakFinder()
+    return finder.find_viewpoints_in_area((south, west, north, east), max_viewpoints)
 
 if __name__ == "__main__":
     # 示例：搜索北京周边的山峰
