@@ -10,22 +10,31 @@ The Mountain Peak Finder System is a comprehensive geospatial analysis tool desi
 
 ```
 Mountain Peak Finder System
+├── Unified Data Model Layer
+│   ├── Location Class (Multi-type Support)
+│   ├── Type-safe Field Validation
+│   ├── Backward Compatibility Aliases
+│   └── Extensible Design Framework
 ├── Data Acquisition Layer
 │   ├── OpenStreetMap Integration
 │   ├── Elevation Data Service
-│   └── Settlement Data Processor
+│   ├── Settlement Data Processor
+│   └── Multi-type Location Extractor
 ├── Analysis Engine
 │   ├── Peak Detection Algorithm
+│   ├── Observatory Discovery Module
+│   ├── Viewpoint Analysis Engine
 │   ├── Height Difference Calculator
 │   └── Distance Analysis Module
 ├── Filtering System
+│   ├── Type-specific Filters
 │   ├── Elevation Threshold Filter
 │   ├── Distance-based Filter
 │   └── Custom Criteria Processor
 └── Output Management
-    ├── JSON Export Handler
-    ├── Visualization Generator
-    └── Results Formatter
+    ├── Unified JSON Export Handler
+    ├── Type-aware Visualization Generator
+    └── Multi-format Results Formatter
 ```
 
 ## Functional Requirements
@@ -94,12 +103,13 @@ def calculate_settlement_distances(peak_coord: Tuple[float, float],
 ```python
 class MountainPeakFinder:
     """
-    Advanced mountain peak discovery and analysis system
+    Advanced geographic location discovery and analysis system
+    Now supports unified Location model for peaks, observatories, and viewpoints
     """
     
     def __init__(self, min_height_difference: float = 100.0):
         """
-        Initialize peak finder with configurable parameters
+        Initialize location finder with configurable parameters
         
         Args:
             min_height_difference (float): Minimum elevation advantage requirement
@@ -109,22 +119,94 @@ class MountainPeakFinder:
         self.osm_client = OSMDataClient()
     
     def find_peaks_in_area(self, bbox: Tuple[float, float, float, float], 
-                          max_peaks: int = 50) -> List[Peak]:
+                          max_peaks: int = 50) -> List[Location]:
         """
-        Execute peak discovery within specified bounding box
+        Execute location discovery within specified bounding box
         
         Args:
             bbox (tuple): Bounding box coordinates (south, west, north, east)
             max_peaks (int): Maximum number of results to return
         
         Returns:
-            List[Peak]: Discovered and filtered peaks
+            List[Location]: Discovered and filtered locations with location_type="mountain_peak"
         """
+        # Implementation creates Location objects with location_type="mountain_peak"
+        pass
+    
+    def find_observatories_in_area(self, bbox: Tuple[float, float, float, float], 
+                                  max_results: int = 50) -> List[Location]:
+        """
+        Execute observatory discovery within specified bounding box
+        
+        Returns:
+            List[Location]: Discovered observatories with location_type="observatory"
+        """
+        pass
+    
+    def find_viewpoints_in_area(self, bbox: Tuple[float, float, float, float], 
+                               max_results: int = 50) -> List[Location]:
+        """
+        Execute viewpoint discovery within specified bounding box
+        
+        Returns:
+            List[Location]: Discovered viewpoints with location_type="viewpoint"
+        """
+        pass
 ```
 
 ## Data Models
 
-### Peak Data Structure
+### Unified Location Data Structure
+
+The system now uses a unified Location class to represent all types of geographic locations:
+
+```python
+@dataclass
+class Location:
+    """统一的地理位置数据类，支持山峰、天文台、观景台等多种类型"""
+    
+    # 通用字段
+    name: str
+    latitude: float
+    longitude: float
+    elevation: float
+    location_type: str  # "mountain_peak", "observatory", "viewpoint"
+    distance_to_nearest_town: float
+    nearest_town_name: str
+    
+    # 山峰特有字段
+    prominence: Optional[float] = None
+    height_difference: Optional[float] = None
+    
+    # 天文台特有字段
+    observatory_type: Optional[str] = None
+    
+    # 观景台特有字段
+    viewpoint_type: Optional[str] = None
+    scenic_value: Optional[float] = None
+    
+    # 通用可选字段
+    description: Optional[str] = None
+    
+    def is_mountain_peak(self) -> bool:
+        """检查是否为山峰"""
+        return self.location_type == "mountain_peak"
+    
+    def is_observatory(self) -> bool:
+        """检查是否为天文台"""
+        return self.location_type == "observatory"
+    
+    def is_viewpoint(self) -> bool:
+        """检查是否为观景台"""
+        return self.location_type == "viewpoint"
+
+# 向后兼容的类型别名
+Peak = Location
+Observatory = Location
+Viewpoint = Location
+```
+
+### Legacy Peak Data Structure (Deprecated)
 
 ```python
 @dataclass

@@ -14,7 +14,7 @@ from unittest.mock import patch, MagicMock
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from mountain_peak_finder import MountainPeakFinder, Viewpoint, find_viewpoints
+from mountain_peak_finder import MountainPeakFinder, Location, Viewpoint, find_viewpoints
 
 class TestViewpointFinder(unittest.TestCase):
     """
@@ -30,13 +30,14 @@ class TestViewpointFinder(unittest.TestCase):
     
     def test_viewpoint_dataclass(self):
         """
-        测试Viewpoint数据类
+        测试Location数据类（观景台类型）
         """
-        viewpoint = Viewpoint(
+        viewpoint = Location(
             name="测试观景台",
             latitude=39.9042,
             longitude=116.4074,
             elevation=100.0,
+            location_type="viewpoint",
             viewpoint_type="观景台",
             description="测试用观景台",
             distance_to_nearest_town=5.0,
@@ -48,11 +49,26 @@ class TestViewpointFinder(unittest.TestCase):
         self.assertEqual(viewpoint.latitude, 39.9042)
         self.assertEqual(viewpoint.longitude, 116.4074)
         self.assertEqual(viewpoint.elevation, 100.0)
+        self.assertEqual(viewpoint.location_type, "viewpoint")
+        self.assertTrue(viewpoint.is_viewpoint())
         self.assertEqual(viewpoint.viewpoint_type, "观景台")
         self.assertEqual(viewpoint.description, "测试用观景台")
         self.assertEqual(viewpoint.distance_to_nearest_town, 5.0)
         self.assertEqual(viewpoint.nearest_town_name, "北京")
         self.assertEqual(viewpoint.scenic_value, "优秀")
+        
+        # 测试向后兼容的别名
+        viewpoint_alias = Viewpoint(
+            name="测试观景台2",
+            latitude=39.9042,
+            longitude=116.4074,
+            elevation=100.0,
+            location_type="viewpoint",
+            distance_to_nearest_town=5.0,
+            nearest_town_name="北京"
+        )
+        self.assertTrue(viewpoint_alias.is_viewpoint())
+        self.assertEqual(viewpoint_alias.location_type, "viewpoint")
     
     def test_get_viewpoints_from_overpass_method_exists(self):
         """
@@ -81,10 +97,12 @@ class TestViewpointFinder(unittest.TestCase):
                 latitude=39.9042,
                 longitude=116.4074,
                 elevation=100.0,
+                location_type="viewpoint",
                 viewpoint_type="观景台",
                 description="测试用观景台",
                 distance_to_nearest_town=5.0,
-                nearest_town_name="北京"
+                nearest_town_name="北京",
+                scenic_value="良好"
             )
             mock_method.return_value = [mock_viewpoint]
             
@@ -106,10 +124,12 @@ class TestViewpointFinder(unittest.TestCase):
             latitude=39.9042,
             longitude=116.4074,
             elevation=500.0,
+            location_type="viewpoint",
             viewpoint_type="观景台",
             description="高海拔观景台",
             distance_to_nearest_town=10.0,
-            nearest_town_name="某城镇"
+            nearest_town_name="某城镇",
+            scenic_value="优秀"
         )
         
         # 测试低海拔观景台
@@ -118,10 +138,12 @@ class TestViewpointFinder(unittest.TestCase):
             latitude=39.9042,
             longitude=116.4074,
             elevation=50.0,
+            location_type="viewpoint",
             viewpoint_type="观景台",
             description="低海拔观景台",
             distance_to_nearest_town=2.0,
-            nearest_town_name="某城镇"
+            nearest_town_name="某城镇",
+            scenic_value="一般"
         )
         
         # 验证数据结构正确

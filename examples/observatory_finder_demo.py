@@ -13,7 +13,7 @@ import os
 # 添加src目录到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from mountain_peak_finder import MountainPeakFinder
+from mountain_peak_finder import MountainPeakFinder, Location
 
 def main():
     """
@@ -50,23 +50,31 @@ def main():
         
         # 显示天文台详细信息
         for i, obs in enumerate(observatories, 1):
+            # 验证这是天文台类型的Location对象
+            assert obs.is_observatory(), f"期望天文台类型，但得到：{obs.location_type}"
+            
             print(f"{i}. {obs.name}")
-            print(f"   类型：{obs.observatory_type}")
+            print(f"   位置类型：{obs.location_type}")
+            print(f"   天文台类型：{obs.observatory_type}")
             print(f"   位置：({obs.latitude:.4f}, {obs.longitude:.4f})")
             print(f"   海拔：{obs.elevation:.1f} 米")
             print(f"   最近城镇：{obs.nearest_town_name} ({obs.distance_to_nearest_town:.1f} 公里)")
             if obs.description:
                 print(f"   描述：{obs.description}")
-            if obs.light_pollution_level:
-                print(f"   光污染等级：{obs.light_pollution_level}")
             print()
         
         # 统计信息
         print("=== 统计信息 ===")
+        
+        # 验证所有结果都是天文台类型
+        observatory_count = sum(1 for obs in observatories if obs.is_observatory())
+        print(f"天文台总数：{observatory_count} 个")
+        
         type_counts = {}
         for obs in observatories:
-            obs_type = obs.observatory_type
-            type_counts[obs_type] = type_counts.get(obs_type, 0) + 1
+            if obs.is_observatory():
+                obs_type = obs.observatory_type or "未知类型"
+                type_counts[obs_type] = type_counts.get(obs_type, 0) + 1
         
         print("天文台类型分布：")
         for obs_type, count in type_counts.items():

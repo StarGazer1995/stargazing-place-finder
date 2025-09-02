@@ -14,7 +14,8 @@ from unittest.mock import patch, MagicMock
 # 添加src目录到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from src.mountain_peak_finder import MountainPeakFinder, Observatory
+from src.light_pollution_analyzer import LightPollutionAnalyzer
+from src.mountain_peak_finder import MountainPeakFinder, Location, Observatory
 
 class TestObservatoryFinder(unittest.TestCase):
     """
@@ -30,13 +31,14 @@ class TestObservatoryFinder(unittest.TestCase):
     
     def test_observatory_data_class(self):
         """
-        测试Observatory数据类
+        测试Location数据类（天文台类型）
         """
-        observatory = Observatory(
+        observatory = Location(
             name="测试天文台",
             latitude=39.9042,
             longitude=116.4074,
             elevation=100.0,
+            location_type="observatory",
             observatory_type="天文观测台",
             description="这是一个测试天文台",
             distance_to_nearest_town=5.0,
@@ -46,6 +48,23 @@ class TestObservatoryFinder(unittest.TestCase):
         
         self.assertEqual(observatory.name, "测试天文台")
         self.assertEqual(observatory.latitude, 39.9042)
+        self.assertEqual(observatory.location_type, "observatory")
+        self.assertTrue(observatory.is_observatory())
+        self.assertFalse(observatory.is_mountain_peak())
+        self.assertFalse(observatory.is_viewpoint())
+        
+        # 测试向后兼容的别名
+        observatory_alias = Observatory(
+            name="测试天文台2",
+            latitude=39.9042,
+            longitude=116.4074,
+            elevation=100.0,
+            location_type="observatory",
+            distance_to_nearest_town=5.0,
+            nearest_town_name="北京市"
+        )
+        self.assertTrue(observatory_alias.is_observatory())
+        self.assertEqual(observatory_alias.location_type, "observatory")
         self.assertEqual(observatory.longitude, 116.4074)
         self.assertEqual(observatory.elevation, 100.0)
         self.assertEqual(observatory.observatory_type, "天文观测台")
@@ -191,7 +210,7 @@ class TestObservatoryIntegration(unittest.TestCase):
         """
         测试前的设置
         """
-        self.finder = MountainPeakFinder()
+        self.finder = MountainPeakFinder(light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
     
     def test_real_observatory_search(self):
         """
