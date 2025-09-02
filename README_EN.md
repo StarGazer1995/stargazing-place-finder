@@ -15,6 +15,13 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 
 ## Technical Architecture
 
+### Core Data Model
+
+**Unified Location Class**: The project uses a unified Location data class to represent all types of geographic locations, including mountain peaks, observatories, and viewpoints. This design provides:
+- 🔄 **Backward Compatibility**: Maintains Peak, Observatory, Viewpoint aliases to ensure existing code continues to work
+- 🎯 **Type Safety**: Ensures data consistency through location_type field and type checking methods
+- 🚀 **Extensibility**: Easy to add new location types without modifying core architecture
+
 ### Data Sources
 
 1. **Chinese Map Data**: Provides basic geographic information and administrative divisions
@@ -38,6 +45,7 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 - **Data Source**: NASA Light Pollution Map
 - **Visualization**: Heat map display
 - **Geographic Data**: Chinese map data
+- **Data Model**: Unified Location class architecture supporting multiple location types (peaks, observatories, viewpoints)
 
 ## Legal Notice
 
@@ -57,6 +65,8 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 - ✅ Light pollution data analysis functionality
 - ✅ Road connectivity detection functionality
 - ✅ Comprehensive scoring and ranking system
+- ✅ Unified Location data model (supporting peaks, observatories, viewpoints)
+- ✅ Backward-compatible type alias system
 - ✅ Complete test coverage
 - ✅ Detailed usage documentation
 
