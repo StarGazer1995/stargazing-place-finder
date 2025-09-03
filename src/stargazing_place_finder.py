@@ -11,10 +11,15 @@ import math
 from dataclasses import dataclass
 import time
 import random
+import hashlib
+import pickle
+from pathlib import Path
 try:
     from src.light_pollution_analyzer import LightPollutionAnalyzer
+    from src.cache_config import get_cache_dir
 except ImportError:
     from light_pollution_analyzer import LightPollutionAnalyzer
+    from cache_config import get_cache_dir
 
 @dataclass
 class Location:
@@ -54,22 +59,263 @@ Peak = Location
 Observatory = Location
 Viewpoint = Location
 
+class LocationCache:
+    """
+    地点查找结果缓存管理类
+    用于缓存_find_locations_in_area方法的结果，减少重复计算
+    """
+    
+    def __init__(self, cache_expiry_hours: int = 24):
+        """
+        初始化缓存管理器
+        
+        Args:
+            cache_expiry_hours: 缓存过期时间（小时）
+        """
+        self.cache_dir = Path(get_cache_dir('default')) / 'location_results'
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.expiry_hours = cache_expiry_hours * 3600
+        self.cache_mem_data = {}
+    
+    def _generate_cache_key(self, location_type: str) -> str:
+        """
+        生成缓存键
+        
+        Args:
+            location_type: 地点类型
+            
+        Returns:
+            缓存键字符串
+        """
+        # 只使用地点类型生成缓存键
+        return hashlib.md5(location_type.encode('utf-8')).hexdigest()
+    
+    def _get_cache_file_path(self, cache_key: str) -> Path:
+        """
+        获取缓存文件路径
+        
+        Args:
+            cache_key: 缓存键
+            
+        Returns:
+            缓存文件路径
+        """
+        return self.cache_dir / f"{cache_key}.pkl"
+    
+    def _is_cache_valid(self, cache_file: Path) -> bool:
+        """
+        检查缓存是否有效（未过期）
+        
+        Args:
+            cache_file: 缓存文件路径
+            
+        Returns:
+            缓存是否有效
+        """
+        if not cache_file.exists():
+            return False
+        
+        # 检查文件修改时间
+        file_mtime = cache_file.stat().st_mtime
+        current_time = time.time()
+        
+        return (current_time - file_mtime) < self.expiry_hours
+    
+    def get_cached_result(self, location_type: str) -> Optional[List[Location]]:
+        """
+        从缓存中获取查询结果
+        
+        Args:
+            location_type: 地点类型
+            
+        Returns:
+            缓存的查询结果，如果没有有效缓存则返回None
+        """
+        if location_type in self.cache_mem_data:
+            return self.cache_mem_data[location_type]
+        
+        cache_key = self._generate_cache_key(location_type)
+        cache_file = self._get_cache_file_path(cache_key)
+        
+        if self._is_cache_valid(cache_file):
+            try:
+                with open(cache_file, 'rb') as f:
+                    cached_data = pickle.load(f)
+                    print(f"✅ 从缓存加载数据: {len(cached_data)} 条记录")
+                    return cached_data
+            except Exception as e:
+                print(f"⚠️ 读取缓存文件失败: {e}")
+                # 删除损坏的缓存文件
+                try:
+                    cache_file.unlink()
+                except:
+                    pass
+        
+        return None
+    
+    def save_to_cache(self, location_type: str, data: List[Location]):
+        """
+        将查询结果保存到缓存
+        
+        Args:
+            location_type: 地点类型
+            data: 查询结果数据
+        """
+        
+        cache_key = self._generate_cache_key(location_type)
+        cache_file = self._get_cache_file_path(cache_key)
+        cached_data = self.get_cached_result(location_type)
+        if cached_data is None:
+            cached_data = data
+        else:
+            for item in data:
+                if item not in cached_data:
+                    cached_data.append(item)
+        self.cache_mem_data[location_type] = cached_data
+        try:
+            with open(cache_file, 'wb') as f:
+                pickle.dump(cached_data, f)
+            print(f"💾 查询结果已缓存: {len(data)} 条记录")
+        except Exception as e:
+            print(f"⚠️ 保存缓存失败: {e}")
+    
+    def check_data_in_cache(self, location_type: str, data: List[Location]) -> bool:
+        """
+        检查数据是否已经在缓存中
+        
+        Args:
+            location_type: 地点类型
+            data: 要检查的数据
+            
+        Returns:
+            是否已经在缓存中
+        """
+        cached_data = self.get_cached_result(location_type)
+        if cached_data is None:
+            return False
+        
+        # 检查数据是否在缓存中
+        for item in data:
+            if item in cached_data:
+                return True
+        return False
+    
+    def clear_cache(self):
+        """
+        清除所有缓存文件
+        """
+        try:
+            import shutil
+            if self.cache_dir.exists():
+                shutil.rmtree(self.cache_dir)
+                self.cache_dir.mkdir(exist_ok=True)
+                print("🧹 Overpass查询缓存已清除")
+        except Exception as e:
+            print(f"⚠️ 清除缓存失败: {e}")
+    
+    def get_location_by_coordinates(self, cache_data: List[Location], latitude: float, longitude: float, tolerance: float = 0.001) -> Optional[Location]:
+        """
+        根据地点类型和经纬度坐标从缓存中查找特定地点
+        
+        Args:
+            cache_data: 缓存数据
+            latitude: 纬度
+            longitude: 经度
+            tolerance: 坐标匹配容差，默认0.001度（约100米）
+            
+        Returns:
+            匹配的地点对象，如果未找到则返回None
+        """
+        for location in cache_data:
+            if abs(location.latitude - latitude) <= tolerance and abs(location.longitude - longitude) <= tolerance:
+                return location
+        return None
+
+    
+    def get_locations_in_radius(self, location_type: str, center_latitude: float, center_longitude: float, radius_km: float) -> List[Location]:
+        """
+        根据地点类型和中心坐标从缓存中查找指定半径范围内的所有地点
+        
+        Args:
+            location_type: 地点类型 ("mountain_peak", "observatory", "viewpoint")
+            center_latitude: 中心点纬度
+            center_longitude: 中心点经度
+            radius_km: 搜索半径（公里）
+            
+        Returns:
+            半径范围内的地点列表
+        """
+        # 首先从缓存获取该类型的所有地点
+        cached_locations = self.get_cached_result(location_type)
+        
+        if not cached_locations:
+            print(f"⚠️ 缓存中没有找到类型为 '{location_type}' 的地点数据")
+            return []
+        
+        # 计算距离并筛选在半径范围内的地点
+        locations_in_radius = []
+        
+        for location in cached_locations:
+            # 使用简化的距离计算公式（适用于小范围）
+            lat_diff = location.latitude - center_latitude
+            lon_diff = location.longitude - center_longitude
+            
+            # 将经纬度差转换为大致的公里数（1度约等于111公里）
+            distance_km = math.sqrt((lat_diff * 111) ** 2 + (lon_diff * 111 * math.cos(math.radians(center_latitude))) ** 2)
+            
+            if distance_km <= radius_km:
+                locations_in_radius.append(location)
+        
+        print(f"✅ 在缓存中找到 {len(locations_in_radius)} 个 '{location_type}' 类型地点在半径 {radius_km}km 范围内")
+        return sorted(locations_in_radius, key=lambda loc: 
+                     math.sqrt((loc.latitude - center_latitude) ** 2 + (loc.longitude - center_longitude) ** 2))
+    
+    def get_cache_info(self) -> Dict:
+        """
+        获取缓存信息
+        
+        Returns:
+            缓存信息字典
+        """
+        cache_files = list(self.cache_dir.glob('*.pkl'))
+        total_size = sum(f.stat().st_size for f in cache_files)
+        
+        def format_size(size_bytes: int) -> str:
+            """格式化文件大小"""
+            for unit in ['B', 'KB', 'MB', 'GB']:
+                if size_bytes < 1024.0:
+                    return f"{size_bytes:.1f} {unit}"
+                size_bytes /= 1024.0
+            return f"{size_bytes:.1f} TB"
+        
+        return {
+            'cache_dir': str(self.cache_dir),
+            'file_count': len(cache_files),
+            'total_size': format_size(total_size),
+            'expiry_hours': self.expiry_hours / 3600
+        }
+
 class StarGazingPlaceFinder:
     """
     山峰查找器类
     用于查找指定范围内符合条件的山峰
     """
     
-    def __init__(self, min_height_difference: float = 100.0, light_pollution_analyzer: Optional[LightPollutionAnalyzer] = None):
+    def __init__(self, min_height_difference: float = 100.0, light_pollution_analyzer: Optional[LightPollutionAnalyzer] = None, enable_cache: bool = True, cache_expiry_hours: int = 24*365):
         """
         初始化山峰查找器
         
         Args:
             min_height_difference: 与周围城镇的最小高度差（米），默认100米
+            light_pollution_analyzer: 光污染分析器实例
+            enable_cache: 是否启用缓存，默认True
+            cache_expiry_hours: 缓存过期时间（小时），默认24小时
         """
         self.min_height_difference = min_height_difference
         self.overpass_url = "https://overpass-api.de/api/interpreter"
         self.light_pollution_analyzer = light_pollution_analyzer
+        self.enable_cache = enable_cache
+        self.cache = LocationCache(cache_expiry_hours) if enable_cache else None
         
     def calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """
@@ -144,14 +390,7 @@ class StarGazingPlaceFinder:
         out center geom;
         """
         
-        try:
-            response = requests.post(self.overpass_url, data=query, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            return data.get('elements', [])
-        except Exception as e:
-            print(f"获取城镇数据时出错: {e}")
-            return []
+        return self._make_overpass_request(query, "城镇")
     
     def get_observatories_from_overpass(self, bbox: Tuple[float, float, float, float]) -> List[Dict]:
         """
@@ -407,6 +646,28 @@ class StarGazingPlaceFinder:
         print(f"排序后的地点: {sorted_places[:3]}")
         return sorted_places
     
+    def clear_cache(self):
+        """
+        清除Overpass查询缓存
+        """
+        if self.cache:
+            self.cache.clear_cache()
+        else:
+            print("⚠️ 缓存功能未启用")
+    
+    def get_cache_info(self) -> Optional[Dict]:
+        """
+        获取缓存信息
+        
+        Returns:
+            缓存信息字典，如果缓存未启用则返回None
+        """
+        if self.cache:
+            return self.cache.get_cache_info()
+        else:
+            print("⚠️ 缓存功能未启用")
+            return None
+    
     def _extract_coordinates(self, data: Dict) -> Tuple[Optional[float], Optional[float]]:
         """
         从地点数据中提取坐标
@@ -453,6 +714,20 @@ class StarGazingPlaceFinder:
         locations_data = data_getter_func(bbox)
         locations_data = self._sort_places_by_lightpollution(locations_data)
         print(f"找到 {len(locations_data)} 个{location_type}")
+
+        res = []
+        if self.cache is not None:
+            cached_data = self.cache.get_cached_result(location_type)
+            for location in locations_data:
+                lat, lon = self._extract_coordinates(location)
+                if (lat is not None) and (lon is not None) and (cached_data is not None):
+                    cache = self.cache.get_location_by_coordinates(cache_data=cached_data, latitude=lat, longitude=lon)
+                    if cache is not None:
+                        res.append(cache)
+
+        print(f"Retrive {len(res)} {location_type} data from cache")
+        if len(res) >= max_locations:
+            return res[:max_locations]
         
         # 获取城镇数据
         print("正在获取城镇数据...")
@@ -464,10 +739,11 @@ class StarGazingPlaceFinder:
             return []
         
         locations = []
-        
-        for i, location_data in enumerate(locations_data[:max_locations]):
+        locations_data = locations_data[len(res):]
+        remaining_locations = max_locations - len(res)
+        for i, location_data in enumerate(locations_data[:remaining_locations]):
             if i % 5 == 0:
-                print(f"处理进度: {i+1}/{min(len(locations_data), max_locations)}")
+                print(f"处理进度: {i+1}/{min(len(locations_data), remaining_locations)}")
             
             # 提取坐标
             lat, lon = self._extract_coordinates(location_data)
@@ -517,10 +793,15 @@ class StarGazingPlaceFinder:
             )
             
             if location:
-                locations.append(location)
+                res.append(location)
         
         print(f"\n总共找到 {len(locations)} 个{location_type}")
-        return locations
+        
+        # 保存结果到缓存
+        if self.cache:
+            self.cache.save_to_cache(location_type, res)
+            
+        return res
     
     def _process_peak_data(self, name: str, lat: float, lon: float, elevation: float, 
                           tags: Dict, nearest_town: str, distance_to_town: float, 

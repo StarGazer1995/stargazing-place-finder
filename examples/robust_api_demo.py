@@ -14,7 +14,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.mountain_peak_finder import StarGazingPlaceFinder
+from src.stargazing_place_finder import StarGazingPlaceFinder
 import time
 
 def demo_robust_api_calls():

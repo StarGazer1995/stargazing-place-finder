@@ -252,7 +252,7 @@ analyzer = StargazingLocationAnalyzer(
 
 ```python
 # 结合山峰查找器
-from src.mountain_peak_finder import StarGazingPlaceFinder
+from src.stargazing_place_finder import StarGazingPlaceFinder
 from src.stargazing_location_analyzer import StargazingLocationAnalyzer
 
 # 先用山峰查找器获取候选地点

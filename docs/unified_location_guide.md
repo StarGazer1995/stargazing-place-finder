@@ -98,7 +98,7 @@ Viewpoint = Location
 #### 1. 创建山峰
 
 ```python
-from src.mountain_peak_finder import Location
+from src.stargazing_place_finder import Location
 
 # 方法1：直接使用Location类
 mount_everest = Location(
@@ -115,7 +115,7 @@ mount_everest = Location(
 )
 
 # 方法2：使用类型别名（向后兼容）
-from src.mountain_peak_finder import Peak
+from src.stargazing_place_finder import Peak
 
 mount_tai = Peak(
     name="泰山",
@@ -133,7 +133,7 @@ mount_tai = Peak(
 #### 2. 创建天文台
 
 ```python
-from src.mountain_peak_finder import Observatory
+from src.stargazing_place_finder import Observatory
 
 mauna_kea = Observatory(
     name="毛纳基天文台",
@@ -151,7 +151,7 @@ mauna_kea = Observatory(
 #### 3. 创建观景台
 
 ```python
-from src.mountain_peak_finder import Viewpoint
+from src.stargazing_place_finder import Viewpoint
 
 huangshan_viewpoint = Viewpoint(
     name="黄山光明顶",
@@ -211,7 +211,7 @@ for location in locations:
 ### StarGazingPlaceFinder
 
 ```python
-from src.mountain_peak_finder import StarGazingPlaceFinder
+from src.stargazing_place_finder import StarGazingPlaceFinder
 
 finder = StarGazingPlaceFinder(min_height_difference=150.0)
 bbox = (39.8, 115.8, 40.8, 117.2)
@@ -359,11 +359,11 @@ Location.is_lighthouse = is_lighthouse
 
 ```python
 # 旧代码（仍然有效）
-from src.mountain_peak_finder import Peak
+from src.stargazing_place_finder import Peak
 peak = Peak(name="test", latitude=0, longitude=0, elevation=1000, ...)
 
 # 新代码（推荐）
-from src.mountain_peak_finder import Location
+from src.stargazing_place_finder import Location
 peak = Location(
     name="test", 
     latitude=0, 

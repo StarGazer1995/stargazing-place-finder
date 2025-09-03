@@ -29,7 +29,7 @@
 ### 1. 基本使用
 
 ```python
-from src.mountain_peak_finder import StarGazingPlaceFinder
+from src.stargazing_place_finder import StarGazingPlaceFinder
 from src.light_pollution_analyzer import LightPollutionAnalyzer
 
 # 初始化光污染分析器
@@ -289,5 +289,5 @@ python examples/light_pollution_demo.py
 ## 相关文档
 
 - [统一Location类指南](unified_location_guide.md)
-- [系统设计文档](mountain_peak_finder_system_design.md)
-- [API使用指南](mountain_peak_finder_guide.md)
+- [系统设计文档](stargazing_place_finder_system_design.md)
+- [API使用指南](stargazing_place_finder_guide.md)

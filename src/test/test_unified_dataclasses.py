@@ -9,7 +9,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mountain_peak_finder import Location, Peak, Observatory, Viewpoint
+from stargazing_place_finder import Location, Peak, Observatory, Viewpoint
 
 def test_unified_location_class():
     """测试统一的Location类"""

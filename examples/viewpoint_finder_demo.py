@@ -3,7 +3,7 @@
 """
 观景台查找器演示脚本
 
-这个脚本演示如何使用mountain_peak_finder模块中的观景台查找功能。
+这个脚本演示如何使用stargazing_place_finder模块中的观景台查找功能。
 它会在指定区域内搜索观景台，并显示详细信息。
 """
 
@@ -13,7 +13,7 @@ import os
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from mountain_peak_finder import find_viewpoints, StarGazingPlaceFinder, Location
+from stargazing_place_finder import find_viewpoints, StarGazingPlaceFinder, Location
 
 def main():
     """

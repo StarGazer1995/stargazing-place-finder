@@ -16,11 +16,11 @@ from datetime import datetime
 
 # 导入相关模块
 try:
-    from .mountain_peak_finder import StarGazingPlaceFinder, Peak
+    from .stargazing_place_finder import StarGazingPlaceFinder, Peak
     from .light_pollution_analyzer import LightPollutionAnalyzer
     from .road_connectivity_checker import RoadConnectivityChecker
 except ImportError:
-    from mountain_peak_finder import StarGazingPlaceFinder, Peak
+    from stargazing_place_finder import StarGazingPlaceFinder, Peak
     from light_pollution_analyzer import LightPollutionAnalyzer
     from road_connectivity_checker import RoadConnectivityChecker
 
