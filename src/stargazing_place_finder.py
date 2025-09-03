@@ -226,6 +226,8 @@ class LocationCache:
         Returns:
             匹配的地点对象，如果未找到则返回None
         """
+        if cache_data is None:
+            return None
         for location in cache_data:
             if abs(location.latitude - latitude) <= tolerance and abs(location.longitude - longitude) <= tolerance:
                 return location
