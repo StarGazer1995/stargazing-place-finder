@@ -9,7 +9,7 @@ import os
 # 添加src目录到路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from mountain_peak_finder import StarGazingPlaceFinder, find_peaks_with_height_difference
+from stargazing_place_finder import StarGazingPlaceFinder, find_peaks_with_height_difference
 import time
 
 def test_distance_calculation():

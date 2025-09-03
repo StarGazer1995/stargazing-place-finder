@@ -12,7 +12,7 @@ import os
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from mountain_peak_finder import Peak, Observatory, Viewpoint
+from stargazing_place_finder import Peak, Observatory, Viewpoint
 
 def test_unified_dataclasses():
     """

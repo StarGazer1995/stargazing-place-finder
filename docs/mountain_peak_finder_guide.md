@@ -33,7 +33,7 @@
 项目现在使用统一的Location类来表示所有类型的地理位置：
 
 ```python
-from src.mountain_peak_finder import Location, Peak, Observatory, Viewpoint
+from src.stargazing_place_finder import Location, Peak, Observatory, Viewpoint
 
 # 直接使用Location类创建山峰
 mountain = Location(
@@ -71,7 +71,7 @@ print(peak.is_observatory())        # False
 ### 基本使用
 
 ```python
-from src.mountain_peak_finder import find_peaks_with_height_difference
+from src.stargazing_place_finder import find_peaks_with_height_difference
 
 # 搜索北京周边与城镇有100米以上高度差的山峰
 peaks = find_peaks_with_height_difference(
@@ -93,7 +93,7 @@ for peak in peaks:
 ### 详细使用
 
 ```python
-from src.mountain_peak_finder import StarGazingPlaceFinder, Location
+from src.stargazing_place_finder import StarGazingPlaceFinder, Location
 
 # 创建查找器实例
 finder = StarGazingPlaceFinder(min_height_difference=150.0)
@@ -317,7 +317,7 @@ for region in regions:
 # 结合光污染分析和道路连通性检测
 from src.light_pollution_analyzer import LightPollutionAnalyzer
 from src.simple_road_checker import quick_road_check
-from src.mountain_peak_finder import StarGazingPlaceFinder
+from src.stargazing_place_finder import StarGazingPlaceFinder
 
 def find_optimal_stargazing_peaks(bbox, min_height_diff=150.0):
     """

@@ -9,7 +9,7 @@ import os
 # 添加src目录到路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from mountain_peak_finder import StarGazingPlaceFinder
+from stargazing_place_finder import StarGazingPlaceFinder
 from light_pollution_analyzer import LightPollutionAnalyzer
 import unittest
 from unittest.mock import Mock, patch

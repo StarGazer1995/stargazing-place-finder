@@ -15,7 +15,7 @@ from unittest.mock import patch, MagicMock
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from src.light_pollution_analyzer import LightPollutionAnalyzer
-from src.mountain_peak_finder import StarGazingPlaceFinder, Location, Observatory
+from src.stargazing_place_finder import StarGazingPlaceFinder, Location, Observatory
 
 class TestObservatoryFinder(unittest.TestCase):
     """
@@ -73,7 +73,7 @@ class TestObservatoryFinder(unittest.TestCase):
         self.assertEqual(observatory.nearest_town_name, "北京市")
         self.assertEqual(observatory.light_pollution_level, "中等")
     
-    @patch('src.mountain_peak_finder.requests.post')
+    @patch('src.stargazing_place_finder.requests.post')
     def test_get_observatories_from_overpass(self, mock_post):
         """
         测试从Overpass API获取天文台数据
@@ -109,9 +109,9 @@ class TestObservatoryFinder(unittest.TestCase):
         # 验证API调用
         mock_post.assert_called_once()
     
-    @patch('src.mountain_peak_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
-    @patch('src.mountain_peak_finder.StarGazingPlaceFinder.get_towns_from_overpass')
-    @patch('src.mountain_peak_finder.StarGazingPlaceFinder.get_elevation_from_api')
+    @patch('src.stargazing_place_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
+    @patch('src.stargazing_place_finder.StarGazingPlaceFinder.get_towns_from_overpass')
+    @patch('src.stargazing_place_finder.StarGazingPlaceFinder.get_elevation_from_api')
     def test_find_observatories_in_area(self, mock_elevation, mock_towns, mock_observatories):
         """
         测试在指定区域查找天文台
@@ -161,7 +161,7 @@ class TestObservatoryFinder(unittest.TestCase):
         # 验证至少调用了天文台的海拔查询
         mock_elevation.assert_any_call(39.9042, 116.4074)
     
-    @patch('src.mountain_peak_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
+    @patch('src.stargazing_place_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
     def test_find_observatories_empty_result(self, mock_observatories):
         """
         测试当没有找到天文台时的情况

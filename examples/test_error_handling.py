@@ -11,7 +11,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.mountain_peak_finder import StarGazingPlaceFinder
+from src.stargazing_place_finder import StarGazingPlaceFinder
 from src.light_pollution_analyzer import LightPollutionAnalyzer
 
 def test_error_handling():

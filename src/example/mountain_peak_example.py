@@ -10,7 +10,7 @@ import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
-from mountain_peak_finder import StarGazingPlaceFinder, find_peaks_with_height_difference
+from stargazing_place_finder import StarGazingPlaceFinder, find_peaks_with_height_difference
 import json
 
 def example_beijing_area():

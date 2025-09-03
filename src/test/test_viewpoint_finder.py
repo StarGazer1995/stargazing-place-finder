@@ -3,7 +3,7 @@
 """
 观景台查找功能测试
 
-测试mountain_peak_finder模块中的观景台查找相关功能。
+测试stargazing_place_finder模块中的观景台查找相关功能。
 """
 
 import sys
@@ -14,7 +14,7 @@ from unittest.mock import patch, MagicMock
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from mountain_peak_finder import StarGazingPlaceFinder, Location, Viewpoint, find_viewpoints
+from stargazing_place_finder import StarGazingPlaceFinder, Location, Viewpoint, find_viewpoints
 
 class TestViewpointFinder(unittest.TestCase):
     """
