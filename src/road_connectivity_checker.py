@@ -5,20 +5,118 @@
 用于检测指定坐标点是否有道路可以到达
 """
 
+import os
+import pickle
 import osmnx as ox
 import networkx as nx
 from typing import Tuple, Optional
+from typing import List, Dict, Tuple, Optional
 import logging
 from geopy.distance import geodesic
+from dataclasses import dataclass
 try:
     from .cache_config import get_cache_dir, setup_osmnx_cache
+    from .stargazing_place_finder import LocationCache, Location
 except ImportError:
     from cache_config import get_cache_dir, setup_osmnx_cache
+    from stargazing_place_finder import LocationCache, Location
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+@dataclass
+class RoadAccessInfo:
+    """道路连通性信息"""
+    latitude: float = 0.0
+    longitude: float = 0.0
+    is_road_accessible: bool = False #  是否有到最近道路的路径
+    network_nodes_count: int = 0 # 最近道路网络节点数量
+    nearest_road_type: Optional[str] = None # 最近道路类型
+    distance_to_road_km: Optional[float] = None # 到最近道路的距离（公里）
+    error: Optional[str] = None # 错误信息
+
+class RoadAccessInfoCache(LocationCache):
+    def __init__(self,  cache_expiry_hours: int = 24):
+        super().__init__(cache_expiry_hours)
+
+    def save_road_access_info_to_cache(self, location_type: str, data: List[RoadAccessInfo]):
+        """
+        将查询结果保存到缓存
+        
+        Args:
+            location_type: 地点类型
+            data: 查询结果数据
+        """
+        cache_key = self._generate_cache_key(location_type)
+        cache_file = self._get_cache_file_path(cache_key)
+        cached_data = self.get_cached_result(location_type)
+        if cached_data is None or not isinstance(cached_data, list):
+            cached_data = data
+        else:
+            for item in data:
+                if item not in cached_data:
+                    cached_data.append(item)
+        self.cache_mem_data[location_type] = cached_data
+        try:
+            with open(cache_file, 'wb') as f:
+                pickle.dump(cached_data, f)
+            logger.info(f"💾 查询结果已缓存: {len(data)} 条记录")
+        except Exception as e:
+            logger.error(f"⚠️ 保存缓存失败: {e}")
+
+    def get_cached_result(self, location_type: str) -> Optional[List[RoadAccessInfo]]:
+        """
+        从缓存中获取查询结果
+        
+        Args:
+            location_type: 地点类型
+            
+        Returns:
+            缓存的查询结果，如果没有有效缓存则返回None
+        """
+        if location_type in self.cache_mem_data:
+            return self.cache_mem_data[location_type]
+        
+        cache_key = self._generate_cache_key(location_type)
+        cache_file = self._get_cache_file_path(cache_key)
+        
+        if self._is_cache_valid(cache_file):
+            try:
+                with open(cache_file, 'rb') as f:
+                    cached_data = pickle.load(f)
+                    logger.info(f"✅ 从缓存加载数据: {len(cached_data)} 条记录")
+                    return cached_data
+            except Exception as e:
+                logger.error(f"⚠️ 读取缓存文件失败: {e}")
+                # 删除损坏的缓存文件
+                try:
+                    cache_file.unlink()
+                except:
+                    pass
+        
+        return None
+    
+    def get_location_by_coordinates(self, cache_data: List[RoadAccessInfo], latitude: float, longitude: float, tolerance: float = 0.001) -> Optional[RoadAccessInfo]:
+        """
+        根据地点类型和经纬度坐标从缓存中查找特定地点
+        
+        Args:
+            cache_data: 缓存数据
+            latitude: 纬度
+            longitude: 经度
+            tolerance: 坐标匹配容差，默认0.001度（约100米）
+            
+        Returns:
+            匹配的地点对象，如果未找到则返回None
+        """
+        if cache_data is None:
+            return None
+        for location in cache_data:
+            if abs(location.latitude - latitude) <= tolerance and abs(location.longitude - longitude) <= tolerance:
+                return location
+        return None
 class RoadConnectivityChecker:
     """
     道路连通性检测器
@@ -40,6 +138,7 @@ class RoadConnectivityChecker:
         
         # 设置道路网络缓存目录
         self._road_cache_dir = get_cache_dir('road_networks')
+        self.location_cache = RoadAccessInfoCache()
     
     def is_road_accessible(self, lat: float, lon: float, 
                           network_type: str = 'drive') -> bool:
@@ -54,20 +153,34 @@ class RoadConnectivityChecker:
         Returns:
             bool: True表示可达，False表示不可达
         """
+        def process_and_return(res):
+            # 不再使用Location对象保存道路连通性信息，因为RoadAccessInfo更适合
+            road_info = RoadAccessInfo(latitude=lat, longitude=lon, is_road_accessible=res)
+            self.location_cache.save_road_access_info_to_cache(f"accessible_{network_type}", [road_info])
+            return res
         try:
             # 尝试获取该点周围的道路网络
+            cached_results = self.location_cache.get_cached_result(f"accessible_{network_type}")
+            if cached_results is not None:
+                logger.info("Read road accessible from cache")
+                cache = self.location_cache.get_location_by_coordinates(cached_results, lat, lon)
+                if cache is not None:
+                    return cache.is_road_accessible
+
+
+            logger.info("Not found in cache, try to download")
             graph = self._get_road_network(lat, lon, network_type)
             
             if graph is None or len(graph.nodes()) == 0:
                 logger.warning(f"坐标 ({lat}, {lon}) 周围没有找到道路网络")
-                return False
+                return process_and_return(False)
             
             # 查找最近的道路节点
             nearest_node = ox.distance.nearest_nodes(graph, lon, lat)
             
             if nearest_node is None:
                 logger.warning(f"坐标 ({lat}, {lon}) 附近没有找到道路节点")
-                return False
+                return process_and_return(False)
             
             # 检查最近节点的距离
             node_data = graph.nodes[nearest_node]
@@ -78,10 +191,11 @@ class RoadConnectivityChecker:
             max_distance_km = min(self.search_radius_km / 2, 5.0)  # 最大距离不超过5公里
             if distance_km > max_distance_km:
                 logger.info(f"坐标 ({lat}, {lon}) 距离最近道路 {distance_km:.2f}km，超过阈值 {max_distance_km}km")
-                return False
+                return process_and_return(False)
             
             logger.info(f"坐标 ({lat}, {lon}) 可达，距离最近道路 {distance_km:.2f}km")
-            return True
+            self.location_cache.save_to_cache(network_type, True)
+            return process_and_return(True)
             
         except Exception as e:
             logger.error(f"检测坐标 ({lat}, {lon}) 可达性时出错: {str(e)}")
@@ -174,6 +288,19 @@ class RoadConnectivityChecker:
         }
         
         try:
+            cached_res = self.location_cache.get_cached_result(f"access_info_{network_type}")
+            cache = self.location_cache.get_location_by_coordinates(cached_res, lat, lon)
+            if cache is not None:
+                result['accessible'] = cache.is_road_accessible
+                result['distance_to_road_km'] = cache.distance_to_road_km
+                result['nearest_road_type'] = cache.nearest_road_type
+                result['network_nodes_count'] = cache.network_nodes_count
+                result['error'] = cache.error
+                print("Read road accessible info from cache")
+                return result
+            else:
+                print("No road accessible info in cache")
+            
             graph = self._get_road_network(lat, lon, network_type)
             
             if graph is None or len(graph.nodes()) == 0:
@@ -198,6 +325,16 @@ class RoadConnectivityChecker:
                 if edges:
                     edge_data = list(edges)[0][2]
                     result['nearest_road_type'] = edge_data.get('highway', 'unknown')
+                    result['error'] = None
+
+            cache = RoadAccessInfo(is_road_accessible=result['accessible'], 
+                                   distance_to_road_km=result['distance_to_road_km'],
+                     nearest_road_type=result['nearest_road_type'],
+                     network_nodes_count=result['network_nodes_count'],
+                     error=result['error'],
+                     latitude=lat,
+                     longitude=lon)
+            self.location_cache.save_road_access_info_to_cache(f"access_info_{network_type}", [cache])
             
         except Exception as e:
             result['error'] = str(e)
