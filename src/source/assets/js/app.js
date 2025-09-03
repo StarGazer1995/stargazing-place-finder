@@ -23,7 +23,8 @@ const API_CONFIG = {
     endpoints: {
         analyze: '/api/analyze_stargazing_area',
         health: '/api/health',
-        lightPollution: '/api/light_pollution_images'
+        lightPollution: '/api/light_pollution_images',
+        coordinateAnalysis: '/api/coordinate_analysis'
     }
 };
 
@@ -1044,24 +1045,120 @@ function updateExistingLayerSizes(zoom) {
  * 地图点击事件处理
  * @param {Object} e - 点击事件对象
  */
-function onMapClick(e) {
+async function onMapClick(e) {
     const lat = e.latlng.lat;
     const lng = e.latlng.lng;
     
-    // 获取最近的光污染数据点
-    const nearestData = getNearestLightPollutionData(lat, lng);
+    // 显示加载中的弹窗
+    const loadingPopup = L.popup()
+        .setLatLng(e.latlng)
+        .setContent('<div style="text-align: center;">🔍 正在分析坐标点...</div>')
+        .openOn(map);
     
-    if (nearestData) {
-        const popupContent = createPopupContent(lat, lng, nearestData.bortleClass);
+    try {
+        // 调用坐标分析API获取真实数据
+        const analysisResult = await analyzeCoordinate(lat, lng);
         
-        L.popup()
-            .setLatLng(e.latlng)
-            .setContent(popupContent)
-            .openOn(map);
+        if (analysisResult && analysisResult.success) {
+            const bortleClass = analysisResult.data.light_pollution.bortle_class;
+            const popupContent = createDetailedPopupContent(lat, lng, analysisResult.data);
+            
+            // 更新弹窗内容
+            loadingPopup.setContent(popupContent);
+            
+            // 更新信息面板
+            updateInfoPanel(lat, lng, bortleClass);
+        } else {
+            // API调用失败，使用本地数据作为备选
+            console.warn('API调用失败，使用本地数据:', analysisResult?.error);
+            const nearestData = getNearestLightPollutionData(lat, lng);
+            
+            if (nearestData) {
+                const popupContent = createPopupContent(lat, lng, nearestData.bortleClass);
+                loadingPopup.setContent(popupContent);
+                updateInfoPanel(lat, lng, nearestData.bortleClass);
+            } else {
+                loadingPopup.setContent('<div style="color: red;">❌ 无法获取该位置的光污染数据</div>');
+            }
+        }
+    } catch (error) {
+        console.error('坐标分析失败:', error);
         
-        // 更新信息面板
-        updateInfoPanel(lat, lng, nearestData.bortleClass);
+        // 出错时使用本地数据作为备选
+        const nearestData = getNearestLightPollutionData(lat, lng);
+        
+        if (nearestData) {
+            const popupContent = createPopupContent(lat, lng, nearestData.bortleClass);
+            loadingPopup.setContent(popupContent);
+            updateInfoPanel(lat, lng, nearestData.bortleClass);
+        } else {
+            loadingPopup.setContent('<div style="color: red;">❌ 网络错误，无法获取光污染数据</div>');
+        }
     }
+}
+
+/**
+ * 调用坐标分析API
+ * @param {number} lat - 纬度
+ * @param {number} lng - 经度
+ * @returns {Promise<Object>} API响应结果
+ */
+async function analyzeCoordinate(lat, lng) {
+    try {
+        const response = await fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoints.coordinateAnalysis}?lat=${lat}&lng=${lng}`);
+        
+        if (!response.ok) {
+            throw new Error(`API请求失败: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('坐标分析结果:', result);
+        return result;
+    } catch (error) {
+        console.error('坐标分析API调用失败:', error);
+        throw error;
+    }
+}
+
+/**
+ * 创建详细的弹窗内容（基于API数据）
+ * @param {number} lat - 纬度
+ * @param {number} lng - 经度
+ * @param {Object} data - API返回的分析数据
+ * @returns {string} HTML内容
+ */
+function createDetailedPopupContent(lat, lng, data) {
+    const lightPollution = data.light_pollution;
+    const bortleClass = lightPollution.bortle_class;
+    const sqmValue = lightPollution.sqm_value;
+    const intensity = lightPollution.intensity;
+    const description = lightPollution.description;
+    
+    const suitability = getSuitabilityLevel(bortleClass);
+    const tips = getText('tips')[bortleClass] || [];
+    
+    return `
+        <div class="popup-content">
+            <h4>🌟 ${getText('lightPollutionInfo')}</h4>
+            <div class="popup-section">
+                <p><strong>📍 ${getText('coordinates')}:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
+                <p><strong>🌃 ${getText('bortleClass')}:</strong> ${bortleClass} - ${description}</p>
+                <p><strong>✨ SQM值:</strong> ${sqmValue} mag/arcsec²</p>
+                <p><strong>💡 光污染强度:</strong> ${(intensity * 100).toFixed(1)}%</p>
+                <p><strong>🔭 ${getText('observationSuitability')}:</strong> 
+                    <span class="suitability-${suitability}">${getText('suitabilityLevels')[suitability]}</span>
+                </p>
+            </div>
+            ${tips.length > 0 ? `
+            <div class="popup-section">
+                <h5>💡 ${getText('observationTips')}:</h5>
+                <ul>
+                    ${tips.map(tip => `<li>${tip}</li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
+        </div>
+    `;
 }
 
 /**
