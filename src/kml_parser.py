@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 @dataclass
 class LatLonBox:
-    """表示地理边界框的数据类"""
+    """Data class representing a geographic bounding box"""
     north: float
     south: float
     east: float
@@ -15,13 +15,13 @@ class LatLonBox:
 
 @dataclass
 class Icon:
-    """表示图标的数据类"""
+    """Data class representing an icon"""
     href: str
 
 
 @dataclass
 class GroundOverlay:
-    """表示地面覆盖层的数据类"""
+    """Data class representing a ground overlay"""
     name: str
     draw_order: int
     color: str
@@ -31,13 +31,13 @@ class GroundOverlay:
 
 
 class KMLParser:
-    """KML文件解析器"""
+    """KML file parser"""
     
     def __init__(self, file_path: str):
-        """初始化解析器
+        """Initialize the parser
         
         Args:
-            file_path: KML文件路径
+            file_path: Path to the KML file
         """
         self.file_path = file_path
         self.root = None
@@ -48,29 +48,29 @@ class KMLParser:
         }
     
     def parse(self) -> List[GroundOverlay]:
-        """解析KML文件并返回GroundOverlay列表
+        """Parse KML file and return list of GroundOverlay objects
         
         Returns:
-            GroundOverlay对象列表
+            List of GroundOverlay objects
         """
         try:
             tree = ET.parse(self.file_path)
             self.root = tree.getroot()
             return self._extract_ground_overlays()
         except ET.ParseError as e:
-            raise ValueError(f"解析KML文件失败: {e}")
+            raise ValueError(f"Failed to parse KML file: {e}")
         except FileNotFoundError:
-            raise FileNotFoundError(f"找不到文件: {self.file_path}")
+            raise FileNotFoundError(f"File not found: {self.file_path}")
     
     def _extract_ground_overlays(self) -> List[GroundOverlay]:
-        """提取所有GroundOverlay元素
+        """Extract all GroundOverlay elements
         
         Returns:
-            GroundOverlay对象列表
+            List of GroundOverlay objects
         """
         ground_overlays = []
         
-        # 查找所有GroundOverlay元素
+        # Find all GroundOverlay elements
         for overlay_elem in self.root.findall('.//kml:GroundOverlay', self.namespaces):
             overlay = self._parse_ground_overlay(overlay_elem)
             if overlay:
@@ -79,22 +79,22 @@ class KMLParser:
         return ground_overlays
     
     def _parse_ground_overlay(self, overlay_elem) -> Optional[GroundOverlay]:
-        """解析单个GroundOverlay元素
+        """Parse a single GroundOverlay element
         
         Args:
-            overlay_elem: GroundOverlay XML元素
+            overlay_elem: GroundOverlay XML element
             
         Returns:
-            GroundOverlay对象或None
+            GroundOverlay object or None
         """
         try:
-            # 提取基本信息
+            # Extract basic information
             name = self._get_text(overlay_elem, 'kml:name', '')
             draw_order = int(self._get_text(overlay_elem, 'kml:drawOrder', '0'))
             color = self._get_text(overlay_elem, 'kml:color', 'ffffffff')
             description = self._get_text(overlay_elem, 'kml:Description', '')
             
-            # 提取图标信息
+            # Extract icon information
             icon_elem = overlay_elem.find('kml:Icon', self.namespaces)
             if icon_elem is None:
                 return None
@@ -102,7 +102,7 @@ class KMLParser:
             icon_href = self._get_text(icon_elem, 'kml:href', '')
             icon = Icon(href=icon_href)
             
-            # 提取地理边界框信息
+            # Extract geographic bounding box information
             lat_lon_box_elem = overlay_elem.find('kml:LatLonBox', self.namespaces)
             if lat_lon_box_elem is None:
                 return None
@@ -121,17 +121,17 @@ class KMLParser:
             )
             
         except (ValueError, AttributeError) as e:
-            print(f"解析GroundOverlay时出错: {e}")
+            print(f"Error parsing GroundOverlay: {e}")
             return None
     
     def _parse_lat_lon_box(self, lat_lon_box_elem) -> Optional[LatLonBox]:
-        """解析LatLonBox元素
+        """Parse LatLonBox element
         
         Args:
-            lat_lon_box_elem: LatLonBox XML元素
+            lat_lon_box_elem: LatLonBox XML element
             
         Returns:
-            LatLonBox对象或None
+            LatLonBox object or None
         """
         try:
             north = float(self._get_text(lat_lon_box_elem, 'kml:north', '0'))
@@ -149,28 +149,28 @@ class KMLParser:
             )
             
         except ValueError as e:
-            print(f"解析LatLonBox时出错: {e}")
+            print(f"Error parsing LatLonBox: {e}")
             return None
     
     def _get_text(self, parent_elem, xpath: str, default: str = '') -> str:
-        """安全地获取XML元素的文本内容
+        """Safely get text content from XML element
         
         Args:
-            parent_elem: 父元素
-            xpath: XPath表达式
-            default: 默认值
+            parent_elem: Parent element
+            xpath: XPath expression
+            default: Default value
             
         Returns:
-            元素文本内容或默认值
+            Element text content or default value
         """
         elem = parent_elem.find(xpath, self.namespaces)
         return elem.text if elem is not None and elem.text is not None else default
     
     def get_document_name(self) -> str:
-        """获取文档名称
+        """Get document name
         
         Returns:
-            文档名称
+            Document name
         """
         if self.root is None:
             return ''
@@ -184,14 +184,14 @@ class KMLParser:
         return ''
     
     def filter_by_name_pattern(self, overlays: List[GroundOverlay], pattern: str) -> List[GroundOverlay]:
-        """根据名称模式过滤GroundOverlay
+        """Filter GroundOverlay by name pattern
         
         Args:
-            overlays: GroundOverlay列表
-            pattern: 名称模式（支持通配符）
+            overlays: List of GroundOverlay objects
+            pattern: Name pattern (supports wildcards)
             
         Returns:
-            过滤后的GroundOverlay列表
+            Filtered list of GroundOverlay objects
         """
         import fnmatch
         return [overlay for overlay in overlays if fnmatch.fnmatch(overlay.name, pattern)]
@@ -199,48 +199,48 @@ class KMLParser:
     def filter_by_bounds(self, overlays: List[GroundOverlay], 
                         min_lat: float, max_lat: float, 
                         min_lon: float, max_lon: float) -> List[GroundOverlay]:
-        """根据地理边界过滤GroundOverlay
+        """Filter GroundOverlay by geographic bounds
         
         Args:
-            overlays: GroundOverlay列表
-            min_lat: 最小纬度
-            max_lat: 最大纬度
-            min_lon: 最小经度
-            max_lon: 最大经度
+            overlays: List of GroundOverlay objects
+            min_lat: Minimum latitude
+            max_lat: Maximum latitude
+            min_lon: Minimum longitude
+            max_lon: Maximum longitude
             
         Returns:
-            过滤后的GroundOverlay列表
+            Filtered list of GroundOverlay objects
         """
         filtered = []
         for overlay in overlays:
             box = overlay.lat_lon_box
             
-            # 检查纬度范围是否有重叠
+            # Check if latitude ranges overlap
             lat_overlap = box.south <= max_lat and box.north >= min_lat
             
             if not lat_overlap:
                 continue
             
-            # 检查经度范围是否有重叠（需要处理跨越180度经线的情况）
+            # Check if longitude ranges overlap (handle crossing 180° meridian)
             lon_overlap = False
             
-            # 查询区域是否跨越180度经线
+            # Check if query region crosses 180° meridian
             if min_lon <= max_lon:
-                # 查询区域不跨越180度经线
+                # Query region does not cross 180° meridian
                 if box.west <= box.east:
-                    # 覆盖层也不跨越180度经线
+                    # Overlay also does not cross 180° meridian
                     lon_overlap = box.west <= max_lon and box.east >= min_lon
                 else:
-                    # 覆盖层跨越180度经线
+                    # Overlay crosses 180° meridian
                     lon_overlap = (box.west <= max_lon or box.east >= min_lon)
             else:
-                # 查询区域跨越180度经线
+                # Query region crosses 180° meridian
                 if box.west <= box.east:
-                    # 覆盖层不跨越180度经线
+                    # Overlay does not cross 180° meridian
                     lon_overlap = (box.west >= min_lon or box.east <= max_lon)
                 else:
-                    # 覆盖层也跨越180度经线
-                    lon_overlap = True  # 两个都跨越180度经线，必然有重叠
+                    # Overlay also crosses 180° meridian
+                    lon_overlap = True  # Both cross 180° meridian, must overlap
             
             if lon_overlap:
                 filtered.append(overlay)
@@ -248,18 +248,18 @@ class KMLParser:
         return filtered
     
     def get_statistics(self, overlays: List[GroundOverlay]) -> Dict[str, any]:
-        """获取GroundOverlay统计信息
+        """Get GroundOverlay statistics
         
         Args:
-            overlays: GroundOverlay列表
+            overlays: List of GroundOverlay objects
             
         Returns:
-            统计信息字典
+            Statistics dictionary
         """
         if not overlays:
             return {'count': 0}
         
-        # 计算边界范围
+        # Calculate boundary ranges
         min_north = min(overlay.lat_lon_box.north for overlay in overlays)
         max_north = max(overlay.lat_lon_box.north for overlay in overlays)
         min_south = min(overlay.lat_lon_box.south for overlay in overlays)

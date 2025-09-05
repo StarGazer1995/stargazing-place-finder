@@ -40,20 +40,20 @@ def init_analyzer():
         project_root = os.path.dirname(current_dir)
         kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
         
-        print(f"正在初始化光污染分析器...")
-        print(f"KML文件路径: {kml_file}")
+        print(f"Initializing light pollution analyzer...")
+        print(f"KML file path: {kml_file}")
         
         analyzer = LightPollutionAnalyzer(kml_file)
-        print(f"✅ 光污染分析器初始化完成")
+        print(f"✅ Light pollution analyzer initialization completed")
         
         # 显示统计信息
         stats = analyzer.get_statistics()
-        print(f"覆盖层数量: {stats['count']}")
-        print(f"图像基础路径: {stats['images_base_path']}")
-        print(f"图像目录是否存在: {stats['images_directory_exists']}")
+        print(f"Overlay count: {stats['count']}")
+        print(f"Images base path: {stats['images_base_path']}")
+        print(f"Images directory exists: {stats['images_directory_exists']}")
         
     except Exception as e:
-        print(f"❌ 光污染分析器初始化失败: {e}")
+        print(f"❌ Light pollution analyzer initialization failed: {e}")
         analyzer = None
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -189,7 +189,7 @@ def get_light_pollution_data():
         west = float(request.args.get('west', 0))
         zoom = int(request.args.get('zoom', 10))
         
-        print(f"🌍 获取光污染数据: 边界=({south}, {west}) 到 ({north}, {east}), 缩放={zoom}")
+        print(f"🌍 Getting light pollution data: bounds=({south}, {west}) to ({north}, {east}), zoom={zoom}")
         
         # 根据缩放级别确定网格分辨率
         if zoom <= 8:
@@ -216,9 +216,9 @@ def get_light_pollution_data():
             scale_factor = math.sqrt(max_points / total_points)
             grid_rows = max(1, int(grid_rows * scale_factor))
             grid_cols = max(1, int(grid_cols * scale_factor))
-            print(f"⚠️ 网格点数过多，已调整为 {grid_rows}x{grid_cols} = {grid_rows * grid_cols}个点")
+            print(f"⚠️ Too many grid points, adjusted to {grid_rows}x{grid_cols} = {grid_rows * grid_cols} points")
         
-        print(f"🔢 生成网格: {grid_rows}x{grid_cols} = {grid_rows * grid_cols}个点")
+        print(f"🔢 Generating grid: {grid_rows}x{grid_cols} = {grid_rows * grid_cols} points")
         
         data = []
         point_index = 0
@@ -269,7 +269,7 @@ def get_light_pollution_data():
                         })
                         
                 except Exception as e:
-                    print(f"⚠️ 获取坐标 ({lat:.4f}, {lng:.4f}) 的数据时出错: {e}")
+                    print(f"⚠️ Error getting data for coordinates ({lat:.4f}, {lng:.4f}): {e}")
                     # 使用默认值
                     data.append({
                         'name': f'数据点 {point_index + 1}',
@@ -286,7 +286,7 @@ def get_light_pollution_data():
                 
                 point_index += 1
         
-        print(f"✅ 成功获取 {len(data)} 个光污染数据点")
+        print(f"✅ Successfully retrieved {len(data)} light pollution data points")
         
         return jsonify({
             'success': True,
@@ -305,7 +305,7 @@ def get_light_pollution_data():
         })
         
     except Exception as e:
-        print(f"❌ 获取光污染数据时出错: {e}")
+        print(f"❌ Error getting light pollution data: {e}")
         return jsonify({
             'error': str(e),
             'data': []
@@ -353,7 +353,7 @@ def get_light_pollution_images():
         if north <= south:
             return jsonify({'error': '北边界必须大于南边界'}), 400
         
-        print(f"获取光污染图片数据: 北{north}° 南{south}° 东{east}° 西{west}°")
+        print(f"Getting light pollution image data: North{north}° South{south}° East{east}° West{west}°")
         
         # 获取指定区域内的光污染图片数据
         images_data = analyzer.get_light_pollution_images_in_bounds(north, south, east, west)
@@ -370,7 +370,7 @@ def get_light_pollution_images():
             }
             processed_data.append(processed_item)
         
-        print(f"✅ 成功获取 {len(processed_data)} 个光污染图片")
+        print(f"✅ Successfully retrieved {len(processed_data)} light pollution images")
         
         return jsonify({
             'success': True,
@@ -385,7 +385,7 @@ def get_light_pollution_images():
         })
         
     except Exception as e:
-        print(f"❌ 获取光污染图片数据时出错: {e}")
+        print(f"❌ Error getting light pollution image data: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'服务器内部错误: {str(e)}'}), 500
@@ -413,7 +413,7 @@ def analyze_coordinate():
         lat = float(request.args.get('lat', 0))
         lng = float(request.args.get('lng', 0))
         
-        print(f"🎯 分析坐标点: ({lat}, {lng})")
+        print(f"🎯 Analyzing coordinate point: ({lat}, {lng})")
         
         # 使用光污染分析器获取真实数据
         pollution_info = analyzer.get_light_pollution_color(lat, lng)
@@ -451,7 +451,7 @@ def analyze_coordinate():
                 }
             }
             
-            print(f"✅ 成功分析坐标点: 波特尔等级={bortle}, SQM={sqm:.1f}")
+            print(f"✅ Successfully analyzed coordinate point: Bortle class={bortle}, SQM={sqm:.1f}")
             return jsonify(result)
         else:
             # 如果没有找到数据，返回默认值
@@ -481,7 +481,7 @@ def analyze_coordinate():
                 'warning': '该坐标点没有找到光污染数据，使用默认值'
             }
             
-            print(f"⚠️ 坐标点 ({lat}, {lng}) 没有找到数据，使用默认值")
+            print(f"⚠️ No data found for coordinate point ({lat}, {lng}), using default values")
             return jsonify(result)
             
     except ValueError as e:
@@ -492,7 +492,7 @@ def analyze_coordinate():
         }), 400
         
     except Exception as e:
-        print(f"❌ 分析坐标点时出错: {e}")
+        print(f"❌ Error analyzing coordinate point: {e}")
         return jsonify({
             'error': str(e),
             'success': False
@@ -552,7 +552,7 @@ def analyze_stargazing_area_endpoint():
             include_light_pollution = request.args.get('include_light_pollution', 'true').lower() == 'true'
             include_road_connectivity = request.args.get('include_road_connectivity', 'true').lower() == 'true'
         
-        print(f"分析观星区域: 北{north}° 南{south}° 东{east}° 西{west}°")
+        print(f"Analyzing stargazing area: North{north}° South{south}° East{east}° West{west}°")
         
         # 获取KML文件路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -598,7 +598,7 @@ def analyze_stargazing_area_endpoint():
             }
             locations_data.append(loc_dict)
         
-        print(f"✅ 成功分析 {len(locations_data)} 个观星地点")
+        print(f"✅ Successfully analyzed {len(locations_data)} stargazing locations")
         
         return jsonify({
             'success': True,
@@ -613,7 +613,7 @@ def analyze_stargazing_area_endpoint():
         })
         
     except Exception as e:
-        print(f"❌ 观星区域分析失败: {e}")
+        print(f"❌ Stargazing area analysis failed: {e}")
         return jsonify({
             'success': False,
             'error': str(e),
@@ -635,13 +635,13 @@ if __name__ == '__main__':
     init_analyzer()
     
     # 启动Flask服务器
-    print("🚀 启动光污染数据API服务器...")
-    print("📡 API端点:")
-    print("  - GET /api/light_pollution - 获取光污染数据")
-    print("  - GET /api/light_pollution_images - 获取光污染图片数据")
-    print("  - GET /api/coordinate_analysis - 分析单个坐标点")
-    print("  - GET/POST /api/analyze_stargazing_area - 分析观星区域")
-    print("  - GET /api/health - 健康检查")
-    print("🌐 服务器地址: http://localhost:5001")
+    print("🚀 Starting light pollution data API server...")
+    print("📡 API endpoints:")
+    print("  - GET /api/light_pollution - Get light pollution data")
+    print("  - GET /api/light_pollution_images - Get light pollution image data")
+    print("  - GET /api/coordinate_analysis - Analyze single coordinate point")
+    print("  - GET/POST /api/analyze_stargazing_area - Analyze stargazing area")
+    print("  - GET /api/health - Health check")
+    print("🌐 Server address: http://localhost:5001")
     
     app.run(host='0.0.0.0', port=5001, debug=True)

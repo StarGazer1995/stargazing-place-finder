@@ -155,7 +155,7 @@ def run_tests():
     """
     运行所有测试
     """
-    print("=== 观景台查找功能测试 ===")
+    print("=== Viewpoint Finder Test ===")
     
     # 创建测试套件
     test_suite = unittest.TestLoader().loadTestsFromTestCase(TestViewpointFinder)
@@ -166,9 +166,9 @@ def run_tests():
     
     # 输出测试结果
     if result.wasSuccessful():
-        print("\n✅ 所有测试通过！")
+        print("\n✅ All tests passed!")
     else:
-        print(f"\n❌ 测试失败: {len(result.failures)} 个失败, {len(result.errors)} 个错误")
+        print(f"\n❌ Test failed: {len(result.failures)} failures, {len(result.errors)} errors")
     
     return result.wasSuccessful()
 

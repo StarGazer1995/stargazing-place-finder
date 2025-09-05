@@ -6,21 +6,21 @@ except ImportError:
 
 
 class LocationFinder:
-    """地理位置查找器
+    """Geographic location finder
     
-    这个类使用KMLParser来解析KML文件，并提供根据地理坐标查找对应GroundOverlay的功能。
-    主要用于根据经纬度坐标找到包含该位置的暗光地图覆盖层。
+    This class uses KMLParser to parse KML files and provides functionality to find corresponding GroundOverlay based on geographic coordinates.
+    Mainly used to find dark sky map overlay layers that contain the specified position based on latitude and longitude coordinates.
     """
     
     def __init__(self, kml_file_path: str):
-        """初始化地理位置查找器
+        """Initialize geographic location finder
         
         Args:
-            kml_file_path: KML文件路径
+            kml_file_path: KML file path
             
         Raises:
-            FileNotFoundError: 当KML文件不存在时
-            ValueError: 当KML文件格式错误时
+            FileNotFoundError: When KML file does not exist
+            ValueError: When KML file format is incorrect
         """
         self.kml_file_path = kml_file_path
         self.parser = KMLParser(kml_file_path)
@@ -29,39 +29,39 @@ class LocationFinder:
         self._load_overlays()
     
     def _load_overlays(self) -> None:
-        """加载并缓存所有GroundOverlay数据
+        """Load and cache all GroundOverlay data
         
-        这个方法在初始化时调用，将所有GroundOverlay数据加载到内存中以提高查询性能。
-        同时预计算统计信息以避免重复计算。
+        This method is called during initialization to load all GroundOverlay data into memory to improve query performance.
+        Also pre-calculates statistical information to avoid repeated calculations.
         """
         self.overlays = self.parser.parse()
-        # 预计算统计信息，避免重复计算
+        # Pre-calculate statistical information to avoid repeated calculations
         self._cached_stats = self.parser.get_statistics(self.overlays)
-        print(f"已加载 {len(self.overlays)} 个地面覆盖层")
+        print(f"Loaded {len(self.overlays)} ground overlay layers")
     
     def find_overlay_by_coordinates(self, latitude: float, longitude: float) -> Optional[GroundOverlay]:
-        """根据地理坐标查找对应的GroundOverlay
+        """Find corresponding GroundOverlay based on geographic coordinates
         
         Args:
-            latitude: 纬度（-90到90之间）
-            longitude: 经度（-180到180之间）
+            latitude: Latitude (between -90 and 90)
+            longitude: Longitude (between -180 and 180)
             
         Returns:
-            包含该坐标的GroundOverlay对象，如果没有找到则返回None
+            GroundOverlay object containing the coordinates, or None if not found
             
         Raises:
-            ValueError: 当坐标值超出有效范围时
+            ValueError: When coordinate values are outside valid range
         """
-        # 验证坐标有效性
+        # Validate coordinate validity
         if not (-90 <= latitude <= 90):
-            raise ValueError(f"纬度必须在-90到90之间，当前值: {latitude}")
+            raise ValueError(f"Latitude must be between -90 and 90, current value: {latitude}")
         if not (-180 <= longitude <= 180):
-            raise ValueError(f"经度必须在-180到180之间，当前值: {longitude}")
+            raise ValueError(f"Longitude must be between -180 and 180, current value: {longitude}")
         
         if self.overlays is None:
             return None
         
-        # 查找包含该坐标的GroundOverlay
+        # Find GroundOverlay containing the coordinates
         for overlay in self.overlays:
             if self._is_point_in_overlay(latitude, longitude, overlay):
                 return overlay
@@ -69,30 +69,30 @@ class LocationFinder:
         return None
     
     def find_all_overlays_by_coordinates(self, latitude: float, longitude: float) -> List[GroundOverlay]:
-        """根据地理坐标查找所有包含该点的GroundOverlay
+        """Find all GroundOverlays containing the specified point based on geographic coordinates
         
-        由于可能存在重叠的覆盖层，这个方法返回所有包含指定坐标的GroundOverlay。
+        Since there may be overlapping overlay layers, this method returns all GroundOverlays containing the specified coordinates.
         
         Args:
-            latitude: 纬度（-90到90之间）
-            longitude: 经度（-180到180之间）
+            latitude: Latitude (between -90 and 90)
+            longitude: Longitude (between -180 and 180)
             
         Returns:
-            包含该坐标的所有GroundOverlay对象列表
+            List of all GroundOverlay objects containing the coordinates
             
         Raises:
-            ValueError: 当坐标值超出有效范围时
+            ValueError: When coordinate values are outside valid range
         """
-        # 验证坐标有效性
+        # Validate coordinate validity
         if not (-90 <= latitude <= 90):
-            raise ValueError(f"纬度必须在-90到90之间，当前值: {latitude}")
+            raise ValueError(f"Latitude must be between -90 and 90, current value: {latitude}")
         if not (-180 <= longitude <= 180):
-            raise ValueError(f"经度必须在-180到180之间，当前值: {longitude}")
+            raise ValueError(f"Longitude must be between -180 and 180, current value: {longitude}")
         
         if self.overlays is None:
             return []
         
-        # 查找所有包含该坐标的GroundOverlay
+        # Find all GroundOverlays containing the coordinates
         matching_overlays = []
         for overlay in self.overlays:
             if self._is_point_in_overlay(latitude, longitude, overlay):
@@ -101,40 +101,40 @@ class LocationFinder:
         return matching_overlays
     
     def _is_point_in_overlay(self, latitude: float, longitude: float, overlay: GroundOverlay) -> bool:
-        """判断点是否在GroundOverlay的边界框内
+        """Determine if a point is within the bounding box of a GroundOverlay
         
         Args:
-            latitude: 纬度
-            longitude: 经度
-            overlay: GroundOverlay对象
+            latitude: Latitude
+            longitude: Longitude
+            overlay: GroundOverlay object
             
         Returns:
-            如果点在边界框内返回True，否则返回False
+            True if the point is within the bounding box, False otherwise
         """
         box = overlay.lat_lon_box
         
-        # 检查纬度范围
+        # Check latitude range
         lat_in_range = box.south <= latitude <= box.north
         
-        # 检查经度范围（需要处理跨越180度经线的情况）
+        # Check longitude range (need to handle crossing 180-degree meridian)
         if box.west <= box.east:
-            # 正常情况：西经度小于东经度
+            # Normal case: west longitude is less than east longitude
             lon_in_range = box.west <= longitude <= box.east
         else:
-            # 跨越180度经线的情况：西经度大于东经度
+            # Crossing 180-degree meridian case: west longitude is greater than east longitude
             lon_in_range = longitude >= box.west or longitude <= box.east
         
         return lat_in_range and lon_in_range
     
     def get_overlay_info(self, latitude: float, longitude: float) -> dict:
-        """获取指定坐标位置的详细覆盖层信息
+        """Get detailed overlay information for the specified coordinate position
         
         Args:
-            latitude: 纬度
-            longitude: 经度
+            latitude: Latitude
+            longitude: Longitude
             
         Returns:
-            包含位置信息和覆盖层详情的字典
+            Dictionary containing location information and overlay details
         """
         overlays = self.find_all_overlays_by_coordinates(latitude, longitude)
         
@@ -161,56 +161,56 @@ class LocationFinder:
         }
     
     def find_nearby_overlays(self, latitude: float, longitude: float, radius_degrees: float = 1.0) -> List[GroundOverlay]:
-        """查找指定坐标附近的GroundOverlay
+        """Find GroundOverlays near the specified coordinates
         
-        使用KMLParser的filter_by_bounds方法来减少重复的边界检查计算。
+        Uses KMLParser's filter_by_bounds method to reduce redundant boundary check calculations.
         
         Args:
-            latitude: 中心点纬度
-            longitude: 中心点经度
-            radius_degrees: 搜索半径（度数）
+            latitude: Center point latitude
+            longitude: Center point longitude
+            radius_degrees: Search radius (degrees)
             
         Returns:
-            附近的GroundOverlay列表
+            List of nearby GroundOverlays
         """
         if self.overlays is None:
             return []
         
-        # 计算搜索边界
+        # Calculate search boundaries
         min_lat = latitude - radius_degrees
         max_lat = latitude + radius_degrees
         min_lon = longitude - radius_degrees
         max_lon = longitude + radius_degrees
         
-        # 使用parser的filter_by_bounds方法，避免重复实现边界检查逻辑
+        # Use parser's filter_by_bounds method to avoid reimplementing boundary check logic
         return self.parser.filter_by_bounds(self.overlays, min_lat, max_lat, min_lon, max_lon)
     
     def find_overlays_in_bounds(self, north: float, south: float, 
                                east: float, west: float) -> List[GroundOverlay]:
-        """查找指定地理边界内的所有GroundOverlay
+        """Find all GroundOverlays within the specified geographic boundaries
         
         Args:
-            north: 北边界纬度
-            south: 南边界纬度
-            east: 东边界经度
-            west: 西边界经度
+            north: North boundary latitude
+            south: South boundary latitude
+            east: East boundary longitude
+            west: West boundary longitude
             
         Returns:
-            在指定边界内的GroundOverlay列表
+            List of GroundOverlays within the specified boundaries
         """
         if self.overlays is None:
             return []
         
-        # 使用parser的filter_by_bounds方法来过滤覆盖层
+        # Use parser's filter_by_bounds method to filter overlays
         return self.parser.filter_by_bounds(self.overlays, south, north, west, east)
 
     def get_statistics(self) -> dict:
-        """获取加载的覆盖层统计信息
+        """Get statistical information of loaded overlays
         
-        使用缓存的统计信息，避免重复计算。
+        Uses cached statistical information to avoid repeated calculations.
         
         Returns:
-            统计信息字典
+            Dictionary of statistical information
         """
         if self._cached_stats is None:
             return {'count': 0}
@@ -218,10 +218,10 @@ class LocationFinder:
         return self._cached_stats
     
     def reload_overlays(self) -> None:
-        """重新加载GroundOverlay数据
+        """Reload GroundOverlay data
         
-        当KML文件发生变化时，可以调用此方法重新加载数据。
-        同时清除缓存的统计信息。
+        This method can be called to reload data when the KML file changes.
+        Also clears cached statistical information.
         """
         self._cached_stats = None
         self._load_overlays()

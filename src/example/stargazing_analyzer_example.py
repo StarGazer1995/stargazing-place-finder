@@ -43,8 +43,8 @@ def example_1_basic_analysis():
     - 使用默认的评分算法（基于海拔和高度差）
     - 包含道路连通性检测，确保地点的可达性
     """
-    print("\n=== 示例1：基础观星地点分析 ===")
-    print("分析北京周边地区的观星地点（不包含光污染分析）")
+    print("\n=== Example 1: Basic Stargazing Location Analysis ===")
+    print("Analyzing stargazing locations around Beijing (without light pollution analysis)")
     
     # 定义分析区域（北京周边）
     bbox = (39.5, 115.5, 40.5, 117.5)  # (south, west, north, east)
@@ -68,21 +68,21 @@ def example_1_basic_analysis():
     # 保存结果
     if locations:
         analyzer.save_results_to_json(locations, "beijing_stargazing_basic.json")
-        print(f"\n找到 {len(locations)} 个观星地点")
+        print(f"\nFound {len(locations)} stargazing locations")
         
         # 显示前3个推荐
         top_3 = analyzer.get_top_recommendations(locations, 3)
-        print("\n=== 前3个推荐地点 ===")
+        print("\n=== Top 3 Recommended Locations ===")
         for i, loc in enumerate(top_3, 1):
-            print(f"{i}. {loc.name} (评分: {loc.stargazing_score}/100)")
+            print(f"{i}. {loc.name} (Score: {loc.stargazing_score}/100)")
             print(f"   {loc.recommendation_level}")
-            print(f"   海拔: {loc.elevation:.1f}m, 高度差: {loc.height_difference:.1f}m")
-            road_status = "可达" if loc.road_accessible else "不可达" if loc.road_accessible is False else "未知"
-            print(f"   道路: {road_status}")
-            print(f"   备注: {loc.analysis_notes}")
+            print(f"   Elevation: {loc.elevation:.1f}m, Height difference: {loc.height_difference:.1f}m")
+            road_status = "Accessible" if loc.road_accessible else "Not accessible" if loc.road_accessible is False else "Unknown"
+            print(f"   Road: {road_status}")
+            print(f"   Notes: {loc.analysis_notes}")
             print()
     else:
-        print("未找到符合条件的观星地点")
+        print("No suitable stargazing locations found")
 
 def example_2_with_light_pollution():
     """
@@ -118,17 +118,17 @@ def example_2_with_light_pollution():
     - 使用更严格的筛选条件（最小高度差150m）
     - 包含完整的光污染等级评估
     """
-    print("\n=== 示例2：包含光污染分析 ===")
+    print("\n=== Example 2: Analysis with Light Pollution ===")
     
     # 检查是否有光污染KML文件
     kml_file = "light_pollution.kml"  # 替换为实际的KML文件路径
     
     if not os.path.exists(kml_file):
-        print(f"光污染KML文件不存在: {kml_file}")
-        print("跳过光污染分析示例")
+        print(f"Light pollution KML file does not exist: {kml_file}")
+        print("Skipping light pollution analysis example")
         return
     
-    print(f"使用光污染数据文件: {kml_file}")
+    print(f"Using light pollution data file: {kml_file}")
     
     # 分析华山地区
     bbox = (34.3, 109.8, 34.7, 110.2)  # 华山地区
@@ -151,7 +151,7 @@ def example_2_with_light_pollution():
         analyzer.save_results_to_json(locations, "huashan_stargazing_full.json")
         analyzer.print_analysis_summary(locations)
     else:
-        print("未找到符合条件的观星地点")
+        print("No suitable stargazing locations found")
 
 def example_3_multiple_areas():
     """
@@ -190,7 +190,7 @@ def example_3_multiple_areas():
     - 使用统一的筛选标准确保结果可比性
     - 生成的JSON文件包含时间戳和统计信息
     """
-    print("\n=== 示例3：批量分析多个地区 ===")
+    print("\n=== Example 3: Batch Analysis of Multiple Areas ===")
     
     # 定义多个分析区域
     areas = {
@@ -203,7 +203,7 @@ def example_3_multiple_areas():
     all_results = {}
     
     for area_name, bbox in areas.items():
-        print(f"\n正在分析 {area_name} 地区...")
+        print(f"\nAnalyzing {area_name} area...")
         
         analyzer = StargazingLocationAnalyzer(
             kml_file_path=None,
@@ -222,13 +222,13 @@ def example_3_multiple_areas():
         all_results[area_name] = locations
         
         if locations:
-            print(f"{area_name}: 找到 {len(locations)} 个观星地点")
+            print(f"{area_name}: Found {len(locations)} stargazing locations")
             top_1 = analyzer.get_top_recommendations(locations, 1)
             if top_1:
                 best = top_1[0]
-                print(f"最佳推荐: {best.name} (评分: {best.stargazing_score}/100)")
+                print(f"Best recommendation: {best.name} (Score: {best.stargazing_score}/100)")
         else:
-            print(f"{area_name}: 未找到符合条件的观星地点")
+            print(f"{area_name}: No suitable stargazing locations found")
     
     # 保存批量分析结果
     import json
@@ -259,7 +259,7 @@ def example_3_multiple_areas():
     with open("batch_stargazing_analysis.json", 'w', encoding='utf-8') as f:
         json.dump(batch_results, f, ensure_ascii=False, indent=2)
     
-    print("\n批量分析结果已保存到: batch_stargazing_analysis.json")
+    print("\nBatch analysis results saved to: batch_stargazing_analysis.json")
 
 def example_4_custom_parameters():
     """
@@ -301,8 +301,8 @@ def example_4_custom_parameters():
     - 适用于对观星条件要求较高的用户
     - 多维度排序有助于不同需求的地点选择
     """
-    print("\n=== 示例4：自定义参数分析 ===")
-    print("使用严格的筛选条件分析庐山地区")
+    print("\n=== Example 4: Custom Parameter Analysis ===")
+    print("Analyzing Lushan area with strict filtering conditions")
     
     # 庐山地区，使用更严格的条件
     bbox = (29.4, 115.8, 29.8, 116.2)
@@ -322,27 +322,27 @@ def example_4_custom_parameters():
     )
     
     if locations:
-        print(f"\n严格条件下找到 {len(locations)} 个观星地点")
+        print(f"\nFound {len(locations)} stargazing locations under strict conditions")
         
         # 按不同标准排序显示
-        print("\n=== 按海拔高度排序 ===")
+        print("\n=== Sorted by Elevation ===")
         by_elevation = sorted(locations, key=lambda x: x.elevation, reverse=True)[:3]
         for i, loc in enumerate(by_elevation, 1):
-            print(f"{i}. {loc.name} - 海拔 {loc.elevation:.1f}m")
+            print(f"{i}. {loc.name} - Elevation {loc.elevation:.1f}m")
         
-        print("\n=== 按高度差排序 ===")
+        print("\n=== Sorted by Height Difference ===")
         by_height_diff = sorted(locations, key=lambda x: x.height_difference, reverse=True)[:3]
         for i, loc in enumerate(by_height_diff, 1):
-            print(f"{i}. {loc.name} - 高度差 {loc.height_difference:.1f}m")
+            print(f"{i}. {loc.name} - Height difference {loc.height_difference:.1f}m")
         
-        print("\n=== 按综合评分排序 ===")
+        print("\n=== Sorted by Overall Score ===")
         by_score = sorted(locations, key=lambda x: x.stargazing_score or 0, reverse=True)[:3]
         for i, loc in enumerate(by_score, 1):
-            print(f"{i}. {loc.name} - 评分 {loc.stargazing_score}/100")
+            print(f"{i}. {loc.name} - Score {loc.stargazing_score}/100")
         
         analyzer.save_results_to_json(locations, "lushan_stargazing_strict.json")
     else:
-        print("严格条件下未找到符合条件的观星地点")
+        print("No suitable stargazing locations found under strict conditions")
 
 def example_5_convenience_function():
     """
@@ -383,8 +383,8 @@ def example_5_convenience_function():
     - 不包含光污染分析
     - 适合对分析精度要求不高的场景
     """
-    print("\n=== 示例5：使用便捷函数 ===")
-    print("快速分析天山地区")
+    print("\n=== Example 5: Using Convenience Function ===")
+    print("Quick analysis of Tianshan area")
     
     # 使用便捷函数进行快速分析
     locations = analyze_stargazing_area(
@@ -395,7 +395,7 @@ def example_5_convenience_function():
     )
     
     if locations:
-        print(f"\n便捷函数分析完成，找到 {len(locations)} 个观星地点")
+        print(f"\nConvenience function analysis completed, found {len(locations)} stargazing locations")
         
         # 保存结果
         import json
@@ -412,9 +412,9 @@ def example_5_convenience_function():
         with open("tianshan_stargazing_quick.json", 'w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
         
-        print("结果已保存到: tianshan_stargazing_quick.json")
+        print("Results saved to: tianshan_stargazing_quick.json")
     else:
-        print("未找到符合条件的观星地点")
+        print("No suitable stargazing locations found")
 
 def main():
     """
@@ -452,7 +452,7 @@ def main():
     - 分析过程可能需要较长时间，特别是批量分析
     - 生成的JSON文件可用于后续的数据分析和可视化
     """
-    print("观星地点综合分析器 - 使用示例")
+    print("Stargazing Location Comprehensive Analyzer - Usage Examples")
     print("=" * 50)
     
     try:
@@ -471,16 +471,16 @@ def main():
         # 运行示例5：便捷函数
         example_5_convenience_function()
         
-        print("\n=== 所有示例运行完成 ===")
-        print("生成的文件:")
+        print("\n=== All Examples Completed ===")
+        print("Generated files:")
         print("- beijing_stargazing_basic.json")
         print("- batch_stargazing_analysis.json")
         print("- lushan_stargazing_strict.json")
         print("- tianshan_stargazing_quick.json")
-        print("- huashan_stargazing_full.json (如果有光污染数据)")
+        print("- huashan_stargazing_full.json (if light pollution data available)")
         
     except Exception as e:
-        print(f"运行示例时出错: {e}")
+        print(f"Error running examples: {e}")
         import traceback
         traceback.print_exc()
 

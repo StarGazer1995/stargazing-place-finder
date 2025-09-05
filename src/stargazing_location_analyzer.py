@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-观星地点综合分析器
+Stargazing Location Comprehensive Analyzer
 
-这个模块整合了山峰查找、光污染分析和道路连通性检测功能，
-为用户提供一站式的观星地点评估服务。
+This module integrates peak finding, light pollution analysis, and road connectivity detection,
+providing users with one-stop stargazing location assessment services.
 """
 
 import json
@@ -14,7 +14,7 @@ from dataclasses import dataclass, asdict
 import time
 from datetime import datetime
 
-# 导入相关模块
+# Import related modules
 try:
     from .stargazing_place_finder import StarGazingPlaceFinder, Peak
     from .light_pollution_analyzer import LightPollutionAnalyzer
@@ -28,11 +28,11 @@ except ImportError:
 @dataclass
 class StargazingLocation:
     """
-    观星地点数据类
-    支持山峰、天文台、观景台等多种类型的观星地点
-    包含基本地点信息、光污染数据和道路连通性信息
+    Stargazing location data class
+    Supports multiple types of stargazing locations such as peaks, observatories, viewpoints
+    Contains basic location information, light pollution data, and road connectivity information
     """
-    # 基本地点信息（适配统一的Location类）
+    # Basic location information (adapted to unified Location class)
     name: str
     latitude: float
     longitude: float
@@ -40,51 +40,51 @@ class StargazingLocation:
     distance_to_nearest_town: float
     nearest_town_name: str
     
-    # 地点类型和描述
+    # Location type and description
     location_type: str = "mountain_peak"  # "mountain_peak", "observatory", "viewpoint"
     description: Optional[str] = None
     
-    # 山峰特有信息
+    # Peak-specific information
     prominence: Optional[float] = None
     height_difference: Optional[float] = None
     
-    # 光污染信息
+    # Light pollution information
     light_pollution_rgb: Optional[Tuple[int, int, int]] = None
     light_pollution_hex: Optional[str] = None
     light_pollution_brightness: Optional[int] = None
     light_pollution_level: Optional[str] = None
     light_pollution_overlay: Optional[str] = None
     
-    # 道路连通性信息
+    # Road connectivity information
     road_accessible: Optional[bool] = None
     distance_to_road_km: Optional[float] = None
     road_network_type: Optional[str] = None
     road_check_error: Optional[str] = None
     
-    # 综合评分
+    # Comprehensive scoring
     stargazing_score: Optional[float] = None
     recommendation_level: Optional[str] = None
     analysis_notes: Optional[str] = None
     
     def is_mountain_peak(self) -> bool:
-        """判断是否为山峰"""
+        """Check if it's a mountain peak"""
         return self.location_type == "mountain_peak"
     
     def is_observatory(self) -> bool:
-        """判断是否为天文台"""
+        """Check if it's an observatory"""
         return self.location_type == "observatory"
     
     def is_viewpoint(self) -> bool:
-        """判断是否为观景台"""
+        """Check if it's a viewpoint"""
         return self.location_type == "viewpoint"
 
 
 class StargazingLocationAnalyzer:
     """
-    观星地点综合分析器
+    Stargazing Location Comprehensive Analyzer
     
-    整合山峰查找、光污染分析和道路连通性检测功能，
-    为指定坐标范围内的山峰提供全面的观星适宜性分析。
+    Integrates peak finding, light pollution analysis, and road connectivity detection,
+    providing comprehensive stargazing suitability analysis for peaks within specified coordinate ranges.
     """
     
     def __init__(self, 
@@ -93,18 +93,18 @@ class StargazingLocationAnalyzer:
                  min_height_difference: float = 100.0,
                  road_search_radius_km: float = 10.0):
         """
-        初始化观星地点分析器
+        Initialize stargazing location analyzer
         
         Args:
-            kml_file_path: 光污染KML文件路径，如果为None则跳过光污染分析（强烈推荐提供）
-            images_base_path: 光污染图像文件基础路径
-            min_height_difference: 山峰与周围城镇的最小高度差（米）
-            road_search_radius_km: 道路连通性检测的搜索半径（公里）
+            kml_file_path: Light pollution KML file path, skip light pollution analysis if None (strongly recommended to provide)
+            images_base_path: Light pollution image file base path
+            min_height_difference: Minimum height difference between peaks and surrounding towns (meters)
+            road_search_radius_km: Search radius for road connectivity detection (kilometers)
         """
-        # 初始化山峰查找器
+        # Initialize peak finder
         
         
-        # 初始化光污染分析器（如果提供了KML文件）
+        # Initialize light pollution analyzer (if KML file is provided)
         self.light_pollution_analyzer = None
         if kml_file_path and os.path.exists(kml_file_path):
             try:
@@ -112,26 +112,26 @@ class StargazingLocationAnalyzer:
                     kml_file_path=kml_file_path,
                     images_base_path=images_base_path
                 )
-                print("光污染分析器初始化成功")
+                print("Light pollution analyzer initialized successfully")
             except Exception as e:
-                print(f"光污染分析器初始化失败: {e}")
+                print(f"Light pollution analyzer initialization failed: {e}")
                 self.light_pollution_analyzer = None
             self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference, light_pollution_analyzer=self.light_pollution_analyzer)
         else:
             if kml_file_path:
-                print(f"⚠️  警告: KML文件 {kml_file_path} 不存在")
+                print(f"⚠️  Warning: KML file {kml_file_path} does not exist")
             else:
-                print("⚠️  警告: 未提供光污染数据文件")
-            print("⚠️  光污染数据是观星地点分析的重要组成部分")
-            print("⚠️  建议从以下网站下载光污染地图KML文件:")
+                print("⚠️  Warning: No light pollution data file provided")
+            print("⚠️  Light pollution data is an important component of stargazing location analysis")
+            print("⚠️  Recommend downloading light pollution map KML files from:")
             print("   - Light Pollution Map: https://www.lightpollutionmap.info/")
             print("   - Dark Site Finder: https://darksitefinder.com/")
             self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference)
         
-        # 初始化道路连通性检测器
+        # Initialize road connectivity checker
         self.road_checker = RoadConnectivityChecker(search_radius_km=road_search_radius_km)
         
-        print("观星地点分析器初始化完成")
+        print("Stargazing location analyzer initialization completed")
     
     def analyze_area(self, 
                     bbox: Tuple[float, float, float, float],
@@ -141,31 +141,31 @@ class StargazingLocationAnalyzer:
                     include_light_pollution: bool = True,
                     include_road_connectivity: bool = True) -> List[StargazingLocation]:
         """
-        分析指定区域内的观星地点（支持山峰、天文台、观景台等多种类型）
+        Analyze stargazing locations within specified area (supports multiple types like peaks, observatories, viewpoints)
         
         Args:
-            bbox: 边界框 (south, west, north, east)
-            max_locations: 最大地点数量
-            location_types: 地点类型列表，可选值：['mountain_peak', 'observatory', 'viewpoint']
-                          如果为None，则默认查找所有类型
-            network_type: 道路网络类型 ('drive', 'walk', 'bike', 'all')
-            include_light_pollution: 是否包含光污染分析
-            include_road_connectivity: 是否包含道路连通性分析
+            bbox: Bounding box (south, west, north, east)
+            max_locations: Maximum number of locations
+            location_types: List of location types, options: ['mountain_peak', 'observatory', 'viewpoint']
+                          If None, defaults to searching all types
+            network_type: Road network type ('drive', 'walk', 'bike', 'all')
+            include_light_pollution: Whether to include light pollution analysis
+            include_road_connectivity: Whether to include road connectivity analysis
             
         Returns:
-            观星地点列表
+            List of stargazing locations
         """
-        print(f"开始分析区域: {bbox}")
+        print(f"Starting area analysis: {bbox}")
         
-        # 默认查找所有类型的地点
+        # Default to searching all types of locations
         if location_types is None:
             location_types = ['mountain_peak', 'observatory', 'viewpoint']
         
         all_locations = []
         
-        # 1. 根据指定类型查找地点
+        # 1. Search for locations based on specified types
         for location_type in location_types:
-            print(f"正在查找{location_type}...")
+            print(f"Searching for {location_type}...")
             
             if location_type == 'mountain_peak':
                 locations = self.mountain_finder.find_peaks_in_area(bbox, max_locations=max_locations)
@@ -174,31 +174,31 @@ class StargazingLocationAnalyzer:
             elif location_type == 'viewpoint':
                 locations = self.mountain_finder.find_viewpoints_in_area(bbox, max_viewpoints=max_locations)
             else:
-                print(f"  警告: 不支持的地点类型 {location_type}")
+                print(f"  Warning: Unsupported location type {location_type}")
                 continue
             
             if locations:
-                print(f"找到 {len(locations)} 个 {location_type}")
+                print(f"Found {len(locations)} {location_type}")
                 all_locations.extend(locations)
             else:
-                print(f"未找到符合条件的 {location_type}")
+                print(f"No qualifying {location_type} found")
         
         if not all_locations:
-            print("未找到符合条件的观星地点")
+            print("No qualifying stargazing locations found")
             return []
         
-        # 限制总数量
+        # Limit total number
         if len(all_locations) > max_locations:
             all_locations = all_locations[:max_locations]
         
-        print(f"总共找到 {len(all_locations)} 个地点，开始详细分析...")
+        print(f"Total {len(all_locations)} locations found, starting detailed analysis...")
         
-        # 2. 为每个地点进行综合分析
+        # 2. Perform comprehensive analysis for each location
         stargazing_locations = []
         for i, location in enumerate(all_locations, 1):
-            print(f"分析第 {i}/{len(all_locations)} 个地点: {location.name} ({location.location_type})")
+            print(f"Analyzing location {i}/{len(all_locations)}: {location.name} ({location.location_type})")
             
-            # 创建观星地点对象，适配统一的Location类
+            # Create stargazing location object, adapted to unified Location class
             stargazing_location = StargazingLocation(
                 name=location.name,
                 latitude=location.latitude,
@@ -212,7 +212,7 @@ class StargazingLocationAnalyzer:
                 description=location.description if hasattr(location, 'description') else None
             )
             
-            # 3. 光污染分析
+            # 3. Light pollution analysis
             if include_light_pollution:
                 if self.light_pollution_analyzer:
                     try:
@@ -226,11 +226,11 @@ class StargazingLocationAnalyzer:
                             stargazing_location.light_pollution_level = light_info['pollution_level']
                             stargazing_location.light_pollution_overlay = light_info.get('overlay_name')
                     except Exception as e:
-                        print(f"  光污染分析失败: {e}")
+                        print(f"  Light pollution analysis failed: {e}")
                 else:
-                    print(f"  ⚠️  警告: 无法获取 {location.name} 的光污染数据 - 未提供光污染数据文件")
+                    print(f"  ⚠️  Warning: Cannot get light pollution data for {location.name} - no light pollution data file provided")
             
-            # 4. 道路连通性分析
+            # 4. Road connectivity analysis
             if include_road_connectivity:
                 try:
                     road_info = self.road_checker.get_accessibility_info(
@@ -241,207 +241,207 @@ class StargazingLocationAnalyzer:
                     stargazing_location.road_network_type = network_type
                     stargazing_location.road_check_error = road_info.get('error')
                 except Exception as e:
-                    print(f"  道路连通性分析失败: {e}")
+                    print(f"  Road connectivity analysis failed: {e}")
                     stargazing_location.road_check_error = str(e)
             
-            # 5. 计算综合评分
+            # 5. Calculate comprehensive score
             stargazing_location.stargazing_score = self._calculate_stargazing_score(stargazing_location)
             stargazing_location.recommendation_level = self._get_recommendation_level_with_warning(stargazing_location)
             stargazing_location.analysis_notes = self._generate_analysis_notes(stargazing_location)
             
             stargazing_locations.append(stargazing_location)
             
-            # 添加延迟以避免API限制
+            # Add delay to avoid API limits
             time.sleep(0.5)
         
-        # 按评分排序
+        # Sort by score
         stargazing_locations.sort(key=lambda x: x.stargazing_score or 0, reverse=True)
         
-        print(f"分析完成，共 {len(stargazing_locations)} 个观星地点")
+        print(f"Analysis completed, total {len(stargazing_locations)} stargazing locations")
         return stargazing_locations
     
     def _calculate_stargazing_score(self, location: StargazingLocation) -> float:
         """
-        计算观星地点的综合评分（适配多种地点类型）
+        Calculate comprehensive score for stargazing location (adapted for multiple location types)
         
-        评分标准:
-        - 海拔高度 (0-30分): 海拔越高越好
-        - 地点类型特有评分 (0-25分): 根据不同类型计算
-        - 光污染等级 (0-25分): 光污染越少越好
-        - 道路可达性 (0-20分): 可达且距离适中最好
+        Scoring criteria:
+        - Elevation (0-30 points): Higher elevation is better
+        - Location type specific score (0-25 points): Calculated based on different types
+        - Light pollution level (0-25 points): Less light pollution is better
+        - Road accessibility (0-20 points): Accessible with moderate distance is best
         
         Args:
-            location: 观星地点对象
+            location: Stargazing location object
             
         Returns:
-            综合评分 (0-100分)
+            Comprehensive score (0-100 points)
         """
         score = 0.0
         
-        # 1. 海拔高度评分 (0-30分)
+        # 1. Elevation score (0-30 points)
         if location.elevation:
-            # 海拔每100米得1分，最高30分
+            # 1 point per 100 meters elevation, maximum 30 points
             elevation_score = min(location.elevation / 100 * 1, 30)
             score += elevation_score
         
-        # 2. 地点类型特有评分 (0-25分)
+        # 2. Location type specific score (0-25 points)
         if location.is_mountain_peak():
-            # 山峰：相对高度评分
+            # Mountain peak: prominence score
             if location.prominence:
-                # 相对高度每50米得1分，最高25分
+                # 1 point per 50 meters prominence, maximum 25 points
                 prominence_score = min(location.prominence / 50 * 1, 25)
                 score += prominence_score
         elif location.is_observatory():
-            # 天文台：固定高分（因为是专业观测设施）
+            # Observatory: fixed high score (professional observation facility)
             score += 25
         elif location.is_viewpoint():
-            # 观景台：根据高度差评分
+            # Viewpoint: score based on height difference
             if location.height_difference:
-                # 高度差每40米得1分，最高25分
+                # 1 point per 40 meters height difference, maximum 25 points
                 height_diff_score = min(location.height_difference / 40 * 1, 25)
                 score += height_diff_score
             else:
-                score += 15  # 默认中等评分
+                score += 15  # Default medium score
         
-        # 3. 光污染评分 (0-25分)
+        # 3. Light pollution score (0-25 points)
         if location.light_pollution_level:
             pollution_scores = {
-                '极低': 25, '很低': 20, '低': 15, '中等': 10, 
-                '高': 5, '很高': 2, '极高': 0
+                'Extremely Low': 25, 'Very Low': 20, 'Low': 15, 'Medium': 10, 
+                'High': 5, 'Very High': 2, 'Extremely High': 0
             }
             score += pollution_scores.get(location.light_pollution_level, 0)
         elif location.light_pollution_brightness is not None:
-            # 如果没有等级但有亮度数据，根据亮度计算
+            # If no level but brightness data available, calculate based on brightness
             light_score = max(0, (255 - location.light_pollution_brightness) / 255.0 * 25)
             score += light_score
         else:
-            # 如果没有光污染数据，给予警告并使用默认评分
-            print(f"⚠️  警告: {location.name} 缺少光污染数据，评分准确性受影响")
-            score += 12  # 25分权重的一半
+            # If no light pollution data, give warning and use default score
+            print(f"⚠️  Warning: {location.name} lacks light pollution data, scoring accuracy affected")
+            score += 12  # Half of 25 points weight
         
-        # 4. 道路可达性评分 (0-20分)
+        # 4. Road accessibility score (0-20 points)
         if location.road_accessible is not None:
             if location.road_accessible:
-                # 可达的情况下，距离道路越近越好（但不能太近）
+                # When accessible, closer to road is better (but not too close)
                 if location.distance_to_road_km is not None:
                     if 0.5 <= location.distance_to_road_km <= 5:
-                        # 理想距离：0.5-5公里
+                        # Ideal distance: 0.5-5 km
                         score += 20
                     elif location.distance_to_road_km <= 10:
-                        # 可接受距离：5-10公里
+                        # Acceptable distance: 5-10 km
                         score += 15
                     elif location.distance_to_road_km <= 20:
-                        # 较远距离：10-20公里
+                        # Far distance: 10-20 km
                         score += 10
                     else:
-                        # 很远距离：>20公里
+                        # Very far distance: >20 km
                         score += 5
                 else:
-                    score += 10  # 可达但距离未知
+                    score += 10  # Accessible but distance unknown
             else:
-                score += 0  # 不可达
+                score += 0  # Not accessible
         else:
-            score += 10  # 未知状态给予中等分数
+            score += 10  # Unknown status given medium score
         
         return round(score, 1)
     
     def _get_recommendation_level_with_warning(self, location: StargazingLocation) -> str:
         """
-        根据评分获取推荐等级，并在缺少光污染数据时添加警告
+        Get recommendation level based on score, add warning when light pollution data is missing
         
         Args:
-            location: 观星地点对象
+            location: Stargazing location object
             
         Returns:
-            推荐等级描述（包含警告信息）
+            Recommendation level description (including warning information)
         """
         base_level = self._get_recommendation_level(location.stargazing_score)
         
-        # 检查是否缺少光污染数据
+        # Check if light pollution data is missing
         if location.light_pollution_brightness is None:
-            return base_level + " (⚠️缺少光污染数据)"
+            return base_level + " (⚠️Missing light pollution data)"
         
         return base_level
     
     def _get_recommendation_level(self, score: Optional[float]) -> str:
         """
-        根据评分获取推荐等级
+        Get recommendation level based on score
         
         Args:
-            score: 综合评分
+            score: Comprehensive score
             
         Returns:
-            推荐等级描述
+            Recommendation level description
         """
         if score is None:
-            return "未评级"
+            return "Unrated"
         
         if score >= 80:
-            return "强烈推荐 ⭐⭐⭐⭐⭐"
+            return "Highly Recommended ⭐⭐⭐⭐⭐"
         elif score >= 70:
-            return "推荐 ⭐⭐⭐⭐"
+            return "Recommended ⭐⭐⭐⭐"
         elif score >= 60:
-            return "一般推荐 ⭐⭐⭐"
+            return "Generally Recommended ⭐⭐⭐"
         elif score >= 50:
-            return "可考虑 ⭐⭐"
+            return "Consider ⭐⭐"
         else:
-            return "不推荐 ⭐"
+            return "Not Recommended ⭐"
     
     def _generate_analysis_notes(self, location: StargazingLocation) -> str:
         """
-        生成分析备注
+        Generate analysis notes
         
         Args:
-            location: 观星地点对象
+            location: Stargazing location object
             
         Returns:
-            分析备注字符串
+            Analysis notes string
         """
         notes = []
         
-        # 高度优势
+        # Altitude advantage
         if location.height_difference > 300:
-            notes.append(f"海拔优势显著，比{location.nearest_town_name}高{location.height_difference:.0f}米")
+            notes.append(f"Significant altitude advantage, {location.height_difference:.0f}m higher than {location.nearest_town_name}")
         elif location.height_difference > 150:
-            notes.append(f"有一定海拔优势，比{location.nearest_town_name}高{location.height_difference:.0f}米")
+            notes.append(f"Some altitude advantage, {location.height_difference:.0f}m higher than {location.nearest_town_name}")
         
-        # 光污染状况
+        # Light pollution status
         if location.light_pollution_brightness is not None:
             if location.light_pollution_brightness < 64:
-                notes.append("光污染水平较低，观星条件良好")
+                notes.append("Low light pollution level, good stargazing conditions")
             elif location.light_pollution_brightness < 128:
-                notes.append("光污染水平中等，观星条件一般")
+                notes.append("Medium light pollution level, average stargazing conditions")
             else:
-                notes.append("光污染较严重，可能影响观星效果")
+                notes.append("Serious light pollution, may affect stargazing")
         else:
-            notes.append("⚠️ 缺少光污染数据，无法准确评估观星条件")
+            notes.append("⚠️ Missing light pollution data, cannot accurately assess stargazing conditions")
         
-        # 道路可达性
+        # Road accessibility
         if location.road_accessible is True:
             if location.distance_to_road_km and location.distance_to_road_km < 1:
-                notes.append("交通便利，距离道路很近")
+                notes.append("Convenient transportation, very close to road")
             else:
-                notes.append("有道路可达")
+                notes.append("Road accessible")
         elif location.road_accessible is False:
-            notes.append("道路不可达，需要徒步前往")
+            notes.append("Road not accessible, hiking required")
         
-        # 距离城镇
+        # Distance to town
         if location.distance_to_nearest_town > 50:
-            notes.append("远离城镇，环境安静")
+            notes.append("Far from town, quiet environment")
         elif location.distance_to_nearest_town < 10:
-            notes.append("距离城镇较近，可能有光污染影响")
+            notes.append("Close to town, may have light pollution impact")
         
-        return "; ".join(notes) if notes else "无特殊备注"
+        return "; ".join(notes) if notes else "No special notes"
     
     def save_results_to_json(self, locations: List[StargazingLocation], filename: str) -> None:
         """
-        将分析结果保存到JSON文件
+        Save analysis results to JSON file
         
         Args:
-            locations: 观星地点列表
-            filename: 输出文件名
+            locations: List of stargazing locations
+            filename: Output filename
         """
-        # 转换为可序列化的格式
+        # Convert to serializable format
         results = {
             "analysis_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "total_locations": len(locations),
@@ -456,74 +456,74 @@ class StargazingLocationAnalyzer:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
         
-        print(f"分析结果已保存到: {filename}")
+        print(f"Analysis results saved to: {filename}")
     
     def get_top_recommendations(self, locations: List[StargazingLocation], top_n: int = 5) -> List[StargazingLocation]:
         """
-        获取评分最高的推荐地点
+        Get top-rated recommended locations
         
         Args:
-            locations: 观星地点列表
-            top_n: 返回的推荐数量
+            locations: List of stargazing locations
+            top_n: Number of recommendations to return
             
         Returns:
-            评分最高的观星地点列表
+            List of highest-rated stargazing locations
         """
-        # 按评分排序并返回前N个
+        # Sort by score and return top N
         sorted_locations = sorted(locations, key=lambda x: x.stargazing_score or 0, reverse=True)
         return sorted_locations[:top_n]
     
     def print_analysis_summary(self, locations: List[StargazingLocation]) -> None:
         """
-        打印分析结果摘要
+        Print analysis results summary
         
         Args:
-            locations: 观星地点列表
+            locations: List of stargazing locations
         """
         if not locations:
-            print("没有找到观星地点")
+            print("No stargazing locations found")
             return
         
-        print("\n=== 观星地点分析摘要 ===")
-        print(f"总计找到 {len(locations)} 个观星地点")
+        print("\n=== Stargazing Location Analysis Summary ===")
+        print(f"Total {len(locations)} stargazing locations found")
         
-        # 检查光污染数据完整性
+        # Check light pollution data completeness
         locations_with_light_data = sum(1 for loc in locations if loc.light_pollution_brightness is not None)
         locations_without_light_data = len(locations) - locations_with_light_data
         
         if locations_without_light_data > 0:
-            print(f"\n⚠️  数据完整性提醒:")
-            print(f"   - {locations_with_light_data} 个地点有完整的光污染数据")
-            print(f"   - {locations_without_light_data} 个地点缺少光污染数据")
-            print(f"   - 建议提供光污染KML文件以获得更准确的评估")
+            print(f"\n⚠️  Data Completeness Reminder:")
+            print(f"   - {locations_with_light_data} locations have complete light pollution data")
+            print(f"   - {locations_without_light_data} locations lack light pollution data")
+            print(f"   - Recommend providing light pollution KML file for more accurate assessment")
         
-        # 统计推荐等级分布
+        # Statistics of recommendation level distribution
         recommendation_counts = {}
         for location in locations:
             level = location.recommendation_level
             recommendation_counts[level] = recommendation_counts.get(level, 0) + 1
         
-        print("\n推荐等级分布:")
+        print("\nRecommendation Level Distribution:")
         for level, count in recommendation_counts.items():
-            print(f"  {level}: {count} 个地点")
+            print(f"  {level}: {count} locations")
         
-        # 显示前5个推荐地点
+        # Display top 5 recommended locations
         top_locations = self.get_top_recommendations(locations, 5)
-        print("\n=== 前5个推荐地点 ===")
+        print("\n=== Top 5 Recommended Locations ===")
         for i, location in enumerate(top_locations, 1):
             print(f"\n{i}. {location.name}")
-            print(f"   坐标: ({location.latitude:.4f}, {location.longitude:.4f})")
-            print(f"   海拔: {location.elevation:.1f}m")
-            print(f"   综合评分: {location.stargazing_score}/100")
-            print(f"   推荐等级: {location.recommendation_level}")
+            print(f"   Coordinates: ({location.latitude:.4f}, {location.longitude:.4f})")
+            print(f"   Elevation: {location.elevation:.1f}m")
+            print(f"   Overall Score: {location.stargazing_score}/100")
+            print(f"   Recommendation Level: {location.recommendation_level}")
             if location.light_pollution_brightness is not None:
-                print(f"   光污染: {location.light_pollution_level}")
+                print(f"   Light Pollution: {location.light_pollution_level}")
             else:
-                print(f"   光污染: ⚠️ 数据缺失")
+                print(f"   Light Pollution: ⚠️ Data Missing")
             if location.road_accessible is not None:
-                accessibility = "可达" if location.road_accessible else "不可达"
-                print(f"   道路: {accessibility}")
-            print(f"   备注: {location.analysis_notes}")
+                accessibility = "Accessible" if location.road_accessible else "Not Accessible"
+                print(f"   Road: {accessibility}")
+            print(f"   Notes: {location.analysis_notes}")
 
 
 def analyze_stargazing_area(south: float, west: float, north: float, east: float,
@@ -534,27 +534,27 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
                            road_radius_km: float = 10.0,
                            network_type: str = 'drive') -> List[StargazingLocation]:
     """
-    便捷函数：分析指定区域的观星地点
+    Convenience function: Analyze stargazing locations in specified area
     
     Args:
-        south, west, north, east: 边界框坐标
-        kml_file_path: 光污染KML文件路径（强烈推荐提供）
-        max_locations: 最大地点数量
-        location_types: 地点类型列表，可选值：['mountain_peak', 'observatory', 'viewpoint']
-        min_height_diff: 最小高度差（仅对山峰有效）
-        road_radius_km: 道路搜索半径
-        network_type: 网络类型
+        south, west, north, east: Bounding box coordinates
+        kml_file_path: Light pollution KML file path (strongly recommended)
+        max_locations: Maximum number of locations
+        location_types: List of location types, options: ['mountain_peak', 'observatory', 'viewpoint']
+        min_height_diff: Minimum height difference (only for peaks)
+        road_radius_km: Road search radius
+        network_type: Network type
         
     Returns:
-        观星地点列表
+        List of stargazing locations
         
     Note:
-        光污染数据对于准确的观星地点评估至关重要。
-        如果未提供kml_file_path，分析结果的准确性将受到影响。
+        Light pollution data is crucial for accurate stargazing location assessment.
+        If kml_file_path is not provided, analysis accuracy will be affected.
     """
     if kml_file_path is None:
-        print("⚠️  警告: 便捷函数未提供光污染数据文件")
-        print("⚠️  这将影响观星地点评估的准确性")
+        print("⚠️  Warning: Convenience function did not provide light pollution data file")
+        print("⚠️  This will affect the accuracy of stargazing location assessment")
     
     analyzer = StargazingLocationAnalyzer(
         kml_file_path=kml_file_path,
@@ -572,41 +572,41 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
         include_road_connectivity=True
     )
     
-    # 打印摘要
+    # Print summary
     analyzer.print_analysis_summary(locations)
     
     return locations
 
 
 if __name__ == "__main__":
-    # 示例：分析北京周边地区的观星地点
-    print("=== 观星地点综合分析器示例 ===")
+    # Example: Analyze stargazing locations around Beijing
+    print("=== Stargazing Location Comprehensive Analyzer Example ===")
     
-    # 定义分析区域（北京周边）
+    # Define analysis area (around Beijing)
     bbox = (39.5, 115.5, 40.5, 117.5)  # (south, west, north, east)
     
-    # 创建分析器（这里没有提供KML文件，所以跳过光污染分析）
+    # Create analyzer (no KML file provided here, so skip light pollution analysis)
     analyzer = StargazingLocationAnalyzer(
-        kml_file_path=None,  # 如果有光污染KML文件，在这里提供路径
+        kml_file_path=None,  # If you have light pollution KML file, provide path here
         min_height_difference=100.0,
         road_search_radius_km=10.0
     )
     
-    # 分析区域
+    # Analyze area
     locations = analyzer.analyze_area(
         bbox=bbox,
         max_locations=20,
         location_types=['mountain_peak', 'observatory', 'viewpoint'],
         network_type='drive',
-        include_light_pollution=False,  # 没有KML文件时设为False
+        include_light_pollution=False,  # Set to False when no KML file
         include_road_connectivity=True
     )
     
-    # 保存结果
+    # Save results
     if locations:
         analyzer.save_results_to_json(locations, "stargazing_analysis_results.json")
         
-        # 打印摘要
+        # Print summary
         analyzer.print_analysis_summary(locations)
     else:
-        print("未找到符合条件的观星地点")
+        print("No qualified stargazing locations found")

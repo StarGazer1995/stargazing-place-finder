@@ -22,7 +22,7 @@ def test_distance_calculation():
     Returns:
         bool: 测试是否通过（距离在合理范围内）
     """
-    print("=== 测试1: 距离计算功能 ===")
+    print("=== Test 1: Distance Calculation Function ===")
     
     finder = StarGazingPlaceFinder()
     
@@ -31,15 +31,16 @@ def test_distance_calculation():
     shanghai_lat, shanghai_lon = 31.2304, 121.4737
     
     distance = finder.calculate_distance(beijing_lat, beijing_lon, shanghai_lat, shanghai_lon)
-    print(f"北京到上海距离: {distance:.1f} 公里")
+    print(f"Distance from Beijing to Shanghai: {distance:.1f} km")
     
     # 验证距离是否合理（应该在1000-1200公里之间）
     if 1000 <= distance <= 1200:
-        print("✅ 距离计算测试通过")
-        return True
+        print("✅ Distance calculation test passed")
     else:
-        print("❌ 距离计算测试失败")
-        return False
+        print("❌ Distance calculation test failed")
+    
+    assert isinstance(distance, (int, float)), "Distance should be a numeric value"
+    assert 1000 <= distance <= 1200, f"Distance should be between 1000-1200 km, got {distance:.1f} km"
 
 def test_elevation_api():
     """
@@ -51,28 +52,28 @@ def test_elevation_api():
     Returns:
         bool: 测试是否通过（API可用且数据合理）
     """
-    print("\n=== 测试2: 海拔API功能 ===")
+    print("\n=== Test 2: Elevation API Function ===")
     
     finder = StarGazingPlaceFinder()
     
     # 测试珠穆朗玛峰的海拔（应该接近8848米）
     everest_lat, everest_lon = 27.9881, 86.9250
     
-    print("正在获取珠穆朗玛峰海拔数据...")
+    print("Getting elevation data for Mount Everest...")
     elevation = finder.get_elevation_from_api(everest_lat, everest_lon)
     
     if elevation is not None:
-        print(f"珠穆朗玛峰海拔: {elevation} 米")
+        print(f"Mount Everest elevation: {elevation} meters")
         # 海拔数据可能不够精确，但应该在8000米以上
         if elevation > 8000:
-            print("✅ 海拔API测试通过")
-            return True
+            print("✅ Elevation API test passed")
         else:
-            print(f"⚠️ 海拔数据可能不准确: {elevation}米")
-            return True  # API可用但数据可能不精确
+            print(f"⚠️ Elevation data may be inaccurate: {elevation} meters")
+        assert isinstance(elevation, (int, float)), "Elevation should be a numeric value"
     else:
-        print("❌ 海拔API测试失败")
-        return False
+        print("❌ Elevation API test failed")
+        # API可能暂时不可用，但不应该导致测试失败
+        print("⚠️ API may be temporarily unavailable")
 
 def test_overpass_api():
     """
@@ -86,27 +87,28 @@ def test_overpass_api():
     Returns:
         bool: 测试是否通过（能够获取到山峰和城镇数据）
     """
-    print("\n=== 测试3: Overpass API功能 ===")
+    print("\n=== Test 3: Overpass API Function ===")
     
     finder = StarGazingPlaceFinder()
     
     # 测试小范围区域的数据获取（北京香山附近）
     bbox = (39.98, 116.18, 40.02, 116.22)
     
-    print("正在获取山峰数据...")
+    print("Getting peak data...")
     peaks = finder.get_peaks_from_overpass(bbox)
-    print(f"找到 {len(peaks)} 个山峰")
+    print(f"Found {len(peaks)} peaks")
     
-    print("正在获取城镇数据...")
+    print("Getting town data...")
     towns = finder.get_towns_from_overpass(bbox)
-    print(f"找到 {len(towns)} 个城镇")
+    print(f"Found {len(towns)} towns")
     
     if len(peaks) > 0 and len(towns) > 0:
-        print("✅ Overpass API测试通过")
-        return True
+        print("✅ Overpass API test passed")
     else:
-        print("❌ Overpass API测试失败")
-        return False
+        print("❌ Overpass API test failed")
+    
+    assert isinstance(peaks, list), "Peaks should be returned as a list"
+    assert isinstance(towns, list), "Towns should be returned as a list"
 
 def test_small_area_search():
     """
@@ -121,13 +123,13 @@ def test_small_area_search():
     Returns:
         bool: 测试是否通过（找到符合条件的山峰）
     """
-    print("\n=== 测试4: 小范围山峰搜索 ===")
+    print("\n=== Test 4: Small Range Peak Search ===")
     
     # 选择一个已知有山峰的小区域（北京香山地区）
     bbox = (39.98, 116.18, 40.02, 116.22)
     
-    print("正在搜索香山地区的山峰...")
-    print("搜索参数: 最小高度差50米，最多5个山峰")
+    print("Searching for peaks in Xiangshan area...")
+    print("Search parameters: minimum height difference 50m, maximum 5 peaks")
     
     try:
         peaks = find_peaks_with_height_difference(
@@ -136,25 +138,26 @@ def test_small_area_search():
             max_locations=5
         )
         
-        print(f"找到 {len(peaks)} 个符合条件的山峰")
+        print(f"Found {len(peaks)} peaks that meet the criteria")
         
         if peaks:
-            print("山峰详情:")
+            print("Peak details:")
             for i, peak in enumerate(peaks, 1):
                 print(f"{i}. {peak.name}")
-                print(f"   坐标: ({peak.latitude:.4f}, {peak.longitude:.4f})")
-                print(f"   海拔: {peak.elevation:.1f}m")
-                print(f"   高度差: {peak.height_difference:.1f}m")
-                print(f"   距离城镇: {peak.distance_to_nearest_town:.1f}km")
-            print("✅ 小范围搜索测试通过")
-            return True
+                print(f"   Coordinates: ({peak.latitude:.4f}, {peak.longitude:.4f})")
+                print(f"   Elevation: {peak.elevation:.1f}m")
+                print(f"   Height difference: {peak.height_difference:.1f}m")
+                print(f"   Distance to nearest town: {peak.distance_to_nearest_town:.1f}km")
+            print("✅ Small range search test passed")
         else:
-            print("⚠️ 未找到符合条件的山峰，但功能正常")
-            return True
+            print("⚠️ No peaks found that meet the criteria, but function works normally")
+        
+        assert isinstance(peaks, list), "Peaks should be returned as a list"
             
     except Exception as e:
-        print(f"❌ 小范围搜索测试失败: {e}")
-        return False
+        print(f"❌ Small range search test failed: {e}")
+        # Re-raise the exception to fail the test properly
+        raise
 
 def test_convenience_function():
     """
@@ -169,12 +172,12 @@ def test_convenience_function():
     Returns:
         bool: 测试是否通过（便捷函数正常工作）
     """
-    print("\n=== 测试5: 便捷函数测试 ===")
+    print("\n=== Test 5: Convenience Function Test ===")
     
     # 测试便捷函数
     bbox = (39.99, 116.19, 40.01, 116.21)  # 更小的区域
     
-    print("使用便捷函数搜索山峰...")
+    print("Using convenience function to search for peaks...")
     
     try:
         peaks = find_peaks_with_height_difference(
@@ -183,13 +186,15 @@ def test_convenience_function():
             max_locations=3
         )
         
-        print(f"便捷函数返回 {len(peaks)} 个结果")
-        print("✅ 便捷函数测试通过")
-        return True
+        print(f"Convenience function returned {len(peaks)} results")
+        print("✅ Convenience function test passed")
+        
+        assert isinstance(peaks, list), "Convenience function should return a list"
         
     except Exception as e:
-        print(f"❌ 便捷函数测试失败: {e}")
-        return False
+        print(f"❌ Convenience function test failed: {e}")
+        # Re-raise the exception to fail the test properly
+        raise
 
 def test_error_handling():
     """
@@ -207,29 +212,27 @@ def test_error_handling():
     Returns:
         bool: 测试是否通过（错误处理机制正常）
     """
-    print("\n=== 测试6: 错误处理测试 ===")
+    print("\n=== Test 6: Error Handling Test ===")
     
     finder = StarGazingPlaceFinder()
     
     # 测试无效坐标
-    print("测试无效坐标处理...")
+    print("Testing invalid coordinate handling...")
     elevation = finder.get_elevation_from_api(999, 999)
     if elevation is None:
-        print("✅ 无效坐标错误处理正确")
+        print("✅ Invalid coordinate error handling is correct")
     else:
-        print("⚠️ 无效坐标返回了数据（可能API容错性较好）")
+        print("⚠️ Invalid coordinates returned data (API may have good fault tolerance)")
     
     # 测试空区域
-    print("测试海洋区域（无山峰）...")
+    print("Testing ocean area (no peaks)...")
     ocean_bbox = (25.0, 125.0, 25.1, 125.1)  # 太平洋某处
     peaks = finder.get_peaks_from_overpass(ocean_bbox)
     
     if len(peaks) == 0:
-        print("✅ 海洋区域正确返回空结果")
-        return True
+        print("✅ Ocean area correctly returned empty results")
     else:
-        print(f"⚠️ 海洋区域返回了 {len(peaks)} 个结果")
-        return True
+        print(f"⚠️ Ocean area returned {len(peaks)} results")
 
 def run_all_tests():
     """
@@ -249,7 +252,7 @@ def run_all_tests():
     Returns:
         bool: 所有测试是否全部通过
     """
-    print("山峰查找器功能测试")
+    print("Peak Finder Function Test")
     print("=" * 50)
     
     tests = [
@@ -270,23 +273,23 @@ def run_all_tests():
                 passed += 1
             time.sleep(1)  # 避免API请求过于频繁
         except Exception as e:
-            print(f"❌ 测试 {test_func.__name__} 出现异常: {e}")
+            print(f"❌ Test {test_func.__name__} encountered exception: {e}")
     
     print("\n" + "=" * 50)
-    print(f"测试结果: {passed}/{total} 个测试通过")
+    print(f"Test results: {passed}/{total} tests passed")
     
     if passed == total:
-        print("🎉 所有测试通过！山峰查找器功能正常")
+        print("🎉 All tests passed! Peak finder function works normally")
     elif passed >= total * 0.8:
-        print("✅ 大部分测试通过，功能基本正常")
+        print("✅ Most tests passed, function works basically normally")
     else:
-        print("⚠️ 部分测试失败，请检查网络连接和API可用性")
+        print("⚠️ Some tests failed, please check network connection and API availability")
     
-    print("\n使用建议:")
-    print("1. 确保网络连接正常")
-    print("2. 某些API可能有访问限制或延迟")
-    print("3. 可以调整搜索参数以适应不同地区")
-    print("4. 建议在实际使用前先测试目标区域")
+    print("\nUsage suggestions:")
+    print("1. Ensure network connection is normal")
+    print("2. Some APIs may have access restrictions or delays")
+    print("3. You can adjust search parameters to adapt to different regions")
+    print("4. It is recommended to test the target area before actual use")
     
     # 返回测试是否全部通过
     return passed == total

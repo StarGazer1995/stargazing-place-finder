@@ -26,7 +26,7 @@ class TestObservatoryFinder(unittest.TestCase):
         """
         测试前的设置
         """
-        self.finder = StarGazingPlaceFinder()
+        self.finder = StarGazingPlaceFinder(enable_cache=False)
         self.test_bbox = (39.5, 115.5, 40.5, 117.5)  # 北京周边区域
     
     def test_observatory_data_class(self):
@@ -39,7 +39,7 @@ class TestObservatoryFinder(unittest.TestCase):
             longitude=116.4074,
             elevation=100.0,
             location_type="observatory",
-            observatory_type="天文观测台",
+            observatory_type="Astronomical observatory",
             description="这是一个测试天文台",
             distance_to_nearest_town=5.0,
             nearest_town_name="北京市",
@@ -60,6 +60,7 @@ class TestObservatoryFinder(unittest.TestCase):
             longitude=116.4074,
             elevation=100.0,
             location_type="observatory",
+            observatory_type="Astronomical observatory",
             distance_to_nearest_town=5.0,
             nearest_town_name="北京市"
         )
@@ -67,7 +68,7 @@ class TestObservatoryFinder(unittest.TestCase):
         self.assertEqual(observatory_alias.location_type, "observatory")
         self.assertEqual(observatory.longitude, 116.4074)
         self.assertEqual(observatory.elevation, 100.0)
-        self.assertEqual(observatory.observatory_type, "天文观测台")
+        self.assertEqual(observatory_alias.observatory_type, "Astronomical observatory")
         self.assertEqual(observatory.description, "这是一个测试天文台")
         self.assertEqual(observatory.distance_to_nearest_town, 5.0)
         self.assertEqual(observatory.nearest_town_name, "北京市")
@@ -112,7 +113,8 @@ class TestObservatoryFinder(unittest.TestCase):
     @patch('src.stargazing_place_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
     @patch('src.stargazing_place_finder.StarGazingPlaceFinder.get_towns_from_overpass')
     @patch('src.stargazing_place_finder.StarGazingPlaceFinder.get_elevation_from_api')
-    def test_find_observatories_in_area(self, mock_elevation, mock_towns, mock_observatories):
+    @patch('src.light_pollution_analyzer.LightPollutionAnalyzer.batch_analyze_coordinates')
+    def test_find_observatories_in_area(self, mock_light_pollution, mock_elevation, mock_towns, mock_observatories):
         """
         测试在指定区域查找天文台
         """
@@ -143,6 +145,9 @@ class TestObservatoryFinder(unittest.TestCase):
         # 模拟海拔数据
         mock_elevation.return_value = 100.0
         
+        # 模拟光污染数据
+        mock_light_pollution.return_value = [{'pollution_level': 'Low'}]
+        
         # 调用方法
         result = self.finder.find_observatories_in_area(self.test_bbox, max_observatories=10)
         
@@ -150,7 +155,7 @@ class TestObservatoryFinder(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertIsInstance(result[0], Observatory)
         self.assertEqual(result[0].name, '测试天文台')
-        self.assertEqual(result[0].observatory_type, '天文观测台')
+        self.assertEqual(result[0].observatory_type, 'Astronomical observatory')
         self.assertEqual(result[0].elevation, 100.0)
         
         # 验证方法调用
@@ -181,23 +186,23 @@ class TestObservatoryFinder(unittest.TestCase):
         测试天文台类型分类逻辑
         """
         test_cases = [
-            ({'man_made': 'observatory'}, '天文观测台'),
-            ({'amenity': 'planetarium'}, '天象馆'),
-            ({'building': 'observatory'}, '天文台建筑'),
-            ({}, '未知类型'),
-            ({'other_tag': 'value'}, '未知类型')
+            ({'man_made': 'observatory'}, 'Astronomical observatory'),
+            ({'amenity': 'planetarium'}, 'Planetarium'),
+            ({'building': 'observatory'}, 'Observatory building'),
+            ({}, 'Unknown type'),
+            ({'other_tag': 'value'}, 'Unknown type')
         ]
         
         for tags, expected_type in test_cases:
             with self.subTest(tags=tags):
                 # 这里我们测试分类逻辑（需要从实际方法中提取）
-                observatory_type = "未知类型"
+                observatory_type = "Unknown type"
                 if tags.get('man_made') == 'observatory':
-                    observatory_type = "天文观测台"
+                    observatory_type = "Astronomical observatory"
                 elif tags.get('amenity') == 'planetarium':
-                    observatory_type = "天象馆"
+                    observatory_type = "Planetarium"
                 elif tags.get('building') == 'observatory':
-                    observatory_type = "天文台建筑"
+                    observatory_type = "Observatory building"
                 
                 self.assertEqual(observatory_type, expected_type)
 

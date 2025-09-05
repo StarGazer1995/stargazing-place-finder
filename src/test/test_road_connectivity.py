@@ -29,20 +29,20 @@ def test_quick_check():
     Returns:
         bool: 测试地点是否被正确识别为可达
     """
-    print("=== 测试快速检测功能 ===")
+    print("=== Testing Quick Detection Function ===")
     
     # 测试一个已知可达的地点（北京市区）
     lat, lon = 39.9042, 116.4074  # 天安门广场
-    print(f"测试坐标: ({lat}, {lon}) - 天安门广场")
+    print(f"Test coordinates: ({lat}, {lon}) - Tiananmen Square")
     
     start_time = time.time()
     result = quick_road_check(lat, lon, search_radius_km=3.0)
     end_time = time.time()
     
-    print(f"结果: {'✅ 可达' if result else '❌ 不可达'}")
-    print(f"耗时: {end_time - start_time:.2f}秒")
+    print(f"Result: {'✅ Accessible' if result else '❌ Not accessible'}")
+    print(f"Time taken: {end_time - start_time:.2f} seconds")
     
-    return result
+    assert result is not None, "Quick road check should return a boolean value"
 
 def test_batch_check():
     """
@@ -64,7 +64,7 @@ def test_batch_check():
     Returns:
         list: 各地点的连通性检测结果列表
     """
-    print("\n=== 测试批量检测功能 ===")
+    print("\n=== Testing Batch Detection Function ===")
     
     # 测试多个地点
     test_locations = [
@@ -75,13 +75,13 @@ def test_batch_check():
     
     location_names = ["天安门广场", "北京怀柔", "海上某点"]
     
-    print(f"批量测试 {len(test_locations)} 个地点...")
+    print(f"Batch testing {len(test_locations)} locations...")
     
     start_time = time.time()
     results = batch_road_check(test_locations, search_radius_km=5.0)
     end_time = time.time()
     
-    print(f"批量检测结果 (总耗时: {end_time - start_time:.2f}秒):")
+    print(f"Batch detection results (total time: {end_time - start_time:.2f} seconds):")
     
     accessible_count = 0
     for i, ((lat, lon), result, name) in enumerate(zip(test_locations, results, location_names)):
@@ -90,8 +90,10 @@ def test_batch_check():
         if result:
             accessible_count += 1
     
-    print(f"\n统计: {accessible_count}/{len(test_locations)} 个地点可达")
-    return results
+    print(f"\nStatistics: {accessible_count}/{len(test_locations)} locations accessible")
+    
+    assert len(results) == len(test_locations), "Batch check should return results for all locations"
+    assert all(isinstance(result, bool) for result in results), "All results should be boolean values"
 
 def test_detailed_checker():
     """
@@ -110,28 +112,29 @@ def test_detailed_checker():
     Returns:
         bool: 详细检测功能是否正常工作
     """
-    print("\n=== 测试详细检测器功能 ===")
+    print("\n=== Testing Detailed Detector Functions ===")
     
     checker = RoadConnectivityChecker(search_radius_km=8.0)
     
     # 测试一个具体地点
     lat, lon = 40.3242, 116.6312  # 北京怀柔
-    print(f"详细测试: 北京怀柔 ({lat}, {lon})")
+    print(f"Detailed test: Beijing Huairou ({lat}, {lon})")
     
     # 获取详细信息
     info = checker.get_accessibility_info(lat, lon)
     
-    print(f"可达性: {'✅ 可达' if info['accessible'] else '❌ 不可达'}")
+    print(f"Accessibility: {'✅ Accessible' if info['accessible'] else '❌ Not accessible'}")
     if info['accessible']:
-        print(f"距离道路: {info['distance_to_road_km']:.2f} km")
-        print(f"网络节点数: {info['network_nodes_count']}")
+        print(f"Distance to road: {info['distance_to_road_km']:.2f} km")
+        print(f"Network nodes count: {info['network_nodes_count']}")
         if info['nearest_road_type']:
-            print(f"最近道路类型: {info['nearest_road_type']}")
+            print(f"Nearest road type: {info['nearest_road_type']}")
     else:
         if info['error']:
-            print(f"错误信息: {info['error']}")
+            print(f"Error message: {info['error']}")
     
-    return info['accessible']
+    assert 'accessible' in info, "Accessibility info should contain 'accessible' key"
+    assert isinstance(info['accessible'], bool), "Accessibility should be a boolean value"
 
 def test_error_handling():
     """
@@ -150,7 +153,7 @@ def test_error_handling():
     - 错误信息的清晰度
     - 程序的稳定性
     """
-    print("\n=== 测试错误处理功能 ===")
+    print("\n=== Testing Error Handling Functions ===")
     
     # 测试无效坐标
     invalid_coords = [
@@ -160,12 +163,12 @@ def test_error_handling():
     ]
     
     for lat, lon in invalid_coords:
-        print(f"测试无效坐标: ({lat}, {lon})")
+        print(f"Testing invalid coordinates: ({lat}, {lon})")
         try:
             result = quick_road_check(lat, lon, search_radius_km=2.0)
-            print(f"  结果: {'可达' if result else '不可达'}")
+            print(f"  Result: {'Accessible' if result else 'Not accessible'}")
         except Exception as e:
-            print(f"  捕获异常: {e}")
+            print(f"  Caught exception: {e}")
 
 def run_all_tests():
     """
@@ -188,7 +191,7 @@ def run_all_tests():
     Returns:
         bool: 所有关键测试是否通过
     """
-    print("🧪 道路连通性检测功能测试")
+    print("🧪 Road Connectivity Detection Function Test")
     print("=" * 50)
     
     try:
@@ -198,29 +201,29 @@ def run_all_tests():
         test3_result = test_detailed_checker()
         test_error_handling()
         
-        print("\n📊 测试总结:")
-        print(f"  快速检测: {'✅ 通过' if test1_result else '❌ 失败'}")
-        print(f"  批量检测: {'✅ 通过' if any(test2_results) else '❌ 失败'}")
-        print(f"  详细检测: {'✅ 通过' if test3_result else '❌ 失败'}")
-        print(f"  错误处理: ✅ 通过")
+        print("\n📊 Test Summary:")
+        print(f"  Quick detection: {'✅ Passed' if test1_result else '❌ Failed'}")
+        print(f"  Batch detection: {'✅ Passed' if any(test2_results) else '❌ Failed'}")
+        print(f"  Detailed detection: {'✅ Passed' if test3_result else '❌ Failed'}")
+        print(f"  Error handling: ✅ Passed")
         
         # 总体评估
         all_passed = test1_result and any(test2_results) and test3_result
-        print(f"\n🎯 总体结果: {'✅ 所有测试通过' if all_passed else '⚠️ 部分测试失败'}")
+        print(f"\n🎯 Overall result: {'✅ All tests passed' if all_passed else '⚠️ Some tests failed'}")
         
         if all_passed:
-            print("\n🎉 道路连通性检测功能工作正常！")
-            print("\n💡 使用建议:")
-            print("   - 对于快速筛选，使用 quick_road_check()")
-            print("   - 对于批量处理，使用 batch_road_check()")
-            print("   - 对于详细分析，使用 RoadConnectivityChecker")
-            print("   - 根据地区特点调整搜索半径参数")
+            print("\n🎉 Road connectivity detection function works normally!")
+            print("\n💡 Usage suggestions:")
+            print("   - For quick filtering, use quick_road_check()")
+            print("   - For batch processing, use batch_road_check()")
+            print("   - For detailed analysis, use RoadConnectivityChecker")
+            print("   - Adjust search radius parameters based on regional characteristics")
         else:
-            print("\n⚠️ 部分功能可能存在问题，请检查网络连接和依赖包")
+            print("\n⚠️ Some functions may have issues, please check network connection and dependencies")
             
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
-        print("请检查依赖包是否正确安装")
+        print(f"\n❌ Error occurred during testing: {e}")
+        print("Please check if dependencies are correctly installed")
 
 if __name__ == "__main__":
     run_all_tests()

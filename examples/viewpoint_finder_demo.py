@@ -19,8 +19,8 @@ def main():
     """
     主函数：演示观景台查找功能
     """
-    print("=== 观景台查找器演示 ===")
-    print("正在搜索北京周边的观景台...")
+    print("=== Viewpoint Finder Demo ===")
+    print("Searching for viewpoints around Beijing...")
     
     # 定义搜索区域（北京周边）
     # 格式：(south, west, north, east)
