@@ -23,15 +23,15 @@ def example_basic_analysis():
     """
     示例1: 基础分析（含光污染数据）
     """
-    print("\n=== 示例1: 基础观星地点分析 ===")
-    print("分析区域: 北京香山地区")
-    print("功能: 山峰查找 + 光污染分析 + 道路连通性检测")
+    print("\n=== Example 1: Basic Stargazing Location Analysis ===")
+    print("Analysis area: Beijing Xiangshan area")
+    print("Features: Peak finding + Light pollution analysis + Road connectivity detection")
     
     # 检查光污染数据文件
     kml_file = "/Users/gongzhao/workspace/stargazing-place-finder/world_atlas/doc.kml"
     if not os.path.exists(kml_file):
-        print(f"错误: 光污染数据文件 {kml_file} 不存在")
-        print("请从光污染地图网站下载KML文件后再运行此示例")
+        print(f"Error: Light pollution data file {kml_file} does not exist")
+        print("Please download KML file from light pollution map website before running this example")
         return
     
     # 创建分析器（使用光污染数据）
@@ -55,37 +55,37 @@ def example_basic_analysis():
     
     # 显示结果
     if locations:
-        print(f"\n找到 {len(locations)} 个观星地点:")
+        print(f"\nFound {len(locations)} stargazing locations:")
         analyzer.print_analysis_summary(locations)
         
         # 保存结果
         output_file = "xiangshan_stargazing_analysis.json"
         analyzer.save_results_to_json(locations, output_file)
-        print(f"\n结果已保存到: {output_file}")
+        print(f"\nResults saved to: {output_file}")
         
         # 获取前3个推荐
         top_3 = analyzer.get_top_recommendations(locations, 3)
-        print(f"\n前3个推荐地点:")
+        print(f"\nTop 3 recommended locations:")
         for i, loc in enumerate(top_3, 1):
-            print(f"{i}. {loc.name} (评分: {loc.stargazing_score:.1f})")
+            print(f"{i}. {loc.name} (Score: {loc.stargazing_score:.1f})")
     else:
-        print("未找到符合条件的观星地点")
+        print("No suitable stargazing locations found")
 
 def example_advanced_analysis():
     """
     示例2: 高级光污染分析（扩大搜索范围）
     """
-    print("\n=== 示例2: 高级光污染分析 ===")
-    print("分析更大区域以获得更多候选地点")
+    print("\n=== Example 2: Advanced Light Pollution Analysis ===")
+    print("Analyzing larger area to get more candidate locations")
     
     # 检查光污染数据文件
     kml_file = "/Users/gongzhao/workspace/stargazing-place-finder/world_atlas/doc.kml"
     if not os.path.exists(kml_file):
-        print(f"错误: 光污染数据文件 {kml_file} 不存在")
-        print("请从光污染地图网站下载KML文件后再运行此示例")
+        print(f"Error: Light pollution data file {kml_file} does not exist")
+        print("Please download the KML file from the light pollution map website before running this example")
         return
     
-    print(f"使用光污染数据文件: {kml_file}")
+    print(f"Using light pollution data file: {kml_file}")
     
     analyzer = StargazingLocationAnalyzer(
         kml_file_path=kml_file,
@@ -105,20 +105,20 @@ def example_advanced_analysis():
     )
     
     if locations:
-        print(f"\n找到 {len(locations)} 个观星地点（含光污染分析）:")
+        print(f"\nFound {len(locations)} stargazing locations (with light pollution analysis):")
         analyzer.print_analysis_summary(locations)
         
         output_file = "beijing_stargazing_with_light_pollution.json"
         analyzer.save_results_to_json(locations, output_file)
-        print(f"\n结果已保存到: {output_file}")
+        print(f"\nResults saved to: {output_file}")
     else:
-        print("未找到符合条件的观星地点")
+        print("No suitable stargazing locations found")
 
 def example_batch_analysis():
     """
     示例3: 批量分析多个地区
     """
-    print("\n=== 示例3: 批量分析多个地区 ===")
+    print("\n=== Example 3: Batch Analysis of Multiple Areas ===")
     
     # 定义多个分析区域
     regions = {
@@ -130,8 +130,8 @@ def example_batch_analysis():
     # 检查光污染数据文件
     kml_file = "/Users/gongzhao/workspace/stargazing-place-finder/world_atlas/doc.kml"
     if not os.path.exists(kml_file):
-        print(f"错误: 光污染数据文件 {kml_file} 不存在")
-        print("批量分析需要光污染数据，请先准备KML文件")
+        print(f"Error: Light pollution data file {kml_file} does not exist")
+        print("Batch analysis requires light pollution data, please prepare KML file first")
         return
     
     analyzer = StargazingLocationAnalyzer(
@@ -143,7 +143,7 @@ def example_batch_analysis():
     all_results = {}
     
     for region_name, bbox in regions.items():
-        print(f"\n正在分析: {region_name}")
+        print(f"\nAnalyzing: {region_name}")
         
         locations = analyzer.analyze_area(
             bbox=bbox,
@@ -156,11 +156,11 @@ def example_batch_analysis():
         all_results[region_name] = locations
         
         if locations:
-            print(f"  找到 {len(locations)} 个地点")
+            print(f"  Found {len(locations)} locations")
             top_location = max(locations, key=lambda x: x.stargazing_score)
-            print(f"  最佳地点: {top_location.name} (评分: {top_location.stargazing_score:.1f})")
+            print(f"  Best location: {top_location.name} (Score: {top_location.stargazing_score:.1f})")
         else:
-            print("  未找到符合条件的地点")
+            print("  No suitable locations found")
     
     # 汇总所有结果
     all_locations = []
@@ -168,32 +168,32 @@ def example_batch_analysis():
         all_locations.extend(region_locations)
     
     if all_locations:
-        print(f"\n=== 批量分析汇总 ===")
-        print(f"总共找到 {len(all_locations)} 个观星地点")
+        print(f"\n=== Batch Analysis Summary ===")
+        print(f"Total found {len(all_locations)} stargazing locations")
         
         # 获取全局前5个推荐
         top_5_global = analyzer.get_top_recommendations(all_locations, 5)
-        print(f"\n全局前5个推荐:")
+        print(f"\nGlobal top 5 recommendations:")
         for i, loc in enumerate(top_5_global, 1):
-            print(f"{i}. {loc.name} (评分: {loc.stargazing_score:.1f}, 海拔: {loc.elevation:.1f}m)")
+            print(f"{i}. {loc.name} (Score: {loc.stargazing_score:.1f}, Elevation: {loc.elevation:.1f}m)")
         
         # 保存汇总结果
         output_file = "batch_stargazing_analysis.json"
         analyzer.save_results_to_json(all_locations, output_file)
-        print(f"\n汇总结果已保存到: {output_file}")
+        print(f"\nSummary results saved to: {output_file}")
 
 def example_custom_parameters():
     """
     示例4: 自定义参数分析
     """
-    print("\n=== 示例4: 自定义参数分析 ===")
-    print("使用严格的筛选条件")
+    print("\n=== Example 4: Custom Parameters Analysis ===")
+    print("Using strict filtering criteria")
     
     # 检查光污染数据文件
     kml_file = "/Users/gongzhao/workspace/stargazing-place-finder/world_atlas/doc.kml"
     if not os.path.exists(kml_file):
-        print(f"错误: 光污染数据文件 {kml_file} 不存在")
-        print("自定义参数分析需要光污染数据，请先准备KML文件")
+        print(f"Error: Light pollution data file {kml_file} does not exist")
+        print("Custom parameter analysis requires light pollution data, please prepare KML file first")
         return
     
     # 创建严格条件的分析器
@@ -215,43 +215,43 @@ def example_custom_parameters():
     )
     
     if locations:
-        print(f"\n严格条件下找到 {len(locations)} 个观星地点:")
+        print(f"\nFound {len(locations)} stargazing locations under strict conditions:")
         
         # 按不同标准排序显示
-        print("\n按海拔排序:")
+        print("\nSorted by elevation:")
         by_elevation = sorted(locations, key=lambda x: x.elevation, reverse=True)[:3]
         for i, loc in enumerate(by_elevation, 1):
-            print(f"{i}. {loc.name} - 海拔: {loc.elevation:.1f}m")
+            print(f"{i}. {loc.name} - Elevation: {loc.elevation:.1f}m")
         
-        print("\n按高度差排序:")
+        print("\nSorted by height difference:")
         by_height_diff = sorted(locations, key=lambda x: x.height_difference, reverse=True)[:3]
         for i, loc in enumerate(by_height_diff, 1):
-            print(f"{i}. {loc.name} - 高度差: {loc.height_difference:.1f}m")
+            print(f"{i}. {loc.name} - Height difference: {loc.height_difference:.1f}m")
         
-        print("\n按综合评分排序:")
+        print("\nSorted by comprehensive score:")
         by_score = sorted(locations, key=lambda x: x.stargazing_score, reverse=True)[:3]
         for i, loc in enumerate(by_score, 1):
-            print(f"{i}. {loc.name} - 评分: {loc.stargazing_score:.1f}")
+            print(f"{i}. {loc.name} - Score: {loc.stargazing_score:.1f}")
         
         output_file = "custom_parameters_analysis.json"
         analyzer.save_results_to_json(locations, output_file)
-        print(f"\n结果已保存到: {output_file}")
+        print(f"\nResults saved to: {output_file}")
     else:
-        print("严格条件下未找到符合要求的观星地点")
-        print("建议降低筛选标准或扩大搜索范围")
+        print("No suitable stargazing locations found under strict conditions")
+        print("Suggest lowering filtering criteria or expanding search range")
 
 def example_convenience_function():
     """
     示例5: 使用便捷函数进行快速分析
     """
-    print("\n=== 示例5: 便捷函数快速分析 ===")
-    print("使用 analyze_stargazing_area() 函数")
+    print("\n=== Example 5: Quick Analysis with Convenience Function ===")
+    print("Using analyze_stargazing_area() function")
     
     # 检查光污染数据文件
     kml_file = "/Users/gongzhao/workspace/stargazing-place-finder/world_atlas/doc.kml"
     if not os.path.exists(kml_file):
-        print(f"错误: 光污染数据文件 {kml_file} 不存在")
-        print("便捷函数分析需要光污染数据，请先准备KML文件")
+        print(f"Error: Light pollution data file {kml_file} does not exist")
+        print("Convenience function analysis requires light pollution data, please prepare KML file first")
         return
     
     # 使用便捷函数进行快速分析
@@ -265,43 +265,43 @@ def example_convenience_function():
     )
     
     if locations:
-        print(f"\n便捷函数找到 {len(locations)} 个观星地点:")
+        print(f"\nConvenience function found {len(locations)} stargazing locations:")
         
         for i, loc in enumerate(locations, 1):
             print(f"{i}. {loc.name}")
-            print(f"   坐标: ({loc.latitude:.4f}, {loc.longitude:.4f})")
-            print(f"   海拔: {loc.elevation:.1f}m")
-            print(f"   评分: {loc.stargazing_score:.1f}/100")
-            print(f"   推荐: {loc.recommendation_level}")
-            print(f"   道路: {'可达' if loc.road_accessible else '不可达'}")
+            print(f"   Coordinates: ({loc.latitude:.4f}, {loc.longitude:.4f})")
+            print(f"   Elevation: {loc.elevation:.1f}m")
+            print(f"   Score: {loc.stargazing_score:.1f}/100")
+            print(f"   Recommendation: {loc.recommendation_level}")
+            print(f"   Road: {'Accessible' if loc.road_accessible else 'Not accessible'}")
             print()
         
         # 保存便捷函数结果
         analyzer = StargazingLocationAnalyzer()
         output_file = "convenience_function_analysis.json"
         analyzer.save_results_to_json(locations, output_file)
-        print(f"结果已保存到: {output_file}")
+        print(f"Results saved to: {output_file}")
     else:
-        print("便捷函数未找到符合条件的观星地点")
+        print("Convenience function found no suitable stargazing locations")
 
 def main():
     """
     主函数 - 运行所有示例
     """
-    print("观星地点综合分析器 - 使用示例")
+    print("Stargazing Location Comprehensive Analyzer - Usage Examples")
     print("=" * 60)
-    print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     try:
         # 检查光污染数据文件是否存在
         kml_file = "/Users/gongzhao/workspace/stargazing-place-finder/world_atlas/doc.kml"
         if not os.path.exists(kml_file):
-            print(f"\n⚠️  警告: 光污染数据文件 {kml_file} 不存在")
-            print("光污染数据是观星地点分析的强制要求")
-            print("请从以下网站下载光污染地图KML文件:")
+            print(f"\n⚠️  Warning: Light pollution data file {kml_file} does not exist")
+            print("Light pollution data is a mandatory requirement for stargazing location analysis")
+            print("Please download light pollution map KML file from the following websites:")
             print("- Light Pollution Map: https://www.lightpollutionmap.info/")
             print("- Dark Site Finder: https://darksitefinder.com/")
-            print("\n下载后请将文件重命名为 'light_pollution_map.kml' 并放在项目根目录")
+            print("\nAfter downloading, please rename the file to 'light_pollution_map.kml' and place it in the project root directory")
             return
         
         # 运行各个示例
@@ -312,10 +312,10 @@ def main():
         example_convenience_function()
         
         print("\n" + "=" * 60)
-        print("所有示例运行完成！")
-        print(f"结束时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("All examples completed!")
+        print(f"End time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
-        print("\n生成的文件:")
+        print("\nGenerated files:")
         output_files = [
             "xiangshan_stargazing_analysis.json",
             "beijing_stargazing_with_light_pollution.json",
@@ -328,16 +328,16 @@ def main():
             if os.path.exists(filename):
                 print(f"✓ {filename}")
             else:
-                print(f"- {filename} (未生成)")
+                print(f"- {filename} (not generated)")
         
-        print("\n使用提示:")
-        print("1. 根据实际需求调整搜索范围和参数")
-        print("2. 有光污染KML文件时可获得更准确的评估")
-        print("3. 可以集成到现有的观星项目中")
-        print("4. 支持批量分析和结果比较")
+        print("\nUsage tips:")
+        print("1. Adjust search range and parameters according to actual needs")
+        print("2. More accurate assessment can be obtained with light pollution KML file")
+        print("3. Can be integrated into existing stargazing projects")
+        print("4. Supports batch analysis and result comparison")
         
     except Exception as e:
-        print(f"\n运行示例时出错: {e}")
+        print(f"\nError running examples: {e}")
         import traceback
         traceback.print_exc()
 

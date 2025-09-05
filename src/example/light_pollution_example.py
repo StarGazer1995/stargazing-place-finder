@@ -49,19 +49,19 @@ def main():
     kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
     
     try:
-        print("=== 光污染分析器示例 ===")
-        print("正在初始化光污染分析器...")
+        print("=== Light Pollution Analysis Example ===")
+        print("Initializing light pollution analyzer...")
         
         # 初始化分析器
         analyzer = LightPollutionAnalyzer(kml_file)
         
         # 显示统计信息
         stats = analyzer.get_statistics()
-        print(f"\n=== 分析器统计信息 ===")
-        print(f"覆盖层数量: {stats['count']}")
-        print(f"图像基础路径: {stats['images_base_path']}")
-        print(f"图像目录是否存在: {stats['images_directory_exists']}")
-        print(f"已缓存图像数量: {stats['cached_images']}")
+        print(f"\n=== Analyzer Statistics ===")
+        print(f"Number of overlays: {stats['count']}")
+        print(f"Images base path: {stats['images_base_path']}")
+        print(f"Images directory exists: {stats['images_directory_exists']}")
+        print(f"Cached images count: {stats['cached_images']}")
         
         # 测试坐标列表
         test_locations = [
@@ -79,7 +79,7 @@ def main():
             (31.7504, 110.3741, "神农架")
         ]
         
-        print("\n=== 单点光污染分析 ===")
+        print("\n=== Single Point Light Pollution Analysis ===")
         
         for lat, lon, location_name in test_locations:
             print(f"\n--- {location_name} ({lat}°, {lon}°) ---")
@@ -88,45 +88,45 @@ def main():
                 pollution_info = analyzer.get_light_pollution_color(lat, lon)
                 
                 if pollution_info:
-                    print(f"覆盖层: {pollution_info['overlay_name']}")
-                    print(f"RGB颜色: {pollution_info['rgb']}")
-                    print(f"十六进制颜色: {pollution_info['hex']}")
-                    print(f"亮度值: {pollution_info['brightness']}/255")
-                    print(f"污染等级: {pollution_info['pollution_level']}")
+                    print(f"Overlay: {pollution_info['overlay_name']}")
+                    print(f"RGB color: {pollution_info['rgb']}")
+                    print(f"Hex color: {pollution_info['hex']}")
+                    print(f"Brightness value: {pollution_info['brightness']}/255")
+                    print(f"Pollution level: {pollution_info['pollution_level']}")
                 else:
-                    print("未找到对应的光污染数据")
+                    print("No corresponding light pollution data found")
                     
             except ValueError as e:
-                print(f"坐标错误: {e}")
+                print(f"Coordinate error: {e}")
             except Exception as e:
-                print(f"分析出错: {e}")
+                print(f"Analysis error: {e}")
         
         # 批量分析示例
-        print("\n=== 批量光污染分析 ===")
+        print("\n=== Batch Light Pollution Analysis ===")
         
         # 准备批量分析的坐标
         batch_coordinates = [(lat, lon) for lat, lon, _ in test_locations]
         
-        print(f"正在批量分析 {len(batch_coordinates)} 个坐标...")
+        print(f"Batch analyzing {len(batch_coordinates)} coordinates...")
         batch_results = analyzer.batch_analyze_coordinates(batch_coordinates)
         
         successful_analyses = sum(1 for result in batch_results if result['success'])
-        print(f"成功分析: {successful_analyses}/{len(batch_results)} 个坐标")
+        print(f"Successfully analyzed: {successful_analyses}/{len(batch_results)} coordinates")
         
         # 显示批量分析结果摘要
-        print("\n批量分析结果摘要:")
+        print("\nBatch analysis results summary:")
         for result in batch_results:
             lat, lon = result['coordinates']
             if result['success'] and result['pollution_info']:
                 pollution_level = result['pollution_info']['pollution_level']
                 brightness = result['pollution_info']['brightness']
-                print(f"  坐标 ({lat}, {lon}): 亮度{brightness}, {pollution_level}")
+                print(f"  Coordinates ({lat}, {lon}): Brightness {brightness}, {pollution_level}")
             else:
                 error_msg = result.get('error', '未找到数据')
-                print(f"  坐标 ({lat}, {lon}): 分析失败 - {error_msg}")
+                print(f"  Coordinates ({lat}, {lon}): Analysis failed - {error_msg}")
         
         # 光污染等级分布统计
-        print("\n=== 光污染等级分布 ===")
+        print("\n=== Light Pollution Level Distribution ===")
         
         pollution_levels = {}
         brightness_values = []
@@ -144,64 +144,64 @@ def main():
                 brightness_values.append(brightness)
         
         if pollution_levels:
-            print("污染等级分布:")
+            print("Pollution level distribution:")
             for level, count in sorted(pollution_levels.items()):
-                print(f"  {level}: {count} 个位置")
+                print(f"  {level}: {count} locations")
         
         if brightness_values:
             avg_brightness = sum(brightness_values) / len(brightness_values)
             min_brightness = min(brightness_values)
             max_brightness = max(brightness_values)
             
-            print(f"\n亮度统计:")
-            print(f"  平均亮度: {avg_brightness:.1f}/255")
-            print(f"  最低亮度: {min_brightness}/255 (最佳观星条件)")
-            print(f"  最高亮度: {max_brightness}/255 (最差观星条件)")
+            print(f"\nBrightness statistics:")
+            print(f"  Average brightness: {avg_brightness:.1f}/255")
+            print(f"  Minimum brightness: {min_brightness}/255 (Best stargazing conditions)")
+            print(f"  Maximum brightness: {max_brightness}/255 (Worst stargazing conditions)")
         
         # 缓存管理示例
-        print("\n=== 缓存管理 ===")
+        print("\n=== Cache Management ===")
         cache_stats = analyzer.get_statistics()
-        print(f"当前缓存的图像数量: {cache_stats['cached_images']}")
+        print(f"Current cached images count: {cache_stats['cached_images']}")
         
         if cache_stats['cached_images'] > 0:
-            print("清除图像缓存...")
+            print("Clearing image cache...")
             analyzer.clear_image_cache()
             
             updated_stats = analyzer.get_statistics()
-            print(f"清除后缓存的图像数量: {updated_stats['cached_images']}")
+            print(f"Cached images count after clearing: {updated_stats['cached_images']}")
         
         # 错误处理示例
-        print("\n=== 错误处理示例 ===")
+        print("\n=== Error Handling Examples ===")
         
         try:
             # 测试无效坐标
             analyzer.get_light_pollution_color(100, 200)
         except ValueError as e:
-            print(f"捕获到预期的坐标错误: {e}")
+            print(f"Caught expected coordinate error: {e}")
         
         try:
             # 测试边界坐标
             result = analyzer.get_light_pollution_color(90, 180)
             if result:
-                print(f"边界坐标分析成功: 污染等级 {result['pollution_level']}")
+                print(f"Boundary coordinate analysis successful: Pollution level {result['pollution_level']}")
             else:
-                print("边界坐标未找到对应数据")
+                print("No corresponding data found for boundary coordinates")
         except Exception as e:
-            print(f"边界坐标分析出错: {e}")
+            print(f"Boundary coordinate analysis error: {e}")
         
-        print("\n=== 分析完成 ===")
-        print("\n使用说明:")
-        print("1. 亮度值范围: 0-255，值越低表示光污染越少，观星条件越好")
-        print("2. Class 1-2: 优秀到良好的观星条件")
-        print("3. Class 3-4: 一般到较差的观星条件")
-        print("4. Class 5+: 差到极差的观星条件")
-        print("5. 如果图像文件不存在，将返回默认的灰色值")
+        print("\n=== Analysis Complete ===")
+        print("\nUsage Instructions:")
+        print("1. Brightness value range: 0-255, lower values indicate less light pollution and better stargazing conditions")
+        print("2. Class 1-2: Excellent to good stargazing conditions")
+        print("3. Class 3-4: Average to poor stargazing conditions")
+        print("4. Class 5+: Poor to extremely poor stargazing conditions")
+        print("5. If image files do not exist, default gray values will be returned")
         
     except FileNotFoundError:
-        print(f"错误: 找不到KML文件 {kml_file}")
-        print("请确保文件路径正确")
+        print(f"Error: Cannot find KML file {kml_file}")
+        print("Please ensure the file path is correct")
     except Exception as e:
-        print(f"发生错误: {e}")
+        print(f"Error occurred: {e}")
         import traceback
         traceback.print_exc()
 

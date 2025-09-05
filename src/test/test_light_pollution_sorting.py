@@ -37,9 +37,9 @@ class TestLightPollutionSorting(unittest.TestCase):
         
         # 测试用的地点数据
         self.test_places = [
-            {'lat': 40.0, 'lon': 116.0, 'tags': {'name': '地点A'}},
-            {'lat': 40.1, 'lon': 116.1, 'tags': {'name': '地点B'}},
-            {'lat': 40.2, 'lon': 116.2, 'tags': {'name': '地点C'}}
+            {'type': 'node', 'lat': 40.0, 'lon': 116.0, 'tags': {'name': '地点A'}},
+            {'type': 'node', 'lat': 40.1, 'lon': 116.1, 'tags': {'name': '地点B'}},
+            {'type': 'node', 'lat': 40.2, 'lon': 116.2, 'tags': {'name': '地点C'}}
         ]
     
     def test_sort_places_without_light_analyzer(self):
@@ -106,7 +106,7 @@ class TestLightPollutionSorting(unittest.TestCase):
         
         验证函数能正确处理只有一个地点的情况
         """
-        single_place = [{'lat': 40.0, 'lon': 116.0, 'tags': {'name': '单个地点'}}]
+        single_place = [{'type': 'node', 'lat': 40.0, 'lon': 116.0, 'tags': {'name': '单个地点'}}]
         
         mock_pollution_result = [
             {'index': 0, 'pollution_info': {'brightness': 0.5}}
@@ -126,9 +126,9 @@ class TestLightPollutionSorting(unittest.TestCase):
         """
         # 包含不同坐标格式的测试数据
         test_places_varied = [
-            {'lat': 39.9042, 'lon': 116.4074},  # 北京
-            {'lat': 31.2304, 'lon': 121.4737},  # 上海
-            {'lat': 22.3193, 'lon': 114.1694}   # 香港
+            {'type': 'node', 'lat': 39.9042, 'lon': 116.4074},  # 北京
+            {'type': 'node', 'lat': 31.2304, 'lon': 121.4737},  # 上海
+            {'type': 'node', 'lat': 22.3193, 'lon': 114.1694}   # 香港
         ]
         
         mock_pollution_results = [
@@ -156,8 +156,8 @@ def run_light_pollution_tests():
     
     执行单元测试并输出详细的测试结果报告
     """
-    print("=== 光污染排序功能测试 ===")
-    print("测试山峰查找器中的光污染分析和排序功能")
+    print("=== Light Pollution Sorting Function Test ===")
+    print("Testing light pollution analysis and sorting functions in peak finder")
     print("=" * 50)
     
     # 创建测试套件
@@ -168,23 +168,23 @@ def run_light_pollution_tests():
     result = runner.run(suite)
     
     print("\n" + "=" * 50)
-    print(f"测试结果: {result.testsRun - len(result.failures) - len(result.errors)}/{result.testsRun} 个测试通过")
+    print(f"Test results: {result.testsRun - len(result.failures) - len(result.errors)}/{result.testsRun} tests passed")
     
     if result.failures:
-        print(f"失败的测试: {len(result.failures)}")
+        print(f"Failed tests: {len(result.failures)}")
         for test, traceback in result.failures:
             print(f"  - {test}: {traceback.split('AssertionError:')[-1].strip()}")
     
     if result.errors:
-        print(f"错误的测试: {len(result.errors)}")
+        print(f"Error tests: {len(result.errors)}")
         for test, traceback in result.errors:
             print(f"  - {test}: {traceback.split('Error:')[-1].strip()}")
     
     if result.wasSuccessful():
-        print("🎉 所有光污染排序测试通过！")
+        print("🎉 All light pollution sorting tests passed!")
         return True
     else:
-        print("⚠️ 部分测试失败，请检查代码逻辑")
+        print("⚠️ Some tests failed, please check code logic")
         return False
 
 if __name__ == "__main__":

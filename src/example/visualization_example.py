@@ -87,17 +87,17 @@ def main():
     kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
     
     try:
-        print("=== 光污染可视化示例 ===")
-        print("正在初始化可视化器...")
+        print("=== Light Pollution Visualization Example ===")
+        print("Initializing visualizer...")
         
         # 初始化可视化器
         visualizer = LightPollutionVisualizer(kml_file)
         
         # 显示统计信息
         stats = visualizer.get_statistics()
-        print(f"\n=== 可视化器统计信息 ===")
-        print(f"分析器统计: {stats['analyzer_stats']}")
-        print(f"可用颜色等级: {stats['available_colors']}")
+        print(f"\n=== Visualizer Statistics ===")
+        print(f"Analyzer statistics: {stats['analyzer_stats']}")
+        print(f"Available color levels: {stats['available_colors']}")
         
         # 测试地点列表
         test_locations = [
@@ -108,24 +108,24 @@ def main():
             (35.6762, 139.6503, "东京")
         ]
         
-        print("\n=== 可视化选项 ===")
-        print("1. 生成单个地点的热力图")
-        print("2. 生成单个地点的等高线图")
-        print("3. 生成单个地点的散点图")
-        print("4. 生成综合分析报告")
-        print("5. 批量生成多个地点的可视化")
+        print("\n=== Visualization Options ===")
+        print("1. Generate heatmap for single location")
+        print("2. Generate contour map for single location")
+        print("3. Generate scatter plot for single location")
+        print("4. Generate comprehensive analysis report")
+        print("5. Batch generate visualizations for multiple locations")
         
         # 选择测试模式
-        print("\n请选择测试模式 (1-5):")
-        print("由于这是自动化示例，将执行模式4：生成综合分析报告")
+        print("\nPlease select test mode (1-5):")
+        print("Since this is an automated example, will execute mode 4: Generate comprehensive analysis report")
         
         # 选择测试地点
         test_location = test_locations[0]  # 使用北京作为示例
         lat, lon, name = test_location
         
-        print(f"\n=== 为 {name} 生成综合分析报告 ===")
-        print(f"坐标: ({lat}°, {lon}°)")
-        print(f"分析半径: 10km")
+        print(f"\n=== Generating comprehensive analysis report for {name} ===")
+        print(f"Coordinates: ({lat}°, {lon}°)")
+        print(f"Analysis radius: 10km")
         
         # 创建输出目录
         output_dir = os.path.join(project_root, 'visualization_output')
@@ -139,15 +139,15 @@ def main():
             output_dir=output_dir
         )
         
-        print("\n=== 生成结果 ===")
+        print("\n=== Generation Results ===")
         for chart_type, result in results.items():
             print(f"{chart_type}: {result}")
         
         # 演示单独的可视化功能
-        print("\n=== 演示单独功能 ===")
+        print("\n=== Demonstrating Individual Functions ===")
         
         # 1. 热力图示例
-        print("\n1. 生成热力图...")
+        print("\n1. Generating heatmap...")
         heatmap_result = visualizer.create_heatmap(
             center_lat=lat,
             center_lon=lon,
@@ -156,10 +156,10 @@ def main():
             save_path=os.path.join(output_dir, f"{name}_demo_heatmap.png"),
             show_plot=False
         )
-        print(f"热力图结果: {heatmap_result}")
+        print(f"Heatmap result: {heatmap_result}")
         
         # 2. 等高线图示例
-        print("\n2. 生成等高线图...")
+        print("\n2. Generating contour map...")
         contour_result = visualizer.create_contour_map(
             center_lat=lat,
             center_lon=lon,
@@ -168,10 +168,10 @@ def main():
             save_path=os.path.join(output_dir, f"{name}_demo_contour.png"),
             show_plot=False
         )
-        print(f"等高线图结果: {contour_result}")
+        print(f"Contour map result: {contour_result}")
         
         # 3. 散点图示例
-        print("\n3. 生成散点图...")
+        print("\n3. Generating scatter plot...")
         scatter_result = visualizer.create_scatter_plot(
             center_lat=lat,
             center_lon=lon,
@@ -180,14 +180,14 @@ def main():
             save_path=os.path.join(output_dir, f"{name}_demo_scatter.png"),
             show_plot=False
         )
-        print(f"散点图结果: {scatter_result}")
+        print(f"Scatter plot result: {scatter_result}")
         
         # 演示不同半径的比较
-        print("\n=== 不同半径比较 ===")
+        print("\n=== Different Radius Comparison ===")
         
         radii = [5, 10, 15]  # 不同半径
         for radius in radii:
-            print(f"\n生成半径 {radius}km 的热力图...")
+            print(f"\nGenerating heatmap for radius {radius}km...")
             result = visualizer.create_heatmap(
                 center_lat=lat,
                 center_lon=lon,
@@ -196,13 +196,13 @@ def main():
                 save_path=os.path.join(output_dir, f"{name}_radius_{radius}km_heatmap.png"),
                 show_plot=False
             )
-            print(f"半径 {radius}km 结果: {result}")
+            print(f"Radius {radius}km result: {result}")
         
         # 演示多地点快速比较
-        print("\n=== 多地点快速比较 ===")
+        print("\n=== Multi-location Quick Comparison ===")
         
         for i, (test_lat, test_lon, test_name) in enumerate(test_locations[:3]):  # 只测试前3个地点
-            print(f"\n{i+1}/3 处理 {test_name}...")
+            print(f"\n{i+1}/3 Processing {test_name}...")
             
             try:
                 result = visualizer.create_heatmap(
@@ -213,35 +213,35 @@ def main():
                     save_path=os.path.join(output_dir, f"{test_name}_quick_heatmap.png"),
                     show_plot=False
                 )
-                print(f"{test_name} 处理完成: {result}")
+                print(f"{test_name} processing completed: {result}")
                 
             except Exception as e:
-                print(f"{test_name} 处理失败: {e}")
+                print(f"{test_name} processing failed: {e}")
         
         # 生成使用说明
-        print("\n=== 使用说明 ===")
-        print("1. 热力图: 显示连续的光污染强度分布")
-        print("2. 等高线图: 显示光污染强度的等值线")
-        print("3. 散点图: 显示采样点的光污染数据")
-        print("4. 综合报告: 包含所有类型的可视化图表")
-        print("\n颜色说明:")
-        print("- 深蓝色: 最佳观星条件 (Class 1-2)")
-        print("- 绿色/黄色: 一般观星条件 (Class 3-5)")
-        print("- 橙色/红色: 较差到极差观星条件 (Class 6-7+)")
+        print("\n=== Usage Instructions ===")
+        print("1. Heatmap: Shows continuous light pollution intensity distribution")
+        print("2. Contour map: Shows contour lines of light pollution intensity")
+        print("3. Scatter plot: Shows light pollution data at sampling points")
+        print("4. Comprehensive report: Contains all types of visualization charts")
+        print("\nColor explanation:")
+        print("- Dark blue: Best stargazing conditions (Class 1-2)")
+        print("- Green/Yellow: Average stargazing conditions (Class 3-5)")
+        print("- Orange/Red: Poor to extremely poor stargazing conditions (Class 6-7+)")
         
-        print(f"\n=== 可视化完成 ===")
-        print(f"所有图表已保存到: {output_dir}")
-        print("\n建议:")
-        print("1. 查看热力图了解整体光污染分布")
-        print("2. 查看等高线图了解污染强度梯度")
-        print("3. 查看散点图了解具体采样点数据")
-        print("4. 比较不同半径的结果选择最佳观星位置")
+        print(f"\n=== Visualization Completed ===")
+        print(f"All charts saved to: {output_dir}")
+        print("\nRecommendations:")
+        print("1. View heatmap to understand overall light pollution distribution")
+        print("2. View contour map to understand pollution intensity gradients")
+        print("3. View scatter plot to understand specific sampling point data")
+        print("4. Compare results from different radii to select optimal stargazing locations")
         
     except FileNotFoundError:
-        print(f"错误: 找不到KML文件 {kml_file}")
-        print("请确保文件路径正确")
+        print(f"Error: Cannot find KML file {kml_file}")
+        print("Please ensure the file path is correct")
     except Exception as e:
-        print(f"发生错误: {e}")
+        print(f"Error occurred: {e}")
         import traceback
         traceback.print_exc()
 

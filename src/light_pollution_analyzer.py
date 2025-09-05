@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-光污染分析器
+Light Pollution Analyzer
 
-这个模块提供了一个光污染分析器类，用于根据地理坐标获取光污染颜色数值。
-该类使用LocationFinder的解析结果进行初始化，并提供根据坐标获取光污染信息的功能。
+This module provides a light pollution analyzer class for obtaining light pollution
+color values based on geographic coordinates. The class is initialized using
+LocationFinder parsing results and provides functionality to get light pollution
+information based on coordinates.
 """
 
 import os
@@ -24,136 +26,137 @@ except ImportError:
 
 
 class LightPollutionAnalyzer:
-    """光污染分析器
+    """Light Pollution Analyzer
     
-    这个类使用LocationFinder的解析结果进行初始化，提供根据地理坐标
-    获取光污染颜色数值的功能。通过分析对应的图像文件来获取精确的
-    光污染强度信息。
+    This class is initialized using LocationFinder parsing results and provides
+    functionality to get light pollution color values based on geographic coordinates.
+    It obtains precise light pollution intensity information by analyzing corresponding
+    image files.
     """
     
     def __init__(self, kml_file_path: str, images_base_path: Optional[str] = None):
-        """初始化光污染分析器
+        """Initialize light pollution analyzer
         
         Args:
-            kml_file_path: KML文件路径
-            images_base_path: 图像文件基础路径，如果为None则自动推断
+            kml_file_path: Path to KML file
+            images_base_path: Base path for image files, auto-inferred if None
             
         Raises:
-            FileNotFoundError: 当KML文件不存在时
-            ValueError: 当KML文件格式错误时
+            FileNotFoundError: When KML file does not exist
+            ValueError: When KML file format is invalid
         """
         self.location_finder = LocationFinder(kml_file_path)
         
-        # 设置图像文件基础路径
+        # Set image files base path
         if images_base_path is None:
-            # 自动推断图像路径（假设在KML文件同目录下的files文件夹）
+            # Auto-infer image path (assume files folder in same directory as KML file)
             kml_dir = os.path.dirname(kml_file_path)
             self.images_base_path = os.path.join(kml_dir, 'files')
         else:
             self.images_base_path = images_base_path
             
-        # 缓存已加载的图像以提高性能
+        # Cache loaded images to improve performance
         self._image_cache = {}
-        # 设置图像缓存目录
+        # Set image cache directory
         self._image_cache_dir = get_cache_dir('images')
         
-        print(f"光污染分析器初始化完成")
-        print(f"图像基础路径: {self.images_base_path}")
+        print(f"Light pollution analyzer initialization completed")
+        print(f"Images base path: {self.images_base_path}")
     
     def get_light_pollution_color(self, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
-        """根据坐标获取光污染颜色数值
+        """Get light pollution color values based on coordinates
         
         Args:
-            latitude: 纬度
-            longitude: 经度
+            latitude: Latitude
+            longitude: Longitude
             
         Returns:
-            包含光污染信息的字典，如果未找到则返回None
-            字典包含以下键：
-            - 'rgb': RGB颜色值元组 (r, g, b)
-            - 'hex': 十六进制颜色值
-            - 'brightness': 亮度值 (0-255)
-            - 'pollution_level': 污染等级描述
-            - 'overlay_name': 对应的覆盖层名称
-            - 'coordinates': 输入的坐标信息
+            Dictionary containing light pollution information, None if not found
+            Dictionary contains the following keys:
+            - 'rgb': RGB color value tuple (r, g, b)
+            - 'hex': Hexadecimal color value
+            - 'brightness': Brightness value (0-255)
+            - 'pollution_level': Pollution level description
+            - 'overlay_name': Corresponding overlay name
+            - 'coordinates': Input coordinate information
         
         Raises:
-            ValueError: 当坐标无效时
+            ValueError: When coordinates are invalid
         """
-        # 验证坐标有效性
+        # Validate coordinate validity
         if not (-90 <= latitude <= 90):
-            raise ValueError(f"纬度必须在-90到90之间，当前值: {latitude}")
+            raise ValueError(f"Latitude must be between -90 and 90, current value: {latitude}")
         if not (-180 <= longitude <= 180):
-            raise ValueError(f"经度必须在-180到180之间，当前值: {longitude}")
+            raise ValueError(f"Longitude must be between -180 and 180, current value: {longitude}")
         
-        # 查找对应的GroundOverlay
+        # Find corresponding GroundOverlay
         overlay = self.location_finder.find_overlay_by_coordinates(latitude, longitude)
         if overlay is None:
             return None
         
-        # 从图像中提取颜色信息
+        # Extract color information from image
         color_info = self._extract_color_from_image(overlay, latitude, longitude)
         if color_info is None:
             return None
         
-        # 添加额外信息
+        # Add additional information
         color_info['overlay_name'] = overlay.name
         color_info['coordinates'] = {'latitude': latitude, 'longitude': longitude}
         
         return color_info
     
     def _extract_color_from_image(self, overlay: GroundOverlay, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
-        """从图像文件中提取指定坐标的颜色信息
+        """Extract color information from image file at specified coordinates
         
         Args:
-            overlay: GroundOverlay对象
-            latitude: 纬度
-            longitude: 经度
+            overlay: GroundOverlay object
+            latitude: Latitude
+            longitude: Longitude
             
         Returns:
-            颜色信息字典或None
+            Color information dictionary or None
         """
         try:
-            # 获取图像文件路径
+            # Get image file path
             image_filename = os.path.basename(overlay.icon.href)
             image_path = os.path.join(self.images_base_path, image_filename)
             
-            # 检查图像文件是否存在
+            # Check if image file exists
             if not os.path.exists(image_path):
-                print(f"警告: 图像文件不存在: {image_path}")
+                print(f"Warning: Image file does not exist: {image_path}")
                 return self._get_default_color_info()
             
-            # 加载图像（使用缓存）
+            # Load image (using cache)
             image = self._load_image_cached(image_path)
             if image is None:
                 return self._get_default_color_info()
             
-            # 计算图像中对应的像素坐标
+            # Calculate corresponding pixel coordinates in image
             pixel_x, pixel_y = self._geo_to_pixel_coordinates(
                 latitude, longitude, overlay, image.size
             )
             
-            # 确保像素坐标在图像范围内
+            # Ensure pixel coordinates are within image bounds
             if not (0 <= pixel_x < image.size[0] and 0 <= pixel_y < image.size[1]):
-                print(f"警告: 计算的像素坐标超出图像范围: ({pixel_x}, {pixel_y})")
+                print(f"Warning: Calculated pixel coordinates out of image bounds: ({pixel_x}, {pixel_y})")
                 return self._get_default_color_info()
             
-            # 使用双线性插值获取sub-pixel颜色
+            # Use bilinear interpolation to get sub-pixel color
             pixel_color = self._get_interpolated_color(image, pixel_x, pixel_y)
             
-            # 处理不同的图像模式
+            # Handle different image modes
             if image.mode == 'RGB':
                 r, g, b = pixel_color
             elif image.mode == 'RGBA':
                 r, g, b, a = pixel_color
-            elif image.mode == 'L':  # 灰度图像
+            elif image.mode == 'L':  # Grayscale image
                 r = g = b = pixel_color
             else:
-                # 转换为RGB模式
+                # Convert to RGB mode
                 rgb_image = image.convert('RGB')
                 r, g, b = rgb_image.getpixel((int(pixel_x), int(pixel_y)))
             
-            # 计算亮度和污染等级
+            # Calculate brightness and pollution level
             brightness = int(0.299 * r + 0.587 * g + 0.114 * b)
             pollution_level = self._calculate_pollution_level(brightness)
             
@@ -165,28 +168,28 @@ class LightPollutionAnalyzer:
             }
             
         except Exception as e:
-            print(f"提取颜色信息时出错: {e}")
+            print(f"Error extracting color information: {e}")
             return self._get_default_color_info()
     
     def _load_image_cached(self, image_path: str) -> Optional[Image.Image]:
-        """缓存加载图像文件
+        """Load image file with caching
         
         Args:
-            image_path: 图像文件路径
+            image_path: Image file path
             
         Returns:
-            PIL Image对象或None
+            PIL Image object or None
         """
-        # 首先检查内存缓存
+        # First check memory cache
         if image_path in self._image_cache:
             return self._image_cache[image_path]
         
-        # 生成缓存文件名
+        # Generate cache filename
         import hashlib
         cache_filename = hashlib.md5(image_path.encode()).hexdigest() + ".pkl"
         cache_file_path = self._image_cache_dir / cache_filename
         
-        # 检查磁盘缓存
+        # Check disk cache
         if cache_file_path.exists():
             try:
                 import pickle
@@ -195,100 +198,100 @@ class LightPollutionAnalyzer:
                 self._image_cache[image_path] = image
                 return image
             except Exception as e:
-                print(f"从磁盘缓存加载图像失败 {cache_file_path}: {e}")
-                # 删除损坏的缓存文件
+                print(f"Failed to load image from disk cache {cache_file_path}: {e}")
+                # Delete corrupted cache file
                 try:
                     cache_file_path.unlink()
                 except:
                     pass
         
-        # 从原始文件加载图像
+        # Load image from original file
         try:
             image = Image.open(image_path)
-            # 保存到内存缓存
+            # Save to memory cache
             self._image_cache[image_path] = image
             
-            # 保存到磁盘缓存
+            # Save to disk cache
             try:
                 import pickle
                 with open(cache_file_path, 'wb') as f:
                     pickle.dump(image, f)
             except Exception as e:
-                print(f"保存图像到磁盘缓存失败 {cache_file_path}: {e}")
+                print(f"Failed to save image to disk cache {cache_file_path}: {e}")
             
             return image
         except Exception as e:
-            print(f"加载图像失败 {image_path}: {e}")
+            print(f"Failed to load image {image_path}: {e}")
             return None
     
     def _geo_to_pixel_coordinates(self, latitude: float, longitude: float, 
                                 overlay: GroundOverlay, image_size: Tuple[int, int]) -> Tuple[float, float]:
-        """将地理坐标转换为图像像素坐标
+        """Convert geographic coordinates to image pixel coordinates
         
         Args:
-            latitude: 纬度
-            longitude: 经度
-            overlay: GroundOverlay对象
-            image_size: 图像尺寸 (width, height)
+            latitude: Latitude
+            longitude: Longitude
+            overlay: GroundOverlay object
+            image_size: Image size (width, height)
             
         Returns:
-            像素坐标 (x, y)
+            Pixel coordinates (x, y)
         """
         box = overlay.lat_lon_box
         
-        # 计算相对位置（0-1之间）
+        # Calculate relative position (between 0-1)
         lat_ratio = (latitude - box.south) / (box.north - box.south)
         lon_ratio = (longitude - box.west) / (box.east - box.west)
         
-        # 转换为像素坐标
-        # 注意：图像的Y轴是从上到下的，所以需要翻转纬度
+        # Convert to pixel coordinates
+        # Note: Image Y-axis is top-to-bottom, so need to flip latitude
         pixel_x = lon_ratio * image_size[0]
         pixel_y = (1 - lat_ratio) * image_size[1]
         
         return pixel_x, pixel_y
     
     def _calculate_pollution_level(self, brightness: int) -> str:
-        """根据亮度值计算光污染等级
+        """Calculate light pollution level based on brightness value
         
         Args:
-            brightness: 亮度值 (0-255)
+            brightness: Brightness value (0-255)
             
         Returns:
-            污染等级描述字符串
+            Pollution level description string
         """
         if brightness < 32:
-            return "极低污染 (Class 1 - 优秀观星条件)"
+            return "Very Low Pollution (Class 1 - Excellent stargazing conditions)"
         elif brightness < 64:
-            return "低污染 (Class 2 - 良好观星条件)"
+            return "Low Pollution (Class 2 - Good stargazing conditions)"
         elif brightness < 96:
-            return "轻度污染 (Class 3 - 一般观星条件)"
+            return "Light Pollution (Class 3 - Fair stargazing conditions)"
         elif brightness < 128:
-            return "中度污染 (Class 4 - 较差观星条件)"
+            return "Moderate Pollution (Class 4 - Poor stargazing conditions)"
         elif brightness < 160:
-            return "重度污染 (Class 5 - 差观星条件)"
+            return "Heavy Pollution (Class 5 - Bad stargazing conditions)"
         elif brightness < 192:
-            return "严重污染 (Class 6 - 很差观星条件)"
+            return "Severe Pollution (Class 6 - Very bad stargazing conditions)"
         else:
-            return "极重污染 (Class 7+ - 极差观星条件)"
+            return "Extreme Pollution (Class 7+ - Extremely poor stargazing conditions)"
     
     def _get_default_color_info(self) -> Dict[str, Any]:
-        """获取默认的颜色信息（当无法从图像中提取时）
+        """Get default color information (used when unable to extract from image)
         
         Returns:
-            默认颜色信息字典
+            Default color information dictionary
         """
         return {
             'rgb': (128, 128, 128),  # 灰色
             'hex': '#808080',
             'brightness': 128,
-            'pollution_level': '未知污染等级'
+            'pollution_level': 'Unknown pollution level'
         }
     
     def get_statistics(self) -> Dict[str, Any]:
-        """获取分析器统计信息
+        """Get analyzer statistics
         
         Returns:
-            统计信息字典
+            Statistics information dictionary
         """
         base_stats = self.location_finder.get_statistics()
         
@@ -300,10 +303,10 @@ class LightPollutionAnalyzer:
         }
     
     def clear_image_cache(self) -> None:
-        """清除图像缓存
+        """Clear image cache
         
-        用于释放内存，特别是在处理大量图像后。
-        同时清除内存缓存和磁盘缓存。
+        Used to free memory, especially after processing large amounts of images.
+        Clears both memory cache and disk cache.
         """
         # 清除内存缓存
         for image in self._image_cache.values():
@@ -318,19 +321,19 @@ class LightPollutionAnalyzer:
             if self._image_cache_dir.exists():
                 shutil.rmtree(self._image_cache_dir)
                 self._image_cache_dir.mkdir(exist_ok=True)
-            print("图像缓存已清除（包括磁盘缓存）")
+            print("Image cache cleared (including disk cache)")
         except Exception as e:
-            print(f"清除磁盘缓存时出错: {e}")
-            print("内存缓存已清除")
+            print(f"Error clearing disk cache: {e}")
+            print("Memory cache cleared")
     
     def batch_analyze_coordinates(self, coordinates_list: list) -> list:
-        """批量分析多个坐标的光污染信息
+        """Batch analyze light pollution information for multiple coordinates
         
         Args:
-            coordinates_list: 坐标列表，每个元素为 (latitude, longitude) 元组
+            coordinates_list: List of coordinates, each element is a (latitude, longitude) tuple
             
         Returns:
-            分析结果列表，每个元素包含坐标和对应的光污染信息
+            List of analysis results, each element contains coordinates and corresponding light pollution information
         """
         results = []
         
@@ -356,21 +359,21 @@ class LightPollutionAnalyzer:
     
     def get_light_pollution_images_in_bounds(self, north: float, south: float, 
                                            east: float, west: float) -> list:
-        """获取指定地理边界内的光污染图片数据
+        """Get light pollution image data within specified geographic boundaries
         
         Args:
-            north: 北边界纬度
-            south: 南边界纬度  
-            east: 东边界经度
-            west: 西边界经度
+            north: North boundary latitude
+            south: South boundary latitude  
+            east: East boundary longitude
+            west: West boundary longitude
             
         Returns:
-            包含图片信息的列表，每个元素包含:
-            - 'overlay': GroundOverlay对象
-            - 'image_path': 图片文件路径
-            - 'image_data': 图片的base64编码数据
-            - 'bounds': 图片的地理边界
-            - 'exists': 图片文件是否存在
+            List containing image information, each element contains:
+            - 'overlay': GroundOverlay object
+            - 'image_path': Image file path
+            - 'image_data': Base64 encoded image data
+            - 'bounds': Geographic boundaries of the image
+            - 'exists': Whether the image file exists
         """
         results = []
         
@@ -396,7 +399,7 @@ class LightPollutionAnalyzer:
                         with open(image_path, 'rb') as img_file:
                             image_data = base64.b64encode(img_file.read()).decode('utf-8')
                     except Exception as e:
-                        print(f"读取图片文件失败 {image_path}: {e}")
+                        print(f"Failed to read image file {image_path}: {e}")
                         image_data = None
                 
                 # 构建结果
@@ -417,22 +420,22 @@ class LightPollutionAnalyzer:
                 results.append(result)
                 
             except Exception as e:
-                print(f"处理覆盖层时出错 {overlay.name}: {e}")
+                print(f"Error processing overlay {overlay.name}: {e}")
                 continue
         
-        print(f"在指定边界内找到 {len(results)} 个光污染图片")
+        print(f"Found {len(results)} light pollution images within specified boundaries")
         return results
     
     def _get_interpolated_color(self, image: Image.Image, x: float, y: float) -> Tuple[int, ...]:
-        """使用双线性插值获取sub-pixel位置的颜色值
+        """Get color value at sub-pixel position using bilinear interpolation
         
         Args:
-            image: PIL图像对象
-            x: X坐标（可以是小数）
-            y: Y坐标（可以是小数）
+            image: PIL image object
+            x: X coordinate (can be decimal)
+            y: Y coordinate (can be decimal)
             
         Returns:
-            插值后的像素颜色值
+            Interpolated pixel color value
         """
         # 获取图像尺寸
         width, height = image.size
@@ -485,6 +488,6 @@ class LightPollutionAnalyzer:
             return tuple(result)
             
         except Exception as e:
-            print(f"双线性插值计算出错: {e}，回退到最近邻插值")
+            print(f"Bilinear interpolation calculation error: {e}, falling back to nearest neighbor interpolation")
             # 回退到最近邻插值
             return image.getpixel((int(round(x)), int(round(y))))

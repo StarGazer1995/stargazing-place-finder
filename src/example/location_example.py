@@ -50,31 +50,31 @@ def main():
     
     try:
         # 初始化LocationFinder
-        print("正在初始化LocationFinder...")
+        print("Initializing LocationFinder...")
         finder = LocationFinder(kml_file)
         
         # 显示统计信息
         stats = finder.get_statistics()
-        print(f"\n=== 覆盖层统计信息 ===")
-        print(f"总覆盖层数量: {stats['count']}")
-        print(f"唯一名称数量: {stats['unique_names']}")
+        print(f"\n=== Overlay Statistics ===")
+        print(f"Total overlay count: {stats['count']}")
+        print(f"Unique names count: {stats['unique_names']}")
         bounds = stats['bounds']
-        print(f"边界范围: 纬度 {bounds['south']['min']:.2f}° 到 {bounds['north']['max']:.2f}°")
-        print(f"         经度 {bounds['west']['min']:.2f}° 到 {bounds['east']['max']:.2f}°")
+        print(f"Boundary range: Latitude {bounds['south']['min']:.2f}° to {bounds['north']['max']:.2f}°")
+        print(f"               Longitude {bounds['west']['min']:.2f}° to {bounds['east']['max']:.2f}°")
         
         # 测试用例：不同地理位置
         test_locations = [
-            {"name": "北京", "lat": 39.9042, "lon": 116.4074},
-            {"name": "上海", "lat": 31.2304, "lon": 121.4737},
-            {"name": "纽约", "lat": 40.7128, "lon": -74.0060},
-            {"name": "伦敦", "lat": 51.5074, "lon": -0.1278},
-            {"name": "东京", "lat": 35.6762, "lon": 139.6503},
-            {"name": "悉尼", "lat": -33.8688, "lon": 151.2093},
-            {"name": "南极点", "lat": -90.0, "lon": 0.0},
-            {"name": "太平洋中心", "lat": 0.0, "lon": -160.0}
+            {"name": "Beijing", "lat": 39.9042, "lon": 116.4074},
+            {"name": "Shanghai", "lat": 31.2304, "lon": 121.4737},
+            {"name": "New York", "lat": 40.7128, "lon": -74.0060},
+            {"name": "London", "lat": 51.5074, "lon": -0.1278},
+            {"name": "Tokyo", "lat": 35.6762, "lon": 139.6503},
+            {"name": "Sydney", "lat": -33.8688, "lon": 151.2093},
+            {"name": "South Pole", "lat": -90.0, "lon": 0.0},
+            {"name": "Pacific Center", "lat": 0.0, "lon": -160.0}
         ]
         
-        print("\n=== 地理位置查找测试 ===")
+        print("\n=== Geographic Location Search Test ===")
         
         for location in test_locations:
             name = location["name"]
@@ -86,63 +86,63 @@ def main():
             # 查找单个覆盖层
             overlay = finder.find_overlay_by_coordinates(lat, lon)
             if overlay:
-                print(f"找到覆盖层: {overlay.name}")
-                print(f"图标链接: {overlay.icon.href}")
-                print(f"绘制顺序: {overlay.draw_order}")
-                print(f"颜色: {overlay.color}")
-                print(f"边界: 南{overlay.lat_lon_box.south}° 北{overlay.lat_lon_box.north}° "
-                      f"西{overlay.lat_lon_box.west}° 东{overlay.lat_lon_box.east}°")
+                print(f"Found overlay: {overlay.name}")
+                print(f"Icon link: {overlay.icon.href}")
+                print(f"Draw order: {overlay.draw_order}")
+                print(f"Color: {overlay.color}")
+                print(f"Bounds: South{overlay.lat_lon_box.south}° North{overlay.lat_lon_box.north}° "
+                      f"West{overlay.lat_lon_box.west}° East{overlay.lat_lon_box.east}°")
             else:
-                print("未找到覆盖层")
+                print("No overlay found")
             
             # 查找所有覆盖层
             all_overlays = finder.find_all_overlays_by_coordinates(lat, lon)
             if len(all_overlays) > 1:
-                print(f"总共找到 {len(all_overlays)} 个重叠的覆盖层")
+                print(f"Found {len(all_overlays)} overlapping overlays in total")
                 for i, ov in enumerate(all_overlays[:3]):  # 只显示前3个
                     print(f"  {i+1}. {ov.name}")
                 if len(all_overlays) > 3:
-                    print(f"  ... 还有 {len(all_overlays) - 3} 个")
+                    print(f"  ... and {len(all_overlays) - 3} more")
         
         # 演示附近覆盖层查找
-        print("\n=== 附近覆盖层查找示例 ===")
+        print("\n=== Nearby Overlay Search Example ===")
         beijing_lat, beijing_lon = 39.9042, 116.4074
         nearby = finder.find_nearby_overlays(beijing_lat, beijing_lon, radius_degrees=2.0)
-        print(f"北京附近2度范围内的覆盖层数量: {len(nearby)}")
+        print(f"Number of overlays within 2 degrees of Beijing: {len(nearby)}")
         
         if nearby:
-            print("前5个附近的覆盖层:")
+            print("First 5 nearby overlays:")
             for i, overlay in enumerate(nearby[:5]):
                 print(f"  {i+1}. {overlay.name}")
         
         # 演示详细信息获取
-        print("\n=== 详细信息获取示例 ===")
+        print("\n=== Detailed Information Retrieval Example ===")
         info = finder.get_overlay_info(beijing_lat, beijing_lon)
-        print(f"位置: ({info['coordinates']['latitude']}, {info['coordinates']['longitude']})")
-        print(f"覆盖层数量: {info['overlay_count']}")
+        print(f"Location: ({info['coordinates']['latitude']}, {info['coordinates']['longitude']})")
+        print(f"Overlay count: {info['overlay_count']}")
         
         if info['overlays']:
-            print("覆盖层详情:")
+            print("Overlay details:")
             for i, overlay_info in enumerate(info['overlays'][:2]):  # 只显示前2个
-                print(f"  {i+1}. 名称: {overlay_info['name']}")
-                print(f"     边界: 南{overlay_info['bounds']['south']}° 北{overlay_info['bounds']['north']}° "
-                      f"西{overlay_info['bounds']['west']}° 东{overlay_info['bounds']['east']}°")
+                print(f"  {i+1}. Name: {overlay_info['name']}")
+                print(f"     Bounds: South{overlay_info['bounds']['south']}° North{overlay_info['bounds']['north']}° "
+                      f"West{overlay_info['bounds']['west']}° East{overlay_info['bounds']['east']}°")
         
         # 错误处理示例
-        print("\n=== 错误处理示例 ===")
+        print("\n=== Error Handling Example ===")
         try:
-            # 测试无效坐标
-            finder.find_overlay_by_coordinates(100, 200)  # 无效的纬度和经度
+            # Test invalid coordinates
+            finder.find_overlay_by_coordinates(100, 200)  # Invalid latitude and longitude
         except ValueError as e:
-            print(f"捕获到预期的错误: {e}")
+            print(f"Caught expected error: {e}")
         
-        print("\n=== 测试完成 ===")
+        print("\n=== Test Completed ===")
         
     except FileNotFoundError:
-        print(f"错误: 找不到KML文件 {kml_file}")
-        print("请确保文件路径正确")
+        print(f"Error: Cannot find KML file {kml_file}")
+        print("Please ensure the file path is correct")
     except Exception as e:
-        print(f"发生错误: {e}")
+        print(f"An error occurred: {e}")
         import traceback
         traceback.print_exc()
 

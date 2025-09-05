@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-道路连通性检测模块
-用于检测指定坐标点是否有道路可以到达
+Road connectivity detection module
+Used to detect whether specified coordinate points can be reached by road
 """
 
 import os
@@ -28,14 +28,14 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RoadAccessInfo:
-    """道路连通性信息"""
+    """Road connectivity information"""
     latitude: float = 0.0
     longitude: float = 0.0
-    is_road_accessible: bool = False #  是否有到最近道路的路径
-    network_nodes_count: int = 0 # 最近道路网络节点数量
-    nearest_road_type: Optional[str] = None # 最近道路类型
-    distance_to_road_km: Optional[float] = None # 到最近道路的距离（公里）
-    error: Optional[str] = None # 错误信息
+    is_road_accessible: bool = False #  Whether there is a path to the nearest road
+    network_nodes_count: int = 0 # Number of nearest road network nodes
+    nearest_road_type: Optional[str] = None # Nearest road type
+    distance_to_road_km: Optional[float] = None # Distance to nearest road (kilometers)
+    error: Optional[str] = None # Error message
 
 class RoadAccessInfoCache(LocationCache):
     def __init__(self,  cache_expiry_hours: int = 24):
@@ -43,12 +43,12 @@ class RoadAccessInfoCache(LocationCache):
 
     def save_road_access_info_to_cache(self, location_type: str, data: List[RoadAccessInfo]):
         """
-        将查询结果保存到缓存
-        
-        Args:
-            location_type: 地点类型
-            data: 查询结果数据
-        """
+    Save query results to cache
+    
+    Args:
+        location_type: Location type
+        data: Query result data
+    """
         cache_key = self._generate_cache_key(location_type)
         cache_file = self._get_cache_file_path(cache_key)
         cached_data = self.get_cached_result(location_type)
@@ -62,20 +62,20 @@ class RoadAccessInfoCache(LocationCache):
         try:
             with open(cache_file, 'wb') as f:
                 pickle.dump(cached_data, f)
-            logger.info(f"💾 查询结果已缓存: {len(data)} 条记录")
+            logger.info(f"💾 Query results cached: {len(data)} records")
         except Exception as e:
-            logger.error(f"⚠️ 保存缓存失败: {e}")
+            logger.error(f"⚠️ Failed to save cache: {e}")
 
     def get_cached_result(self, location_type: str) -> Optional[List[RoadAccessInfo]]:
         """
-        从缓存中获取查询结果
-        
-        Args:
-            location_type: 地点类型
-            
-        Returns:
-            缓存的查询结果，如果没有有效缓存则返回None
-        """
+    Get query results from cache
+    
+    Args:
+        location_type: Location type
+    
+    Returns:
+        Cached query results, returns None if no valid cache
+    """
         if location_type in self.cache_mem_data:
             return self.cache_mem_data[location_type]
         
@@ -86,11 +86,11 @@ class RoadAccessInfoCache(LocationCache):
             try:
                 with open(cache_file, 'rb') as f:
                     cached_data = pickle.load(f)
-                    logger.info(f"✅ 从缓存加载数据: {len(cached_data)} 条记录")
+                    logger.info(f"✅ Data loaded from cache: {len(cached_data)} records")
                     return cached_data
             except Exception as e:
-                logger.error(f"⚠️ 读取缓存文件失败: {e}")
-                # 删除损坏的缓存文件
+                logger.error(f"⚠️ Failed to read cache file: {e}")
+                # Delete corrupted cache file
                 try:
                     cache_file.unlink()
                 except:
@@ -100,17 +100,17 @@ class RoadAccessInfoCache(LocationCache):
     
     def get_location_by_coordinates(self, cache_data: List[RoadAccessInfo], latitude: float, longitude: float, tolerance: float = 0.001) -> Optional[RoadAccessInfo]:
         """
-        根据地点类型和经纬度坐标从缓存中查找特定地点
-        
-        Args:
-            cache_data: 缓存数据
-            latitude: 纬度
-            longitude: 经度
-            tolerance: 坐标匹配容差，默认0.001度（约100米）
-            
-        Returns:
-            匹配的地点对象，如果未找到则返回None
-        """
+    Find specific location from cache based on location type and coordinates
+    
+    Args:
+        cache_data: Cached data
+        latitude: Latitude
+        longitude: Longitude
+        tolerance: Coordinate matching tolerance, default 0.001 degrees (about 100 meters)
+    
+    Returns:
+        Matched location object, returns None if not found
+    """
         if cache_data is None:
             return None
         for location in cache_data:
@@ -119,47 +119,47 @@ class RoadAccessInfoCache(LocationCache):
         return None
 class RoadConnectivityChecker:
     """
-    道路连通性检测器
-    用于检测指定坐标是否有道路网络连接
+    Road connectivity checker
+    Used to detect whether specified coordinates have road network connections
     """
     
     def __init__(self, search_radius_km: float = 10.0):
         """
-        初始化道路连通性检测器
-        
-        Args:
-            search_radius_km: 搜索半径（公里），默认10公里
-        """
+    Initialize road connectivity checker
+    
+    Args:
+        search_radius_km: Search radius (kilometers), default 10 kilometers
+    """
         self.search_radius_km = search_radius_km
-        self.graph_cache = {}  # 缓存已下载的道路网络
+        self.graph_cache = {}  # Cache downloaded road networks
         
-        # 设置OSMnx缓存目录
+        # Set OSMnx cache directory
         setup_osmnx_cache()
         
-        # 设置道路网络缓存目录
+        # Set road network cache directory
         self._road_cache_dir = get_cache_dir('road_networks')
         self.location_cache = RoadAccessInfoCache()
     
     def is_road_accessible(self, lat: float, lon: float, 
                           network_type: str = 'drive') -> bool:
         """
-        检测指定坐标是否有道路可以到达
-        
-        Args:
-            lat: 纬度
-            lon: 经度
-            network_type: 网络类型 ('drive', 'walk', 'bike', 'all')
-            
-        Returns:
-            bool: True表示可达，False表示不可达
-        """
+    Detect whether specified coordinates can be reached by road
+    
+    Args:
+        lat: Latitude
+        lon: Longitude
+        network_type: Network type ('drive', 'walk', 'bike', 'all')
+    
+    Returns:
+        bool: True means accessible, False means inaccessible
+    """
         def process_and_return(res):
-            # 不再使用Location对象保存道路连通性信息，因为RoadAccessInfo更适合
+            # No longer use Location object to save road connectivity info, as RoadAccessInfo is more suitable
             road_info = RoadAccessInfo(latitude=lat, longitude=lon, is_road_accessible=res)
             self.location_cache.save_road_access_info_to_cache(f"accessible_{network_type}", [road_info])
             return res
         try:
-            # 尝试获取该点周围的道路网络
+            # Try to get road network around this point
             cached_results = self.location_cache.get_cached_result(f"accessible_{network_type}")
             if cached_results is not None:
                 logger.info("Read road accessible from cache")
@@ -172,112 +172,112 @@ class RoadConnectivityChecker:
             graph = self._get_road_network(lat, lon, network_type)
             
             if graph is None or len(graph.nodes()) == 0:
-                logger.warning(f"坐标 ({lat}, {lon}) 周围没有找到道路网络")
+                logger.warning(f"No road network found around coordinates ({lat}, {lon})")
                 return process_and_return(False)
             
-            # 查找最近的道路节点
+            # Find nearest road node
             nearest_node = ox.distance.nearest_nodes(graph, lon, lat)
             
             if nearest_node is None:
-                logger.warning(f"坐标 ({lat}, {lon}) 附近没有找到道路节点")
+                logger.warning(f"No road nodes found near coordinates ({lat}, {lon})")
                 return process_and_return(False)
             
-            # 检查最近节点的距离
+            # Check distance to nearest node
             node_data = graph.nodes[nearest_node]
             node_lat, node_lon = node_data['y'], node_data['x']
             distance_km = geodesic((lat, lon), (node_lat, node_lon)).kilometers
             
-            # 如果最近的道路节点距离过远，认为不可达
-            max_distance_km = min(self.search_radius_km / 2, 5.0)  # 最大距离不超过5公里
+            # If nearest road node is too far, consider inaccessible
+            max_distance_km = min(self.search_radius_km / 2, 5.0)  # Maximum distance not exceeding 5 kilometers
             if distance_km > max_distance_km:
-                logger.info(f"坐标 ({lat}, {lon}) 距离最近道路 {distance_km:.2f}km，超过阈值 {max_distance_km}km")
+                logger.info(f"Coordinates ({lat}, {lon}) distance to nearest road {distance_km:.2f}km, exceeds threshold {max_distance_km}km")
                 return process_and_return(False)
             
-            logger.info(f"坐标 ({lat}, {lon}) 可达，距离最近道路 {distance_km:.2f}km")
+            logger.info(f"Coordinates ({lat}, {lon}) accessible, distance to nearest road {distance_km:.2f}km")
             self.location_cache.save_to_cache(network_type, True)
             return process_and_return(True)
             
         except Exception as e:
-            logger.error(f"检测坐标 ({lat}, {lon}) 可达性时出错: {str(e)}")
+            logger.error(f"Error detecting accessibility for coordinates ({lat}, {lon}): {str(e)}")
             return False
     
     def _get_road_network(self, lat: float, lon: float, 
                          network_type: str) -> Optional[nx.MultiDiGraph]:
         """
-        获取指定坐标周围的道路网络
-        
-        Args:
-            lat: 纬度
-            lon: 经度
-            network_type: 网络类型
-            
-        Returns:
-            道路网络图，如果获取失败返回None
-        """
+    Get road network around specified coordinates
+    
+    Args:
+        lat: Latitude
+        lon: Longitude
+        network_type: Network type
+    
+    Returns:
+        Road network graph, returns None if failed to get
+    """
         cache_key = f"{lat:.4f}_{lon:.4f}_{network_type}_{self.search_radius_km}"
         
-        # 检查缓存
+        # Check cache
         if cache_key in self.graph_cache:
-            logger.debug(f"使用缓存的道路网络: {cache_key}")
+            logger.debug(f"Using cached road network: {cache_key}")
             return self.graph_cache[cache_key]
         
         try:
-            logger.info(f"下载坐标 ({lat}, {lon}) 周围 {self.search_radius_km}km 的道路网络")
+            logger.info(f"Downloading road network around coordinates ({lat}, {lon}) within {self.search_radius_km}km")
             
-            # 下载道路网络
+            # Download road network
             graph = ox.graph_from_point(
                 (lat, lon), 
-                dist=self.search_radius_km * 1000,  # 转换为米
+                dist=self.search_radius_km * 1000,  # Convert to meters
                 network_type=network_type,
                 simplify=True
             )
             
-            # 缓存结果
+            # Cache results
             self.graph_cache[cache_key] = graph
-            logger.info(f"成功下载道路网络，包含 {len(graph.nodes())} 个节点")
+            logger.info(f"Successfully downloaded road network with {len(graph.nodes())} nodes")
             
             return graph
             
         except Exception as e:
-            logger.error(f"下载道路网络失败: {str(e)}")
+            logger.error(f"Failed to download road network: {str(e)}")
             return None
     
     def batch_check_accessibility(self, coordinates: list, 
                                  network_type: str = 'drive') -> list:
         """
-        批量检测多个坐标的道路可达性
+        Batch check road accessibility for multiple coordinates
         
         Args:
-            coordinates: 坐标列表，格式为 [(lat1, lon1), (lat2, lon2), ...]
-            network_type: 网络类型
+            coordinates: List of coordinates in format [(lat1, lon1), (lat2, lon2), ...]
+            network_type: Network type
             
         Returns:
-            list: 可达性结果列表，对应输入坐标的顺序
+            list: List of accessibility results corresponding to input coordinates order
         """
         results = []
         
         for i, (lat, lon) in enumerate(coordinates):
-            logger.info(f"检测第 {i+1}/{len(coordinates)} 个坐标: ({lat}, {lon})")
+            logger.info(f"Checking coordinate {i+1}/{len(coordinates)}: ({lat}, {lon})")
             accessible = self.is_road_accessible(lat, lon, network_type)
             results.append(accessible)
         
         accessible_count = sum(results)
-        logger.info(f"批量检测完成: {accessible_count}/{len(coordinates)} 个坐标可达")
+        logger.info(f"Batch detection completed: {accessible_count}/{len(coordinates)} coordinates accessible")
         
         return results
     
     def get_accessibility_info(self, lat: float, lon: float, 
                               network_type: str = 'drive') -> dict:
         """
-        获取详细的可达性信息
+        Get detailed accessibility information
         
         Args:
-            lat: 纬度
-            lon: 经度
-            network_type: 网络类型
+            lat: Latitude
+            lon: Longitude
+            network_type: Network type
             
         Returns:
-            dict: 包含可达性和详细信息的字典
+            dict: Dictionary containing accessibility and detailed information
         """
         result = {
             'accessible': False,
@@ -304,12 +304,12 @@ class RoadConnectivityChecker:
             graph = self._get_road_network(lat, lon, network_type)
             
             if graph is None or len(graph.nodes()) == 0:
-                result['error'] = '无法获取道路网络数据'
+                result['error'] = 'Unable to get road network data'
                 return result
             
             result['network_nodes_count'] = len(graph.nodes())
             
-            # 查找最近的道路节点
+            # Find nearest road node
             nearest_node = ox.distance.nearest_nodes(graph, lon, lat)
             
             if nearest_node is not None:
@@ -320,7 +320,7 @@ class RoadConnectivityChecker:
                 result['distance_to_road_km'] = distance_km
                 result['accessible'] = distance_km <= min(self.search_radius_km / 2, 5.0)
                 
-                # 尝试获取道路类型信息
+                # Try to get road type information
                 edges = graph.edges(nearest_node, data=True)
                 if edges:
                     edge_data = list(edges)[0][2]
@@ -344,35 +344,35 @@ class RoadConnectivityChecker:
 
 def simple_road_check(lat: float, lon: float) -> bool:
     """
-    简单的道路连通性检测函数
+    Simple road connectivity detection function
     
     Args:
-        lat: 纬度
-        lon: 经度
+        lat: Latitude
+        lon: Longitude
         
     Returns:
-        bool: True表示可达，False表示不可达
+        bool: True means accessible, False means inaccessible
     """
     checker = RoadConnectivityChecker(search_radius_km=5.0)
     return checker.is_road_accessible(lat, lon)
 
 
 if __name__ == "__main__":
-    # 示例用法
+    # Example usage
     checker = RoadConnectivityChecker(search_radius_km=10.0)
     
-    # 测试一些坐标
+    # Test some coordinates
     test_coordinates = [
-        (39.9042, 116.4074),  # 北京天安门
-        (31.2304, 121.4737),  # 上海外滩
-        (90.0, 0.0),          # 北极点（应该不可达）
+        (39.9042, 116.4074),  # Beijing Tiananmen
+        (31.2304, 121.4737),  # Shanghai Bund
+        (90.0, 0.0),          # North Pole (should be inaccessible)
     ]
     
     for lat, lon in test_coordinates:
-        print(f"\n检测坐标 ({lat}, {lon}):")
+        print(f"\nDetecting coordinates ({lat}, {lon}):")
         info = checker.get_accessibility_info(lat, lon)
-        print(f"可达性: {info['accessible']}")
+        print(f"Accessibility: {info['accessible']}")
         if info['distance_to_road_km'] is not None:
-            print(f"距离最近道路: {info['distance_to_road_km']:.2f} km")
+            print(f"Distance to nearest road: {info['distance_to_road_km']:.2f} km")
         if info['error']:
-            print(f"错误: {info['error']}")
+            print(f"Error: {info['error']}")

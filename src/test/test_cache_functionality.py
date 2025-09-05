@@ -176,7 +176,7 @@ class TestStarGazingPlaceFinderCache(unittest.TestCase):
         finder = StarGazingPlaceFinder(enable_cache=True, cache_expiry_hours=2)
         
         self.assertIsNotNone(finder.cache)
-        self.assertEqual(finder.cache.expiry_hours, 2)
+        self.assertEqual(finder.cache.expiry_hours, 2 * 3600)  # 2 hours converted to seconds
     
     def test_cache_disabled_initialization(self):
         """
@@ -238,7 +238,7 @@ def run_tests():
     """
     运行所有测试
     """
-    print("🧪 开始运行缓存功能测试...")
+    print("🧪 Starting cache functionality tests...")
     print("=" * 50)
     
     # 创建测试套件
@@ -256,18 +256,18 @@ def run_tests():
     
     # 输出测试结果摘要
     print("\n" + "=" * 50)
-    print(f"🧪 测试完成！")
-    print(f"✅ 成功: {result.testsRun - len(result.failures) - len(result.errors)}")
-    print(f"❌ 失败: {len(result.failures)}")
-    print(f"💥 错误: {len(result.errors)}")
+    print(f"🧪 Tests completed!")
+    print(f"✅ Success: {result.testsRun - len(result.failures) - len(result.errors)}")
+    print(f"❌ Failed: {len(result.failures)}")
+    print(f"💥 Errors: {len(result.errors)}")
     
     if result.failures:
-        print("\n❌ 失败的测试:")
+        print("\n❌ Failed tests:")
         for test, traceback in result.failures:
             print(f"   - {test}: {traceback.split('\n')[-2]}")
     
     if result.errors:
-        print("\n💥 错误的测试:")
+        print("\n💥 Error tests:")
         for test, traceback in result.errors:
             print(f"   - {test}: {traceback.split('\n')[-2]}")
     

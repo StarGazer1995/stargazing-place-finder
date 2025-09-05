@@ -18,25 +18,21 @@ def test_cache_directories():
     """
     测试缓存目录是否正确创建
     """
-    print("🧪 测试缓存目录创建...")
+    print("🧪 Testing cache directory creation...")
     
     cache_info = get_cache_info()
     required_dirs = ['images', 'road_networks', 'osmnx', 'temp']
     
     for dir_name in required_dirs:
-        if dir_name in cache_info['subdirs'] and cache_info['subdirs'][dir_name]['exists']:
-            print(f"  ✅ {dir_name} 目录存在")
-        else:
-            print(f"  ❌ {dir_name} 目录不存在")
-            return False
-    
-    return True
+        assert dir_name in cache_info['subdirs'], f"{dir_name} directory not found in cache info"
+        assert cache_info['subdirs'][dir_name]['exists'], f"{dir_name} directory does not exist"
+        print(f"  ✅ {dir_name} directory exists")
 
 def test_light_pollution_analyzer_cache():
     """
     测试光污染分析器的缓存功能
     """
-    print("\n🧪 测试光污染分析器缓存...")
+    print("\n🧪 Testing light pollution analyzer cache...")
     
     try:
         # 创建一个临时的测试KML文件
@@ -51,111 +47,90 @@ def test_light_pollution_analyzer_cache():
         os.remove(test_kml_path)
         
         # 检查是否有图像缓存目录属性
-        if hasattr(analyzer, '_image_cache_dir'):
-            print(f"  ✅ 图像缓存目录已配置: {analyzer._image_cache_dir}")
-        else:
-            print("  ❌ 图像缓存目录未配置")
-            return False
+        assert hasattr(analyzer, '_image_cache_dir'), "Image cache directory not configured"
+        print(f"  ✅ Image cache directory configured: {analyzer._image_cache_dir}")
         
         # 检查缓存目录是否存在
-        if os.path.exists(analyzer._image_cache_dir):
-            print("  ✅ 图像缓存目录存在")
-        else:
-            print("  ❌ 图像缓存目录不存在")
-            return False
+        assert os.path.exists(analyzer._image_cache_dir), "Image cache directory does not exist"
+        print("  ✅ Image cache directory exists")
         
         # 测试清除缓存功能
         analyzer.clear_image_cache()
-        print("  ✅ 图像缓存清除功能正常")
-        
-        return True
+        print("  ✅ Image cache clearing function works normally")
         
     except Exception as e:
-        print(f"  ❌ 光污染分析器缓存测试失败: {e}")
-        return False
+        print(f"  ❌ Light pollution analyzer cache test failed: {e}")
+        raise
 
 def test_road_connectivity_checker_cache():
     """
     测试道路连通性检查器的缓存功能
     """
-    print("\n🧪 测试道路连通性检查器缓存...")
+    print("\n🧪 Testing road connectivity checker cache...")
     
     try:
         # 创建检查器实例
         checker = RoadConnectivityChecker()
         
         # 检查是否有道路缓存目录属性
-        if hasattr(checker, '_road_cache_dir'):
-            print(f"  ✅ 道路缓存目录已配置: {checker._road_cache_dir}")
-        else:
-            print("  ❌ 道路缓存目录未配置")
-            return False
+        assert hasattr(checker, '_road_cache_dir'), "Road cache directory not configured"
+        print(f"  ✅ Road cache directory configured: {checker._road_cache_dir}")
         
         # 检查缓存目录是否存在
-        if os.path.exists(checker._road_cache_dir):
-            print("  ✅ 道路缓存目录存在")
-        else:
-            print("  ❌ 道路缓存目录不存在")
-            return False
-        
-        return True
+        assert os.path.exists(checker._road_cache_dir), "Road cache directory does not exist"
+        print("  ✅ Road cache directory exists")
         
     except Exception as e:
-        print(f"  ❌ 道路连通性检查器缓存测试失败: {e}")
-        return False
+        print(f"  ❌ Road connectivity checker cache test failed: {e}")
+        raise
 
 def test_simple_road_checker_cache():
     """
     测试简单道路检查器的缓存功能
     """
-    print("\n🧪 测试简单道路检查器缓存...")
+    print("\n🧪 Testing simple road checker cache...")
     
     try:
         # 创建检查器实例
         checker = SimpleRoadChecker()
-        print("  ✅ 简单道路检查器创建成功")
+        print("  ✅ Simple road checker created successfully")
         
         # 检查OSMnx缓存是否已设置
         import osmnx as ox
         cache_folder = ox.settings.cache_folder
-        if 'cache/osmnx' in cache_folder:
-            print(f"  ✅ OSMnx缓存目录已设置: {cache_folder}")
-        else:
-            print(f"  ⚠️ OSMnx缓存目录: {cache_folder}")
-        
-        return True
+        assert cache_folder is not None, "OSMnx cache directory not set"
+        print(f"  ✅ OSMnx cache directory set: {cache_folder}")
         
     except Exception as e:
-        print(f"  ❌ 简单道路检查器缓存测试失败: {e}")
-        return False
+        print(f"  ❌ Simple road checker cache test failed: {e}")
+        raise
 
 def test_cache_cleanup():
     """
     测试缓存清理功能
     """
-    print("\n🧪 测试缓存清理功能...")
+    print("\n🧪 Testing cache cleanup function...")
     
     try:
         # 测试临时缓存清理
         clear_cache('temp')
-        print("  ✅ 临时缓存清理成功")
+        print("  ✅ Temporary cache cleanup successful")
         
         # 获取清理后的缓存信息
         cache_info = get_cache_info()
+        assert 'temp' in cache_info['subdirs'], "Temp cache directory not found"
         temp_size = cache_info['subdirs']['temp']['size']
-        print(f"  ✅ 临时缓存大小: {temp_size}")
-        
-        return True
+        print(f"  ✅ Temporary cache size: {temp_size}")
         
     except Exception as e:
-        print(f"  ❌ 缓存清理测试失败: {e}")
-        return False
+        print(f"  ❌ Cache cleanup test failed: {e}")
+        raise
 
 def main():
     """
     运行所有缓存集成测试
     """
-    print("🚀 开始缓存集成测试")
+    print("🚀 Starting cache integration test")
     print("=" * 50)
     
     tests = [
@@ -174,15 +149,15 @@ def main():
             passed += 1
     
     print("\n" + "=" * 50)
-    print(f"📊 测试结果: {passed}/{total} 通过")
+    print(f"📊 Test results: {passed}/{total} passed")
     
     if passed == total:
-        print("🎉 所有缓存集成测试通过！")
-        print("\n✨ 缓存配置已成功应用到所有模块")
-        print("💡 所有缓存文件现在都存储在项目根目录的 'cache' 文件夹中")
+        print("🎉 All cache integration tests passed!")
+        print("\n✨ Cache configuration successfully applied to all modules")
+        print("💡 All cache files are now stored in the 'cache' folder in the project root directory")
         return True
     else:
-        print("❌ 部分测试失败，请检查配置")
+        print("❌ Some tests failed, please check configuration")
         return False
 
 if __name__ == "__main__":
@@ -190,10 +165,10 @@ if __name__ == "__main__":
         success = main()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
-        print("\n\n👋 测试已取消")
+        print("\n\n👋 Test cancelled")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
+        print(f"\n❌ Error occurred during testing: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

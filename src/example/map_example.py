@@ -47,30 +47,30 @@ def main():
     kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
     
     try:
-        print("=== 光污染地图可视化器演示 ===")
-        print("正在初始化地图可视化器...")
+        print("=== Light Pollution Map Visualizer Demo ===")
+        print("Initializing map visualizer...")
         
         # 初始化地图可视化器
         visualizer = LightPollutionMap(kml_file)
         
         # 获取并打印统计信息
         stats = visualizer.get_statistics()
-        print("\n📊 数据统计:")
+        print("\n📊 Data Statistics:")
         for key, value in stats.items():
             print(f"  {key}: {value}")
         
         # 设置输出目录
         output_dir = os.path.join(project_root, 'map_output')
         
-        print("\n🗺️ 可用的地图类型:")
-        print("  1. 热力图 (heatmap) - 显示光污染强度分布")
-        print("  2. 标记点地图 (markers) - 显示具体观测点位置")
-        print("  3. 聚类地图 (cluster) - 聚合显示密集区域")
-        print("  4. 综合地图 (comprehensive) - 生成所有类型的地图")
-        print("  5. 样式化地图 (styled) - 基于HTML风格的现代化地图")
+        print("\n🗺️ Available map types:")
+        print("  1. Heatmap (heatmap) - Shows light pollution intensity distribution")
+        print("  2. Marker map (markers) - Shows specific observation point locations")
+        print("  3. Cluster map (cluster) - Aggregated display of dense areas")
+        print("  4. Comprehensive map (comprehensive) - Generates all types of maps")
+        print("  5. Styled map (styled) - Modern HTML-based maps")
         
         # 生成综合地图分析报告（以北京为中心）
-        print("\n🚀 正在生成综合地图分析报告...")
+        print("\n🚀 Generating comprehensive map analysis report...")
         results = visualizer.create_comprehensive_map(
             center_lat=39.9042,
             center_lon=116.4074,
@@ -80,28 +80,28 @@ def main():
         )
         
         # 同时生成样式化地图
-        print("\n🎨 正在生成样式化地图...")
+        print("\n🎨 Generating styled maps...")
         from styled_map_generator import StyledMapGenerator
         styled_generator = StyledMapGenerator(kml_file)
         styled_output_dir = os.path.join(project_root, 'styled_map_output')
         styled_results = styled_generator.generate_comprehensive_styled_maps(styled_output_dir)
         
-        print("\n✅ 所有地图生成完成!")
-        print("\n📋 传统地图文件:")
+        print("\n✅ All maps generated successfully!")
+        print("\n📋 Traditional map files:")
         for map_type, path in results.items():
             print(f"  {map_type}: {path}")
         
-        print("\n🎨 样式化地图文件:")
+        print("\n🎨 Styled map files:")
         for map_type, path in styled_results.items():
             print(f"  {map_type}: {path}")
         
-        print("\n🌐 使用方法:")
-        print(f"  传统地图: {results.get('index', '索引页面')}")
-        print(f"  样式化地图: {styled_results.get('main_map', '主页面')}")
+        print("\n🌐 Usage:")
+        print(f"  Traditional maps: {results.get('index', 'Index page')}")
+        print(f"  Styled maps: {styled_results.get('main_map', 'Main page')}")
         
         
     except Exception as e:
-        print(f"❌ 生成地图时发生错误: {e}")
+        print(f"❌ Error occurred while generating maps: {e}")
         import traceback
         traceback.print_exc()
         

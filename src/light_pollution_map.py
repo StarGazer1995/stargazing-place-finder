@@ -193,11 +193,11 @@ class LightPollutionMap:
                     if smoothed[i, j] > 0:  # 只保留有效值
                         smoothed_data.append([lat_mesh[i, j], lon_mesh[i, j], smoothed[i, j]])
             
-            print(f"数据平滑完成，从 {len(heat_data)} 个点扩展到 {len(smoothed_data)} 个平滑点")
+            print(f"Data smoothing completed, expanded from {len(heat_data)} points to {len(smoothed_data)} smooth points")
             return smoothed_data
             
         except Exception as e:
-            print(f"数据平滑处理失败: {str(e)}，使用原始数据")
+            print(f"Data smoothing failed: {str(e)}, using original data")
             return heat_data
     
     def _add_heatmap_layer(self, m: folium.Map, heat_data: List[List[float]], 
@@ -214,17 +214,17 @@ class LightPollutionMap:
         """
         try:
             if len(heat_data) < 1:  # 至少需要1个点才能生成热力图
-                print("数据点不足，无法生成热力图")
+                print("Insufficient data points, cannot generate heatmap")
                 return
             
-            print(f"开始生成热力图，数据点数量: {len(heat_data)}")
+            print(f"Starting to generate heatmap, number of data points: {len(heat_data)}")
             
             # 对数据进行平滑处理
             smoothed_data = self._smooth_heat_data(heat_data)
             
             # 提取坐标和强度值
             intensities = np.array([point[2] for point in smoothed_data])
-            print(f"强度范围: {intensities.min():.2f} - {intensities.max():.2f}")
+            print(f"Intensity range: {intensities.min():.2f} - {intensities.max():.2f}")
             
             # 准备热力图数据 - folium HeatMap需要 [lat, lon, weight] 格式
             heatmap_data = [[point[0], point[1], point[2]] for point in smoothed_data]
@@ -252,10 +252,10 @@ class LightPollutionMap:
             # 将热力图添加到地图
             heatmap.add_to(m)
             
-            print(f"热力图图层已添加，包含 {len(heatmap_data)} 个数据点")
+            print(f"Heatmap layer added, containing {len(heatmap_data)} data points")
             
         except Exception as e:
-            print(f"生成热力图时出错: {str(e)}")
+            print(f"Error generating heatmap: {str(e)}")
     
     def _create_filled_contours_from_data(self, m: folium.Map, lon_mesh, lat_mesh, interpolated, levels, colors):
         """
@@ -270,7 +270,7 @@ class LightPollutionMap:
             levels: 等高线级别
             colors: 颜色列表
         """
-        print("使用备用方案：基于数据创建平滑等高线填充区域")
+        print("Using backup solution: creating smooth contour fill areas based on data")
         
         try:
             from scipy.spatial import ConvexHull
@@ -310,23 +310,23 @@ class LightPollutionMap:
                                     fillOpacity=0.3,
                                     popup=f'光污染强度: {level_min:.2f} - {level_max:.2f}'
                                 ).add_to(m)
-                                print(f"已添加级别 {i} 的凸包填充区域，颜色: {color}，顶点数: {len(hull_coords)}")
+                                print(f"Added convex hull fill area for level {i}, color: {color}, vertices: {len(hull_coords)}")
                                 
                             except Exception as hull_error:
-                                print(f"凸包计算失败，使用边界框: {str(hull_error)}")
+                                print(f"Convex hull calculation failed, using bounding box: {str(hull_error)}")
                                 # 如果凸包计算失败，回退到边界框
                                 self._create_bounding_box_contour(m, lat_points, lon_points, color, level_min, level_max, i)
                         else:
-                            print(f"级别 {i} 的点数不足，使用边界框")
+                            print(f"Insufficient points for level {i}, using bounding box")
                             # 点数不足时使用边界框
                             self._create_bounding_box_contour(m, lat_points, lon_points, color, level_min, level_max, i)
                             
         except ImportError:
-            print("scipy.spatial.ConvexHull 不可用，使用简化方案")
+            print("scipy.spatial.ConvexHull not available, using simplified solution")
             # 如果没有scipy，使用简化的边界框方案
             self._create_simplified_contours(m, lon_mesh, lat_mesh, interpolated, levels, colors)
         except Exception as e:
-            print(f"备用方案创建填充区域时出错: {str(e)}")
+            print(f"Error creating fill areas with backup solution: {str(e)}")
     
     def _create_bounding_box_contour(self, m: folium.Map, lat_points, lon_points, color: str, 
                                    level_min: float, level_max: float, level_index: int) -> None:
@@ -372,7 +372,7 @@ class LightPollutionMap:
                 fillOpacity=0.3,
                 popup=f'光污染强度: {level_min:.2f} - {level_max:.2f}'
             ).add_to(m)
-            print(f"已添加级别 {level_index} 的边界框填充区域，颜色: {color}")
+            print(f"Added bounding box fill area for level {level_index}, color: {color}")
     
     def _create_simplified_contours(self, m: folium.Map, lon_mesh, lat_mesh, interpolated, levels, colors):
         """
@@ -386,7 +386,7 @@ class LightPollutionMap:
             levels: 等高线级别
             colors: 颜色列表
         """
-        print("使用简化等高线方案")
+        print("Using simplified contour solution")
         
         for i in range(len(levels) - 1):
             if i < len(colors):
@@ -444,10 +444,10 @@ class LightPollutionMap:
                         popup=f'光污染强度等级: {level:.2f}'
                     ).add_to(m)
             
-            print("已添加简单填充圆形等高线")
+            print("Added simple filled circular contours")
             
         except Exception as e:
-            print(f"添加简单填充等高线时出错: {str(e)}")
+            print(f"Error adding simple filled contours: {str(e)}")
     
     def _add_simple_contours(self, m: folium.Map, heat_data: List[List[float]], 
                             center_lat: float, center_lon: float, radius_km: float) -> None:
@@ -490,10 +490,10 @@ class LightPollutionMap:
                         popup=f'光污染强度等级: {level:.2f}'
                     ).add_to(m)
             
-            print("已添加简单圆形等高线")
+            print("Added simple circular contours")
             
         except Exception as e:
-            print(f"添加简单等高线时出错: {str(e)}")
+            print(f"Error adding simple contours: {str(e)}")
     
     def _add_custom_styles(self, m: folium.Map) -> None:
         """
@@ -585,7 +585,7 @@ class LightPollutionMap:
         Returns:
             地图HTML内容或保存路径
         """
-        print(f"正在生成热力图地图，中心点: ({center_lat}, {center_lon})，半径: {radius_km}km")
+        print(f"Generating heatmap, center point: ({center_lat}, {center_lon}), radius: {radius_km}km")
         
         # 创建基础地图
         m = folium.Map(
@@ -601,12 +601,12 @@ class LightPollutionMap:
         heat_data = []
         valid_points = 0
         
-        print(f"正在收集 {len(coordinates)} 个点的光污染数据...")
+        print(f"Collecting light pollution data for {len(coordinates)} points...")
         
         for i, (lat, lon) in enumerate(coordinates):
             if i % 100 == 0:
                 progress = (i / len(coordinates)) * 100
-                print(f"进度: {progress:.1f}% ({i}/{len(coordinates)})")
+                print(f"Progress: {progress:.1f}% ({i}/{len(coordinates)})")
             
             try:
                 result = self.analyzer.get_light_pollution_color(lat, lon)
@@ -618,17 +618,17 @@ class LightPollutionMap:
             except Exception as e:
                 continue
         
-        print(f"数据收集完成，有效数据点: {valid_points}")
+        print(f"Data collection completed, valid data points: {valid_points}")
         
         if heat_data:
             # 不再添加热力图层，只添加等高线填充
-            print(f"数据点数量: {len(heat_data)}")
-            print("将生成等高线填充区域")
+            print(f"Number of data points: {len(heat_data)}")
+            print("Will generate contour fill areas")
             
             # 添加等高线填充图层
             self._add_heatmap_layer(m, heat_data, center_lat, center_lon, radius_km)
         else:
-            print("警告: 没有有效的热力图数据点")
+            print("Warning: No valid heatmap data points")
         
         # 添加中心点标记
         folium.Marker(
@@ -685,7 +685,7 @@ class LightPollutionMap:
         Returns:
             地图HTML内容或保存路径
         """
-        print(f"正在生成标记点地图，中心点: ({center_lat}, {center_lon})，半径: {radius_km}km")
+        print(f"Generating marker map, center point: ({center_lat}, {center_lon}), radius: {radius_km}km")
         
         # 创建基础地图
         m = folium.Map(
@@ -715,12 +715,12 @@ class LightPollutionMap:
         valid_points = 0
         pollution_stats = {}
         
-        print(f"正在分析 {len(sample_coords)} 个采样点...")
+        print(f"Analyzing {len(sample_coords)} sample points...")
         
         for i, (lat, lon) in enumerate(sample_coords):
             if i % 20 == 0:
                 progress = (i / len(sample_coords)) * 100
-                print(f"进度: {progress:.1f}% ({i}/{len(sample_coords)})")
+                print(f"Progress: {progress:.1f}% ({i}/{len(sample_coords)})")
             
             try:
                 result = self.analyzer.get_light_pollution_color(lat, lon)
@@ -757,7 +757,7 @@ class LightPollutionMap:
             except Exception as e:
                 continue
         
-        print(f"标记添加完成，有效标记: {valid_points}")
+        print(f"Marker addition completed, valid markers: {valid_points}")
         
         # 添加中心点标记
         folium.Marker(
@@ -814,7 +814,7 @@ class LightPollutionMap:
         Returns:
             地图HTML内容或保存路径
         """
-        print(f"正在生成聚类地图，中心点: ({center_lat}, {center_lon})，半径: {radius_km}km")
+        print(f"Generating cluster map, center point: ({center_lat}, {center_lon}), radius: {radius_km}km")
         
         # 创建基础地图
         m = folium.Map(
@@ -845,12 +845,12 @@ class LightPollutionMap:
         valid_points = 0
         pollution_stats = {}
         
-        print(f"正在分析 {len(sample_coords)} 个采样点...")
+        print(f"Analyzing {len(sample_coords)} sample points...")
         
         for i, (lat, lon) in enumerate(sample_coords):
             if i % 50 == 0:
                 progress = (i / len(sample_coords)) * 100
-                print(f"进度: {progress:.1f}% ({i}/{len(sample_coords)})")
+                print(f"Progress: {progress:.1f}% ({i}/{len(sample_coords)})")
             
             try:
                 result = self.analyzer.get_light_pollution_color(lat, lon)
@@ -901,7 +901,7 @@ class LightPollutionMap:
             except Exception as e:
                 continue
         
-        print(f"聚类标记添加完成，有效标记: {valid_points}")
+        print(f"Cluster marker addition completed, valid markers: {valid_points}")
         
         # 添加中心点标记（不加入聚类）
         folium.Marker(
@@ -937,27 +937,27 @@ class LightPollutionMap:
         # 保存或返回地图
         if save_path:
             m.save(save_path)
-            return f"聚类地图已保存到: {save_path}，统计信息: {pollution_stats}"
+            return f"Cluster map saved to: {save_path}, statistics: {pollution_stats}"
         else:
             return m._repr_html_()
     
     def create_comprehensive_map(self, center_lat: float, center_lon: float, 
-                               radius_km: float = 10.0, location_name: str = "未知地点",
+                               radius_km: float = 10.0, location_name: str = "Unknown Location",
                                output_dir: str = "./map_output") -> Dict[str, str]:
         """
-        创建综合地图分析报告，包含多种地图类型
+        Create comprehensive map analysis report with multiple map types
         
         Args:
-            center_lat: 中心点纬度
-            center_lon: 中心点经度
-            radius_km: 分析半径（公里）
-            location_name: 地点名称
-            output_dir: 输出目录
+            center_lat: Center point latitude
+            center_lon: Center point longitude
+            radius_km: Analysis radius (kilometers)
+            location_name: Location name
+            output_dir: Output directory
             
         Returns:
-            各种地图的保存路径字典
+            Dictionary of save paths for various maps
         """
-        print(f"正在为 {location_name} 生成综合地图分析报告...")
+        print(f"Generating comprehensive map analysis report for {location_name}...")
         
         # 创建输出目录
         os.makedirs(output_dir, exist_ok=True)
@@ -969,7 +969,7 @@ class LightPollutionMap:
         
         try:
             # 1. 热力图
-            print("\n1. 生成热力图...")
+            print("\n1. Generating heatmap...")
             heatmap_path = os.path.join(output_dir, f"{file_prefix}_heatmap.html")
             results['heatmap'] = self.create_heatmap(
                 center_lat, center_lon, radius_km, 
@@ -977,7 +977,7 @@ class LightPollutionMap:
             )
             
             # 2. 标记点地图
-            print("\n2. 生成标记点地图...")
+            print("\n2. Generating marker map...")
             marker_path = os.path.join(output_dir, f"{file_prefix}_markers.html")
             results['markers'] = self.create_marker_map(
                 center_lat, center_lon, radius_km,
@@ -985,7 +985,7 @@ class LightPollutionMap:
             )
             
             # 3. 聚类地图
-            print("\n3. 生成聚类地图...")
+            print("\n3. Generating cluster map...")
             cluster_path = os.path.join(output_dir, f"{file_prefix}_cluster.html")
             results['cluster'] = self.create_cluster_map(
                 center_lat, center_lon, radius_km,
@@ -993,17 +993,17 @@ class LightPollutionMap:
             )
             
         except Exception as e:
-            print(f"生成地图时发生错误: {e}")
+            print(f"Error occurred while generating maps: {e}")
             results['error'] = str(e)
         
         return results
     
     def get_statistics(self) -> Dict[str, Any]:
         """
-        获取地图可视化器的统计信息
+        Get statistics of the map visualizer
         
         Returns:
-            统计信息字典
+            Statistics dictionary
         """
         analyzer_stats = self.analyzer.get_statistics()
         

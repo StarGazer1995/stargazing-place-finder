@@ -37,7 +37,7 @@ class TestUpdatedAnalyzeArea(unittest.TestCase):
         """
         测试分析多种地点类型
         """
-        print("\n测试1: 分析多种地点类型")
+        print("\nTest 1: Testing multiple location types")
         
         locations = self.analyzer.analyze_area(
             bbox=self.test_bbox,
@@ -60,15 +60,15 @@ class TestUpdatedAnalyzeArea(unittest.TestCase):
             self.assertIsNotNone(location.longitude)
             self.assertIsNotNone(location.stargazing_score)
         
-        print(f"✓ 找到 {len(locations)} 个地点")
+        print(f"✓ Found {len(locations)} locations")
         for loc in locations:
-            print(f"  - {loc.name} ({loc.location_type}): {loc.stargazing_score}分")
+            print(f"  - {loc.name} ({loc.location_type}): {loc.stargazing_score} points")
     
     def test_analyze_area_mountain_peaks_only(self):
         """
         测试只分析山峰
         """
-        print("\n测试2: 只分析山峰")
+        print("\nTest 2: Testing mountain peaks only")
         
         locations = self.analyzer.analyze_area(
             bbox=self.test_bbox,
@@ -85,15 +85,15 @@ class TestUpdatedAnalyzeArea(unittest.TestCase):
             self.assertFalse(location.is_observatory())
             self.assertFalse(location.is_viewpoint())
         
-        print(f"✓ 找到 {len(locations)} 个山峰")
+        print(f"✓ Found {len(locations)} mountain peaks")
         for loc in locations:
-            print(f"  - {loc.name}: 海拔{loc.elevation}m, 评分{loc.stargazing_score}分")
+            print(f"  - {loc.name}: Elevation {loc.elevation}m, Score {loc.stargazing_score} points")
     
     def test_analyze_area_observatories_only(self):
         """
         测试只分析天文台
         """
-        print("\n测试3: 只分析天文台")
+        print("\nTest 3: Testing observatories only")
         
         locations = self.analyzer.analyze_area(
             bbox=self.test_bbox,
@@ -110,15 +110,15 @@ class TestUpdatedAnalyzeArea(unittest.TestCase):
             self.assertTrue(location.is_observatory())
             self.assertFalse(location.is_viewpoint())
         
-        print(f"✓ 找到 {len(locations)} 个天文台")
+        print(f"✓ Found {len(locations)} observatories")
         for loc in locations:
-            print(f"  - {loc.name}: 海拔{loc.elevation}m, 评分{loc.stargazing_score}分")
+            print(f"  - {loc.name}: Elevation {loc.elevation}m, Score {loc.stargazing_score} points")
     
     def test_analyze_area_viewpoints_only(self):
         """
         测试只分析观景台
         """
-        print("\n测试4: 只分析观景台")
+        print("\nTest 4: Testing viewpoints only")
         
         locations = self.analyzer.analyze_area(
             bbox=self.test_bbox,
@@ -135,15 +135,15 @@ class TestUpdatedAnalyzeArea(unittest.TestCase):
             self.assertFalse(location.is_observatory())
             self.assertTrue(location.is_viewpoint())
         
-        print(f"✓ 找到 {len(locations)} 个观景台")
+        print(f"✓ Found {len(locations)} viewpoints")
         for loc in locations:
-            print(f"  - {loc.name}: 海拔{loc.elevation}m, 评分{loc.stargazing_score}分")
+            print(f"  - {loc.name}: Elevation {loc.elevation}m, Score {loc.stargazing_score} points")
     
     def test_stargazing_location_dataclass(self):
         """
         测试StargazingLocation数据类的新功能
         """
-        print("\n测试5: StargazingLocation数据类功能")
+        print("\nTest 5: StargazingLocation dataclass functionality")
         
         # 创建不同类型的测试地点
         mountain_peak = StargazingLocation(
@@ -198,16 +198,16 @@ class TestUpdatedAnalyzeArea(unittest.TestCase):
         self.assertFalse(viewpoint.is_observatory())
         self.assertTrue(viewpoint.is_viewpoint())
         
-        print("✓ StargazingLocation类型检查方法正常工作")
-        print(f"  - 山峰: {mountain_peak.name} (prominence: {mountain_peak.prominence}m)")
-        print(f"  - 天文台: {observatory.name} (评分: {observatory.stargazing_score}分)")
-        print(f"  - 观景台: {viewpoint.name} (高度差: {viewpoint.height_difference}m)")
+        print("✓ StargazingLocation type checking methods work properly")
+        print(f"  - Mountain peak: {mountain_peak.name} (prominence: {mountain_peak.prominence}m)")
+        print(f"  - Observatory: {observatory.name} (Score: {observatory.stargazing_score} points)")
+        print(f"  - Viewpoint: {viewpoint.name} (Height difference: {viewpoint.height_difference}m)")
     
     def test_scoring_algorithm_for_different_types(self):
         """
         测试不同类型地点的评分算法
         """
-        print("\n测试6: 不同类型地点的评分算法")
+        print("\nTest 6: Scoring algorithm for different location types")
         
         # 获取一些实际地点进行评分测试
         locations = self.analyzer.analyze_area(
@@ -226,22 +226,22 @@ class TestUpdatedAnalyzeArea(unittest.TestCase):
         # 验证评分逻辑
         for location_type, locs in by_type.items():
             if locs:
-                print(f"\n  {location_type} 类型地点评分:")
+                print(f"\n  {location_type} type location scores:")
                 for loc in locs:
-                    print(f"    - {loc.name}: {loc.stargazing_score}分")
+                    print(f"    - {loc.name}: {loc.stargazing_score} points")
                     
                     # 验证评分在合理范围内
                     self.assertGreaterEqual(loc.stargazing_score, 0)
                     self.assertLessEqual(loc.stargazing_score, 100)
         
-        print("\n✓ 评分算法正常工作")
+        print("\n✓ Scoring algorithm works properly")
 
 def run_tests():
     """
     运行所有测试
     """
     print("=" * 60)
-    print("测试更新后的analyze_area函数")
+    print("Testing updated analyze_area function")
     print("=" * 60)
     
     # 创建测试套件
@@ -254,15 +254,15 @@ def run_tests():
     # 输出总结
     print("\n" + "=" * 60)
     if result.wasSuccessful():
-        print("✅ 所有测试通过！analyze_area函数更新成功")
+        print("✅ All tests passed! analyze_area function update successful")
     else:
-        print("❌ 部分测试失败，需要进一步检查")
+        print("❌ Some tests failed, further investigation needed")
         for failure in result.failures:
-            print(f"失败: {failure[0]}")
-            print(f"原因: {failure[1]}")
+            print(f"Failed: {failure[0]}")
+            print(f"Reason: {failure[1]}")
         for error in result.errors:
-            print(f"错误: {error[0]}")
-            print(f"原因: {error[1]}")
+            print(f"Error: {error[0]}")
+            print(f"Reason: {error[1]}")
     print("=" * 60)
 
 if __name__ == "__main__":
