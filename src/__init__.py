@@ -4,11 +4,13 @@
 主要用于解析暗光地图数据，帮助寻找适合观星的地点。
 """
 
-from .kml_parser import KMLParser, GroundOverlay, LatLonBox, Icon
-from .location_finder import LocationFinder
-from .light_pollution_analyzer import LightPollutionAnalyzer
-from .light_pollution_visualizer import LightPollutionVisualizer
-from .light_pollution_map import LightPollutionMap
+from .utils.kml_parser import KMLParser, GroundOverlay, LatLonBox, Icon
+from .location_finder.location_finder import LocationFinder
+from .light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+from .light_pollution.light_pollution_visualizer import LightPollutionVisualizer
+from .light_pollution.light_pollution_map import LightPollutionMap
+from .stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Location, Peak, Observatory, Viewpoint
+from .stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer
 
 __version__ = "1.0.0"
 __author__ = "Stargazing Place Finder Team"
@@ -21,5 +23,11 @@ __all__ = [
     'LocationFinder',
     'LightPollutionAnalyzer',
     'LightPollutionVisualizer',
-    'LightPollutionMap'
+    'LightPollutionMap',
+    'StarGazingPlaceFinder',
+    'Location',
+    'Peak',
+    'Observatory', 
+    'Viewpoint',
+    'StargazingLocationAnalyzer'
 ]

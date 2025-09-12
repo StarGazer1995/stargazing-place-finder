@@ -1,0 +1,1 @@
+"""Tests for location finding module."""

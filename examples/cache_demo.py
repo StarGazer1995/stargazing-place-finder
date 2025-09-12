@@ -19,8 +19,8 @@ import time
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from src.stargazing_place_finder import StarGazingPlaceFinder
-    from src.light_pollution_analyzer import LightPollutionAnalyzer
+    from src.stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
+    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 except ImportError:
     from stargazing_place_finder import StarGazingPlaceFinder
     from light_pollution_analyzer import LightPollutionAnalyzer
