@@ -1,0 +1,1 @@
+"""Tests for stargazing location analysis module."""

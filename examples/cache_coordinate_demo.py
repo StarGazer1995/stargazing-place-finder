@@ -20,8 +20,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 try:
-    from src.stargazing_place_finder import StarGazingPlaceFinder, LocationCache
-    from src.light_pollution_analyzer import LightPollutionAnalyzer
+    from src.stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, LocationCache
+    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 except ImportError:
     from stargazing_place_finder import StarGazingPlaceFinder, LocationCache
     from light_pollution_analyzer import LightPollutionAnalyzer
