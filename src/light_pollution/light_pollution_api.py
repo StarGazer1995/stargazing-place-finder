@@ -36,7 +36,7 @@ def init_analyzer():
     global analyzer
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
+        project_root = os.path.dirname(os.path.dirname(current_dir))
         kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
         
         print(f"Initializing light pollution analyzer...")
@@ -555,7 +555,7 @@ def analyze_stargazing_area_endpoint():
         
         # 获取KML文件路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
+        project_root = os.path.dirname(os.path.dirname(current_dir))
         kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
         
         # 调用分析函数

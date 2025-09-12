@@ -261,7 +261,7 @@ def main():
     """
     # KML file path
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(current_dir)
+    project_root = os.path.dirname(os.path.dirname(current_dir))
     kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
     
     try:
