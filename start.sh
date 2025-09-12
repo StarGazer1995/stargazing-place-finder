@@ -23,7 +23,7 @@ uv sync
 # 生成地图文件
 echo "🗺️  生成地图文件..."
 echo "🗺️  Generating map files..."
-uv run python src/styled_map_generator.py
+uv run python src/utils/styled_map_generator.py
 
 # 复制资源文件
 echo "📁 复制资源文件..."
@@ -33,7 +33,7 @@ cp -r src/source/assets/* styled_map_output/assets/
 # 启动光污染API服务（后台运行）
 echo "🚀 启动光污染API服务..."
 echo "🚀 Starting Light Pollution API service..."
-uv run python src/light_pollution_api.py &
+uv run python src/light_pollution/light_pollution_api.py &
 API_PID=$!
 
 # 等待API服务启动
