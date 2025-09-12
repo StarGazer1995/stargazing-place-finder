@@ -12,6 +12,9 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 - 🗺️ **Avoid Popular Spots**: Intelligently filter out popular tourist destinations to find quieter stargazing venues
 - 📊 **Data Visualization**: Use heat maps to display light pollution conditions in surrounding areas
 - 🏔️ **Elevation Filtering**: Prioritize locations with higher elevation and open views
+- 🌃 **Light Pollution Analysis**: Provide detailed light pollution level information for all locations (peaks, observatories, viewpoints)
+- 📈 **Smart Sorting**: Automatically sort by light pollution level, prioritizing locations with better stargazing conditions
+- 🚗 **Road Connectivity Detection**: Analyze road accessibility to ensure recommended locations are convenient for transportation
 
 ## Technical Architecture
 
@@ -43,9 +46,13 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 
 - **Map Service**: OpenStreetMap
 - **Data Source**: NASA Light Pollution Map
-- **Visualization**: Heat map display
+- **Visualization**: Heat map display, cluster maps, marker maps
 - **Geographic Data**: Chinese map data
+- **Cache Management**: Unified cache configuration system
 - **Data Model**: Unified Location class architecture supporting multiple location types (peaks, observatories, viewpoints)
+- **Light Pollution Analysis**: Integrated LightPollutionAnalyzer providing real-time light pollution level assessment for all locations
+- **Road Connectivity**: Integrated RoadConnectivityChecker analyzing road accessibility of locations
+- **KML Parsing**: Specialized KML parser supporting ground overlay data parsing
 
 ## Legal Notice
 
@@ -75,6 +82,7 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 ## 📋 Todo List
 
 ### 🎯 Core Features
+- [x] Unified Location data model
 - [x] Light pollution mandatory detection: Ensure dark sky quality of stargazing locations
 - [x] Road accessibility analysis: Balance stargazing quality with transportation convenience
 
@@ -86,12 +94,14 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 - [ ] Add lunar phase information and optimal observation time recommendations
 - [ ] Develop mobile applications
 - [ ] Add user rating and sharing features
+- [ ] Optimize cluster map algorithm
 
 ### 🌐 Data Expansion
 - [ ] Support more light pollution data sources
 - [ ] Integrate satellite cloud imagery data
 - [ ] Add international dark sky preserve data
 - [ ] Support global location analysis
+- [ ] Integrate more stargazing location databases
 
 ## Contributing Guidelines
 

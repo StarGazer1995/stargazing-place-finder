@@ -59,11 +59,11 @@
 光污染地图可视化器类，用于在真实地图上展示光污染数据。
 
 **主要方法：**
-- `create_heatmap()`: 生成交互式热力图地图
-- `create_marker_map()`: 生成标记点地图
-- `create_cluster_map()`: 生成聚类地图
-- `create_comprehensive_map()`: 生成综合地图报告
-- `get_statistics()`: 获取统计信息
+- `create_heatmap()`: 生成交互式热力图地图，显示区域光污染强度分布
+- `create_marker_map()`: 生成标记点地图，在地图上标记特定地点的光污染信息
+- `create_cluster_map()`: 生成聚类地图，将相似光污染等级的地点聚合显示，便于识别适合观星的区域
+- `create_comprehensive_map()`: 生成综合地图报告，结合多种可视化方式
+- `get_statistics()`: 获取统计信息，包括处理的地点数量和地图生成状态
 
 ### 数据类
 - `GroundOverlay`: 地面覆盖层数据
@@ -214,9 +214,27 @@ cluster_result = map_visualizer.create_cluster_map(
     center_lat=39.9042,
     center_lon=116.4074,
     radius_km=10.0,
-    save_path='beijing_cluster.html'
+    save_path='beijing_cluster.html',
+    cluster_radius=100,  # 聚类半径（米）
+    min_samples=3,       # 最小样本数
+    pollution_threshold=4 # 光污染等级阈值，低于此值的地点将被聚类
 )
 print(f"聚类地图生成结果: {cluster_result}")
+
+# 使用自定义参数生成聚类地图
+custom_cluster_result = map_visualizer.create_cluster_map(
+    center_lat=39.9042,
+    center_lon=116.4074,
+    radius_km=20.0,
+    save_path='beijing_custom_cluster.html',
+    cluster_radius=200,     # 更大的聚类半径
+    min_samples=5,          # 更多的最小样本数
+    pollution_threshold=3,   # 更严格的光污染阈值
+    icon_size=(30, 30),     # 自定义图标大小
+    cluster_color='blue',   # 自定义聚类颜色
+    show_labels=True        # 显示地点标签
+)
+print(f"自定义聚类地图生成结果: {custom_cluster_result}")
 
 # 生成综合地图报告
 map_report_results = map_visualizer.create_comprehensive_map(
