@@ -2,7 +2,7 @@
 
 ## 概述
 
-`LightPollutionAnalyzer` 是一个专门用于分析地理位置光污染强度的Python模块。该模块通过解析KML文件和对应的图像数据，能够根据地理坐标精确获取光污染颜色数值和污染等级信息。
+`LightPollutionAnalyzer` 是一个专门用于分析地理位置光污染强度的Python模块。该模块通过解析KML文件和对应的图像数据，能够根据地理坐标精确获取光污染颜色数值和污染等级信息。结合道路连通性检测功能，可以全面评估观星地点的质量。
 
 ## 主要功能
 
@@ -13,6 +13,7 @@
 - 💾 **智能缓存**: 内存和磁盘双重缓存机制提升性能
 - 🗺️ **区域图像提取**: 获取指定地理边界内的光污染图像数据
 - 🔍 **双线性插值**: 使用插值算法提供sub-pixel级别的精确颜色值
+- 🚗 **道路连通性检测**: 分析地点的道路可达性，确保推荐地点交通便利
 
 ## 安装和依赖
 
@@ -39,7 +40,8 @@ from light_pollution_analyzer import LightPollutionAnalyzer
 # 初始化分析器
 analyzer = LightPollutionAnalyzer(
     kml_file_path="path/to/your/light_pollution.kml",
-    images_base_path="path/to/images/folder"  # 可选，自动推断
+    images_base_path="path/to/images/folder",  # 可选，自动推断
+    enable_road_connectivity=True  # 启用道路连通性检测
 )
 
 # 查询单个坐标的光污染信息
@@ -54,6 +56,11 @@ if result:
     print(f"污染等级: {result['pollution_level']}")
 else:
     print("该坐标位置没有光污染数据")
+
+# 检查道路连通性
+road_info = analyzer.check_road_connectivity(latitude, longitude)
+print(f"道路可达性: {road_info['score']}")
+print(f"最近道路距离: {road_info['nearest_road_distance']}米")
 ```
 
 ### 批量分析
@@ -101,12 +108,13 @@ for img_info in image_data:
 ### 类初始化
 
 ```python
-LightPollutionAnalyzer(kml_file_path: str, images_base_path: Optional[str] = None)
+LightPollutionAnalyzer(kml_file_path: str, images_base_path: Optional[str] = None, enable_road_connectivity: bool = False)
 ```
 
 **参数:**
 - `kml_file_path`: KML文件的完整路径
 - `images_base_path`: 图像文件基础路径，如果为None则自动推断为KML文件同目录下的`files`文件夹
+- `enable_road_connectivity`: 是否启用道路连通性检测功能，默认为False
 
 **异常:**
 - `FileNotFoundError`: KML文件不存在
@@ -413,6 +421,41 @@ brightness = 0.299 * R + 0.587 * G + 0.114 * B
 
 这个公式考虑了人眼对不同颜色的敏感度差异。
 
+### 道路连通性评分算法
+
+道路连通性检测使用以下算法计算评分：
+
+```python
+def calculate_connectivity_score(nearest_road_distance, road_type):
+    # 基础分数（满分100）
+    base_score = 100
+    
+    # 根据最近道路距离扣分（每100米扣5分，最多扣50分）
+    distance_penalty = min(50, (nearest_road_distance / 100) * 5)
+    
+    # 根据道路类型调整分数
+    road_type_multiplier = {
+        'highway': 1.0,      # 高速公路，不调整
+        'primary': 0.9,      # 主干道，轻微降低
+        'secondary': 0.8,    # 次干道，适度降低
+        'tertiary': 0.7,     # 三级道路，明显降低
+        'residential': 0.6,  # 居民区道路，大幅降低
+        'track': 0.5,        # 小路，严重降低
+        'path': 0.4,         # 小径，极大降低
+        'none': 0.0          # 无道路，零分
+    }
+    
+    multiplier = road_type_multiplier.get(road_type, 0.5)  # 默认为0.5
+    
+    # 计算最终得分
+    final_score = (base_score - distance_penalty) * multiplier
+    
+    # 确保分数在0-100之间
+    return max(0, min(100, final_score))
+```
+
+这个算法综合考虑了最近道路距离和道路类型，为观星地点提供全面的交通便利性评估。
+
 ## 扩展开发
 
 ### 自定义污染等级
@@ -453,6 +496,46 @@ def get_extended_color_info(self, latitude, longitude):
     })
     
     return extended_info
+```
+
+### 自定义道路连通性检测
+
+可以扩展道路连通性检测功能：
+
+```python
+class EnhancedRoadConnectivityChecker(RoadConnectivityChecker):
+    def check_connectivity(self, latitude, longitude, max_distance=5000):
+        """增强版道路连通性检测"""
+        # 获取基础连通性信息
+        basic_info = super().check_connectivity(latitude, longitude, max_distance)
+        
+        # 添加额外的连通性分析
+        enhanced_info = basic_info.copy()
+        
+        # 检查多种交通方式
+        transport_modes = ['driving', 'walking', 'cycling', 'public_transport']
+        accessibility = {}
+        
+        for mode in transport_modes:
+            accessibility[mode] = self._check_transport_mode(latitude, longitude, mode)
+        
+        enhanced_info['multi_modal_access'] = accessibility
+        enhanced_info['best_transport_mode'] = self._determine_best_mode(accessibility)
+        enhanced_info['parking_availability'] = self._check_parking(latitude, longitude)
+        
+        return enhanced_info
+    
+    def _check_transport_mode(self, lat, lon, mode):
+        # 实现特定交通方式的检测逻辑
+        pass
+    
+    def _determine_best_mode(self, accessibility_data):
+        # 确定最佳交通方式
+        pass
+    
+    def _check_parking(self, lat, lon):
+        # 检查停车场可用性
+        pass
 ```
 
 ---
