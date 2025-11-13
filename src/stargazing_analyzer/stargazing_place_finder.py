@@ -20,10 +20,166 @@ try:
 except ImportError:
     import sys
     import os
-    # 添加项目根目录到Python路径
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
     from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
     from src.cache.cache_config import get_cache_dir
+import math
+
+class PostGISClient:
+    """
+    Lightweight PostGIS client providing location and elevation queries.
+    Encapsulates all database interactions to keep the finder class decoupled.
+    """
+
+    def __init__(self, config: dict):
+        """
+        Initialize the PostGIS client with a connection config dict.
+
+        Args:
+            config: Connection parameters for psycopg2 (host, port, dbname, user, password)
+        """
+        self.config = config or {}
+
+    def query_locations_in_bbox(self, lon_min, lat_min, lon_max, lat_max, location_type=None, filters=None):
+        """
+        Query locations within bbox and return Overpass-compatible dicts.
+
+        Args:
+            lon_min, lat_min, lon_max, lat_max: Bounding box in WGS84
+            location_type: Optional type filter ('town', 'observatory', 'viewpoint', 'peak')
+            filters: Optional extra SQL conditions
+
+        Returns:
+            List[dict]: Elements formatted similar to Overpass API results
+        """
+        import psycopg2
+
+        conn = psycopg2.connect(**self.config)
+        cursor = conn.cursor()
+
+        base_query = """
+            SELECT 
+                osm_id,
+                name,
+                ST_X(ST_Transform(way, 4326)) as longitude,
+                ST_Y(ST_Transform(way, 4326)) as latitude,
+                amenity,
+                tourism,
+                shop,
+                highway,
+                place,
+                man_made,
+                "tower:type" as tower_type,
+                leisure,
+                "natural"
+            FROM planet_osm_point
+            WHERE ST_Transform(way, 4326) && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
+        """
+
+        type_conditions = []
+        if location_type == 'town':
+            type_conditions.append("place IN ('city', 'town', 'village', 'hamlet')")
+            type_conditions.append("name IS NOT NULL")
+        elif location_type == 'observatory':
+            type_conditions.append("(amenity = 'observatory' OR man_made = 'telescope' OR (man_made = 'tower' AND \"tower:type\" = 'astronomical') OR amenity = 'planetarium')")
+        elif location_type == 'viewpoint':
+            type_conditions.append("(tourism = 'viewpoint' OR (man_made = 'tower' AND \"tower:type\" = 'observation') OR amenity = 'observation_deck' OR leisure = 'viewing_platform')")
+        elif location_type == 'peak':
+            type_conditions.append("(\"natural\" IN ('peak','volcano'))")
+
+        conditions = []
+        if type_conditions:
+            conditions.extend(type_conditions)
+        if filters:
+            conditions.append(filters)
+
+        if conditions:
+            query = base_query + " AND " + " AND ".join(conditions)
+        else:
+            query = base_query
+
+        cursor.execute(query, (lon_min, lat_min, lon_max, lat_max))
+        results = cursor.fetchall()
+
+        formatted_results = []
+        for row in results:
+            result = {
+                'type': 'node',
+                'id': row[0],
+                'lat': row[3],
+                'lon': row[2],
+                'tags': {}
+            }
+            if row[1]:
+                result['tags']['name'] = row[1]
+            if row[4]:
+                result['tags']['amenity'] = row[4]
+            if row[5]:
+                result['tags']['tourism'] = row[5]
+            if row[6]:
+                result['tags']['shop'] = row[6]
+            if row[7]:
+                result['tags']['highway'] = row[7]
+            if row[8]:
+                result['tags']['place'] = row[8]
+            if row[9]:
+                result['tags']['man_made'] = row[9]
+            if row[10]:
+                result['tags']['tower:type'] = row[10]
+            if row[11]:
+                result['tags']['leisure'] = row[11]
+            if row[12]:
+                result['tags']['natural'] = row[12]
+            formatted_results.append(result)
+
+        cursor.close()
+        conn.close()
+        return formatted_results
+
+    def find_elevation_at_point(self, lat: float, lon: float) -> Optional[float]:
+        """
+        Find elevation near a point using nearest ele-tagged OSM node.
+
+        Args:
+            lat: Latitude
+            lon: Longitude
+
+        Returns:
+            Elevation in meters or None
+        """
+        import psycopg2
+
+        try:
+            conn = psycopg2.connect(**self.config)
+            cursor = conn.cursor()
+            query = """
+                SELECT 
+                    ele::float as elevation_meters
+                FROM planet_osm_point
+                WHERE ele IS NOT NULL 
+                    AND ele ~ '^[0-9]+(\\.[0-9]+)?$'
+                    AND ele::float >= -500 
+                    AND ele::float <= 9000
+                ORDER BY ST_Transform(way, 4326) <-> ST_SetSRID(ST_MakePoint(%s, %s), 4326)
+                LIMIT 1;
+            """
+            cursor.execute(query, (lon, lat))
+            result = cursor.fetchone()
+            if result:
+                return result[0]
+            return None
+        except Exception:
+            return None
+        finally:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+            try:
+                conn.close()
+            except Exception:
+                pass
+
 
 @dataclass
 class Location:
@@ -460,7 +616,7 @@ class StarGazingPlaceFinder:
     Used to find suitable stargazing locations within specified ranges
     """
     
-    def __init__(self, min_height_difference: float = 100.0, light_pollution_analyzer: Optional[LightPollutionAnalyzer] = None, enable_cache: bool = True, cache_expiry_hours: int = 24*365):
+    def __init__(self, min_height_difference: float = 100.0, light_pollution_analyzer: Optional[LightPollutionAnalyzer] = None, enable_cache: bool = True, cache_expiry_hours: int = 24*365, db_client: Optional[PostGISClient] = None):
         """
         Initialize stargazing place finder
         
@@ -475,6 +631,8 @@ class StarGazingPlaceFinder:
         self.light_pollution_analyzer = light_pollution_analyzer
         self.enable_cache = enable_cache
         self.cache = LocationCache(cache_expiry_hours) if enable_cache else None
+        self.db_client = db_client
+        self.postgis_enabled = self.db_client is not None
         
     def calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """
@@ -512,7 +670,11 @@ class StarGazingPlaceFinder:
         Returns:
             List of peak data
         """
+        
         south, west, north, east = bbox
+        if self.postgis_enabled:
+            print(f"Query peaks in PostGIS: {west}, {south}, {east}, {north}")
+            return self.db_client.query_locations_in_bbox(west, south, east, north, "peak")
         
         # Overpass QL query statement
         query = f"""
@@ -537,6 +699,9 @@ class StarGazingPlaceFinder:
             List of town data
         """
         south, west, north, east = bbox
+        if self.postgis_enabled:
+            print(f"Query towns in PostGIS: {west}, {south}, {east}, {north}")
+            return self.db_client.query_locations_in_bbox(west, south, east, north, "town")
         
         # Overpass QL query statement - get towns, villages and other settlements
         query = f"""
@@ -562,6 +727,9 @@ class StarGazingPlaceFinder:
             List of observatory data
         """
         south, west, north, east = bbox
+        if self.postgis_enabled:
+            print(f"Query observatories in PostGIS: {west}, {south}, {east}, {north}")
+            return self.db_client.query_locations_in_bbox(west, south, east, north, "observatory")
         
         # Overpass QL query statement - get observatories, observation stations, etc.
         query = f"""
@@ -610,6 +778,35 @@ class StarGazingPlaceFinder:
         """
         
         return self._make_overpass_request(query, "viewpoints")
+
+    def _query_locations_in_bbox(self, lon_min, lat_min, lon_max, lat_max, location_type=None, filters=None):
+        """
+        Backward-compatible wrapper to query locations via injected PostGIS client.
+        """
+        if not self.db_client:
+            return []
+        return self.db_client.query_locations_in_bbox(lon_min, lat_min, lon_max, lat_max, location_type, filters)
+
+
+    def _make_postgis_request(self, lon_min, lat_min, lon_max, lat_max, location_type: str = "data") -> List[Dict]:
+        """
+        Send request to PostGIS database with retry mechanism and error handling
+        
+        Args:
+            lon_min: Minimum longitude of bounding box
+            lat_min: Minimum latitude of bounding box
+            lon_max: Maximum longitude of bounding box
+            lat_max: Maximum latitude of bounding box
+            location_type: Type of location data to query (town, observatory, viewpoint)
+            
+        Returns:
+            List of elements returned by database
+        """
+        if location_type in ['town', 'observatory', 'viewpoint', 'peak']:
+            return self._query_locations_in_bbox(lon_min, lat_min, lon_max, lat_max, location_type)
+        else:
+            raise ValueError(f"Unsupported location type: {location_type}")
+
     
     def _make_overpass_request(self, query: str, data_type: str = "data", max_retries: int = 3, debug: bool = False) -> List[Dict]:
         """
@@ -847,6 +1044,26 @@ class StarGazingPlaceFinder:
         except KeyError:
             return None, None
     
+    def _find_elevation_at_point_postgis(self, lat: float, lon: float) -> Optional[float]:
+        """
+        Find elevation at a specific point
+        
+        Args:
+            lat: Latitude
+            lon: Longitude
+            
+        Returns:
+            Elevation in meters or None if not found
+        """
+        if not self.postgis_enabled:
+            print("PostGIS not enabled, cannot query elevation data")
+            return None
+
+        elevation = self.db_client.find_elevation_at_point(lat, lon) if self.db_client else None
+        if elevation is None:
+            print(f"在坐标 ({lat}, {lon}) 附近未找到海拔数据")
+        return elevation
+    
     def _find_locations_in_area(self, 
                                bbox: Tuple[float, float, float, float],
                                location_type: str,
@@ -923,8 +1140,15 @@ class StarGazingPlaceFinder:
                     pass
             
             if elevation is None:
+                elevation = self._find_elevation_at_point_postgis(lat, lon)
+                if elevation is None:
+                    print(f"Warning: {location_type} data missing elevation information, skipping: {location_data.get('id', 'unknown')}")
+            
+            if elevation is None:
                 elevation = self.get_elevation_from_api(lat, lon)
                 time.sleep(0.1)  # Avoid API requests being too frequent
+                if elevation is None:
+                    print(f"Warning: {location_type} data missing elevation information, skipping: {location_data.get('id', 'unknown')}")
             
             if elevation is None:
                 elevation = 0.0  # Default elevation
