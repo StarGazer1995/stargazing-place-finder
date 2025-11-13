@@ -1,21 +1,38 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "stargazing-place-finder"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-requires-python = ">=3.12"
+description = "Stargazing place finder: light pollution analysis and stargazing area analytics"
+requires-python = ">=3.9"
 dependencies = [
-    "flask>=3.1.2",
-    "flask-cors>=6.0.1",
-    "folium>=0.20.0",
-    "matplotlib>=3.10.5",
-    "numpy>=2.3.2",
-    "pillow>=11.3.0",
-    "scipy>=1.16.1",
-    "osmnx>=1.9.4",
-    "networkx>=3.4.2",
-    "geopandas>=1.0.1",
-    "scikit-learn>=1.7.1",
-    "geopy>=2.4.1",
-    "pytest>=8.4.1",
+  "flask>=3.1.2",
+  "flask-cors>=6.0.1",
+  "folium>=0.20.0",
+  "matplotlib>=3.10.5",
+  "numpy>=2.3.2",
+  "pillow>=11.3.0",
+  "scipy>=1.16.1",
+  "osmnx>=1.9.4",
+  "networkx>=3.4.2",
+  "geopy>=2.4.1",
+  "psycopg2-binary>=2.9.9",
+  "requests>=2.32.3",
 ]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.3",
+  "pytest-cov>=5.0.0",
+  "requests-mock>=1.12.1",
+  "responses>=0.25.3",
+  "freezegun>=1.5.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"light_pollution" = ["resources/world_atlas/*", "resources/world_atlas/files/*"]
