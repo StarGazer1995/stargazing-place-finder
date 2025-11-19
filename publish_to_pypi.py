@@ -15,6 +15,17 @@ import subprocess
 import os
 from pathlib import Path
 
+def get_version() -> str:
+    p = Path("pyproject.toml")
+    if not p.exists():
+        return "unknown"
+    txt = p.read_text(encoding="utf-8")
+    for line in txt.splitlines():
+        if line.strip().startswith("version ="):
+            v = line.split("=", 1)[1].strip().strip('"').strip("'")
+            return v
+    return "unknown"
+
 def run_command(cmd, description):
     """运行shell命令并检查返回码"""
     print(f"\n🔄 {description}")
@@ -46,15 +57,19 @@ def main():
     # 1. 检查包是否存在
     dist_dir = Path("dist")
     if not dist_dir.exists():
-        print("❌ dist目录不存在，请先运行构建命令")
-        sys.exit(1)
+        dist_dir.mkdir(parents=True, exist_ok=True)
     
     wheel_files = list(dist_dir.glob("*.whl"))
     tar_files = list(dist_dir.glob("*.tar.gz"))
     
     if not wheel_files or not tar_files:
-        print("❌ 未找到构建的包文件，请先运行: uv run python -m build")
-        sys.exit(1)
+        if not run_command("uv run python -m build", "构建包文件"):
+            sys.exit(1)
+        wheel_files = list(dist_dir.glob("*.whl"))
+        tar_files = list(dist_dir.glob("*.tar.gz"))
+        if not wheel_files or not tar_files:
+            print("❌ 构建后仍未找到包文件")
+            sys.exit(1)
     
     print(f"📦 找到包文件:")
     for f in wheel_files + tar_files:
@@ -78,7 +93,7 @@ def main():
     print("✅ 包文件已构建")
     print("✅ 包质量检查通过")
     print("⚠️  确保你已配置PyPI API Token")
-    print("⚠️  确保版本号正确 (当前: 0.1.0)")
+    print(f"⚠️  确保版本号正确 (当前: {get_version()})")
     
     # 4. 执行上传
     print(f"\n执行命令: {cmd}")
