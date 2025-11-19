@@ -15,16 +15,12 @@ import sys
 import os
 from pathlib import Path
 
-# 添加项目根目录到Python路径
+# 添加 src 目录到Python路径以加载顶层包
 project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / 'src'))
 
-try:
-    from src.stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, LocationCache
-    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-except ImportError:
-    from stargazing_place_finder import StarGazingPlaceFinder, LocationCache
-    from light_pollution_analyzer import LightPollutionAnalyzer
+from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, LocationCache
+from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 
 def main():
     """
@@ -36,7 +32,7 @@ def main():
     # 创建查找器实例（启用缓存）
     print("🔧 初始化查找器...")
     try:
-        light_analyzer = LightPollutionAnalyzer("world_atlas/doc.xml")
+    light_analyzer = LightPollutionAnalyzer("world_atlas/doc.kml")
         finder = StarGazingPlaceFinder(
             min_height_difference=100.0,
             light_pollution_analyzer=light_analyzer,

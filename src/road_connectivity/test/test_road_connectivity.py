@@ -8,11 +8,11 @@
 import sys
 import os
 
-# 添加项目根目录到Python路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
+# 添加 src 目录到Python路径以加载顶层包
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../src'))
 
-from src.road_connectivity.simple_road_checker import quick_road_check, batch_road_check
-from src.road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+from road_connectivity.simple_road_checker import quick_road_check, batch_road_check
+from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 import time
 
 def test_quick_check():

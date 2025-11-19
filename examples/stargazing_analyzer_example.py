@@ -9,11 +9,10 @@
 
 import os
 import sys
-# 添加src目录到Python路径
+# 添加 src 目录到Python路径以加载顶层包
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-from src.stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer, analyze_stargazing_area
+sys.path.append(os.path.join(current_dir, '..', 'src'))
+from stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer, analyze_stargazing_area
 
 def example_1_basic_analysis():
     """

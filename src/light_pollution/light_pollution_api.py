@@ -16,12 +16,11 @@ from typing import Dict, List, Tuple, Any, Optional
 
 try:
     from .light_pollution_analyzer import LightPollutionAnalyzer
-    from .stargazing_location_analyzer import analyze_stargazing_area
+    from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
 except ImportError:
-    # 添加项目根目录到Python路径
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from src.stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
+    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+    from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
 
 app = Flask(__name__)
 CORS(app)  # 允许跨域请求

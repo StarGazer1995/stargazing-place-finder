@@ -8,11 +8,10 @@ KML解析器使用示例
 import os
 import sys
 try:
-    from src.utils.kml_parser import KMLParser
+    from utils.kml_parser import KMLParser
 except ImportError:
-    # 添加项目根目录到Python路径
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-    from src.utils.kml_parser import KMLParser
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
+    from utils.kml_parser import KMLParser
 
 
 def main():

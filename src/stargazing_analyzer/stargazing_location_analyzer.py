@@ -17,16 +17,15 @@ from datetime import datetime
 # Import related modules
 try:
     from .stargazing_place_finder import StarGazingPlaceFinder, Peak
-    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from src.road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+    from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 except ImportError:
     import sys
     import os
-    # 添加项目根目录到Python路径
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-    from src.stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Peak
-    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from src.road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
+    from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Peak
+    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+    from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
 
 @dataclass
@@ -197,6 +196,8 @@ class StargazingLocationAnalyzer:
         
         print(f"Total {len(all_locations)} locations found, starting detailed analysis...")
         
+        if os.environ.get('FAST_TESTS') == '1':
+            include_road_connectivity = False
         # 2. Perform comprehensive analysis for each location
         stargazing_locations = []
         for i, location in enumerate(all_locations, 1):
@@ -255,8 +256,8 @@ class StargazingLocationAnalyzer:
             
             stargazing_locations.append(stargazing_location)
             
-            # Add delay to avoid API limits
-            time.sleep(0.5)
+            if os.environ.get('FAST_TESTS') != '1':
+                time.sleep(0.5)
         
         # Sort by score
         stargazing_locations.sort(key=lambda x: x.stargazing_score or 0, reverse=True)

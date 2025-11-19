@@ -9,13 +9,14 @@
 import sys
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-# 添加项目根目录到Python路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
+# 添加 src 目录到Python路径以加载顶层包
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../src'))
 
-from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-from src.stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Location, Observatory
+from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Location, Observatory
 
 class TestObservatoryFinder(unittest.TestCase):
     """
@@ -23,9 +24,6 @@ class TestObservatoryFinder(unittest.TestCase):
     """
     
     def setUp(self):
-        """
-        测试前的设置
-        """
         self.finder = StarGazingPlaceFinder(enable_cache=False)
         self.test_bbox = (39.5, 115.5, 40.5, 117.5)  # 北京周边区域
     
@@ -74,7 +72,7 @@ class TestObservatoryFinder(unittest.TestCase):
         self.assertEqual(observatory.nearest_town_name, "北京市")
         self.assertEqual(observatory.light_pollution_level, "中等")
     
-    @patch('src.stargazing_analyzer.stargazing_place_finder.requests.post')
+    @patch('stargazing_analyzer.stargazing_place_finder.requests.post')
     def test_get_observatories_from_overpass(self, mock_post):
         """
         测试从Overpass API获取天文台数据
@@ -110,10 +108,10 @@ class TestObservatoryFinder(unittest.TestCase):
         # 验证API调用
         mock_post.assert_called_once()
     
-    @patch('src.stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
-    @patch('src.stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_towns_from_overpass')
-    @patch('src.stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_elevation_from_api')
-    @patch('src.light_pollution.light_pollution_analyzer.LightPollutionAnalyzer.batch_analyze_coordinates')
+    @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
+    @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_towns_from_overpass')
+    @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_elevation_from_api')
+    @patch('light_pollution.light_pollution_analyzer.LightPollutionAnalyzer.batch_analyze_coordinates')
     def test_find_observatories_in_area(self, mock_light_pollution, mock_elevation, mock_towns, mock_observatories):
         """
         测试在指定区域查找天文台
@@ -166,7 +164,7 @@ class TestObservatoryFinder(unittest.TestCase):
         # 验证至少调用了天文台的海拔查询
         mock_elevation.assert_any_call(39.9042, 116.4074)
     
-    @patch('src.stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
+    @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
     def test_find_observatories_empty_result(self, mock_observatories):
         """
         测试当没有找到天文台时的情况
@@ -212,10 +210,10 @@ class TestObservatoryIntegration(unittest.TestCase):
     """
     
     def setUp(self):
-        """
-        测试前的设置
-        """
-        self.finder = StarGazingPlaceFinder(light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
+        p = Path("world_atlas/doc.kml")
+        if not p.exists():
+            self.skipTest("缺少KML数据文件，跳过集成测试")
+        self.finder = StarGazingPlaceFinder(light_pollution_analyzer=LightPollutionAnalyzer(str(p)))
     
     def test_real_observatory_search(self):
         """
