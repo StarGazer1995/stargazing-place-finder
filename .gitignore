@@ -213,3 +213,4 @@ styled_map_output/
 *cache*/
 maps*
 *.json
+config/postgis_config.toml

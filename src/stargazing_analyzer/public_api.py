@@ -27,7 +27,8 @@ def _default_paths() -> Tuple[Path, Path]:
 def init_stargazing_analyzer(kml_file_path: Optional[Path] = None,
                              images_base_path: Optional[Path] = None,
                              min_height_difference: float = 100.0,
-                             road_search_radius_km: float = 10.0) -> StargazingLocationAnalyzer:
+                             road_search_radius_km: float = 10.0,
+                             db_config_path: Optional[Path] = None) -> StargazingLocationAnalyzer:
     """
     初始化并返回天文观测位置分析器实例，供直接导入调用。
 
@@ -36,6 +37,7 @@ def init_stargazing_analyzer(kml_file_path: Optional[Path] = None,
         images_base_path: 图片目录，默认与 KML 同目录下 files
         min_height_difference: 最小高差阈值
         road_search_radius_km: 道路搜索半径（公里）
+        db_config_path: 数据库配置文件路径
 
     Returns:
         已初始化的 StargazingLocationAnalyzer 实例
@@ -50,6 +52,7 @@ def init_stargazing_analyzer(kml_file_path: Optional[Path] = None,
         images_base_path=str(images_base_path),
         min_height_difference=min_height_difference,
         road_search_radius_km=road_search_radius_km,
+        db_config_path=str(db_config_path) if db_config_path else None,
     )
     return _sa_analyzer
 
@@ -176,4 +179,3 @@ def analyze_area_simple(south: float, west: float, north: float, east: float,
             'analysis_notes': getattr(r, 'analysis_notes', None),
         })
     return serialized
-

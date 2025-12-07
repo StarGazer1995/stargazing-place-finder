@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import argparse
 import json
+from pathlib import Path
 from typing import Tuple
 
-from .public_api import analyze_area, analyze_area_simple
+from .public_api import analyze_area, analyze_area_simple, init_stargazing_analyzer
 
 
 def _deg_per_km(lat: float) -> Tuple[float, float]:
@@ -62,6 +63,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--network-type", type=str, default="drive", help="道路网络类型，默认 drive")
     parser.add_argument("--no-light-pollution", action="store_true", help="不计算光污染")
     parser.add_argument("--no-road-connectivity", action="store_true", help="不计算道路连通性")
+    parser.add_argument("--db-config", type=str, help="数据库配置文件路径 (JSON/TOML)")
 
     parser.add_argument("--output", type=str, help="输出文件路径 (JSON)")
     parser.add_argument("--top-n", type=int, default=0, help="仅输出前 N 个推荐结果，0 表示全部")
@@ -92,6 +94,11 @@ def main() -> None:
         print("[cli] include_light_pollution:", include_lp)
         print("[cli] include_road_connectivity:", include_road)
         print("[cli] max_locations:", args.max_locations)
+        if args.db_config:
+            print("[cli] db_config_path:", args.db_config)
+
+    if args.db_config:
+        init_stargazing_analyzer(db_config_path=Path(args.db_config))
 
     results = analyze_area(
         bbox=bbox,
