@@ -8,9 +8,9 @@
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.stargazing_analyzer.elevation_batch_query import BatchElevationQuery, ElevationResult
+from stargazing_analyzer.elevation_batch_query import BatchElevationQuery, ElevationResult
 
 def main():
     """主函数：演示批量查询功能"""
@@ -96,7 +96,7 @@ def main():
     
     print("=== 如何使用 ===\n")
     print("1. 导入模块：")
-    print("   from src.stargazing_analyzer.elevation_batch_query import BatchElevationQuery")
+    print("   from stargazing_analyzer.elevation_batch_query import BatchElevationQuery")
     print()
     print("2. 配置数据库连接：")
     print("   db_config = {")

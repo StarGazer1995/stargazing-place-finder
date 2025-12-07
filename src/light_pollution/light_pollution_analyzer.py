@@ -15,17 +15,16 @@ from typing import Optional, Tuple, Dict, Any
 from PIL import Image
 import numpy as np
 try:
-    from src.location_finder.location_finder import LocationFinder
-    from src.utils.kml_parser import KMLParser, GroundOverlay
-    from src.cache.cache_config import get_cache_dir
+    from location_finder.location_finder import LocationFinder
+    from utils.kml_parser import KMLParser, GroundOverlay
+    from cache.cache_config import get_cache_dir
 except ImportError:
     import sys
     import os
-    # 添加项目根目录到Python路径
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-    from src.location_finder.location_finder import LocationFinder
-    from src.utils.kml_parser import KMLParser, GroundOverlay
-    from src.cache.cache_config import get_cache_dir
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
+    from location_finder.location_finder import LocationFinder
+    from utils.kml_parser import KMLParser, GroundOverlay
+    from cache.cache_config import get_cache_dir
 
 
 class LightPollutionAnalyzer:
@@ -48,6 +47,10 @@ class LightPollutionAnalyzer:
             FileNotFoundError: When KML file does not exist
             ValueError: When KML file format is invalid
         """
+        if not os.path.exists(kml_file_path) and kml_file_path.endswith('.xml'):
+            alt = kml_file_path[:-4] + '.kml'
+            if os.path.exists(alt):
+                kml_file_path = alt
         self.location_finder = LocationFinder(kml_file_path)
         
         # Set image files base path

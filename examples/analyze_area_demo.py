@@ -13,10 +13,10 @@
 import sys
 import os
 
-# 添加项目根目录到Python路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 添加 src 目录到Python路径以加载顶层包
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer
+from stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer
 
 def demo_analyze_area():
     """

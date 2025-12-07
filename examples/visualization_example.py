@@ -8,11 +8,10 @@
 
 import os
 import sys
-# 添加src目录到Python路径
+# 添加 src 目录到Python路径以加载顶层包
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-from light_pollution_visualizer import LightPollutionVisualizer
+sys.path.append(os.path.join(current_dir, '..', 'src'))
+from light_pollution.light_pollution_visualizer import LightPollutionVisualizer
 
 
 def main():

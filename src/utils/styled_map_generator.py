@@ -12,18 +12,16 @@ import json
 import shutil
 from typing import Dict, List, Tuple, Any, Optional
 try:
-    from src.light_pollution.light_pollution_map import LightPollutionMap
+    from light_pollution.light_pollution_map import LightPollutionMap
 except ImportError:
-    # 添加项目根目录到Python路径
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
     try:
-        from src.light_pollution.light_pollution_map import LightPollutionMap
+        from light_pollution.light_pollution_map import LightPollutionMap
     except ImportError:
-        # If import fails, create a simple mock class
         class LightPollutionMap:
             def __init__(self, kml_file_path):
                 self.kml_file_path = kml_file_path
-        
+            
             def get_sample_locations(self):
                 return [
                 {'name': 'Beijing', 'lat': 39.9042, 'lng': 116.4074, 'bortle_class': 8},

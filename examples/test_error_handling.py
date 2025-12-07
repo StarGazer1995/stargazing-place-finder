@@ -9,10 +9,10 @@
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
-from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
+from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 
 def test_error_handling():
     """
@@ -22,7 +22,7 @@ def test_error_handling():
     
     # 初始化查找器
     try:
-        light_analyzer = LightPollutionAnalyzer("world_atlas/doc.xml")
+        light_analyzer = LightPollutionAnalyzer("world_atlas/doc.kml")
         finder = StarGazingPlaceFinder(light_pollution_analyzer=light_analyzer)
         print("✓ 查找器初始化成功")
     except Exception as e:

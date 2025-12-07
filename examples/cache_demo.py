@@ -15,15 +15,11 @@ import sys
 import os
 import time
 
-# 添加项目根目录到Python路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 添加 src 目录到Python路径以加载顶层包
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-try:
-    from src.stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
-    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-except ImportError:
-    from stargazing_place_finder import StarGazingPlaceFinder
-    from light_pollution_analyzer import LightPollutionAnalyzer
+from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
+from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 
 def main():
     """
@@ -42,7 +38,7 @@ def main():
     print("\n=== 1. 创建启用缓存的查找器 ===")
     finder_with_cache = StarGazingPlaceFinder(
         min_height_difference=100.0,
-        light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"),
+        light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.kml"),
         enable_cache=True,
         cache_expiry_hours=24
     )
@@ -142,7 +138,7 @@ def main():
     print("\n=== 7. 禁用缓存的查找器对比 ===")
     finder_no_cache = StarGazingPlaceFinder(
         min_height_difference=100.0,
-        light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"),
+        light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.kml"),
         enable_cache=False
     )
     

@@ -8,9 +8,9 @@
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.stargazing_analyzer.elevation_batch_query import (
+from stargazing_analyzer.elevation_batch_query import (
     BatchElevationQuery, 
     batch_query_elevations,
     get_elevation_statistics

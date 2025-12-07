@@ -16,17 +16,16 @@ from datetime import datetime
 
 # Import related modules
 try:
-    from .stargazing_place_finder import StarGazingPlaceFinder, Peak
-    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from src.road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+    from .stargazing_place_finder import StarGazingPlaceFinder, Peak, PostGISClient
+    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+    from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 except ImportError:
     import sys
     import os
-    # 添加项目根目录到Python路径
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-    from src.stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Peak
-    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from src.road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
+    from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Peak, PostGISClient
+    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+    from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
 
 @dataclass
@@ -95,7 +94,8 @@ class StargazingLocationAnalyzer:
                  kml_file_path: Optional[str] = None,
                  images_base_path: Optional[str] = None,
                  min_height_difference: float = 100.0,
-                 road_search_radius_km: float = 10.0):
+                 road_search_radius_km: float = 10.0,
+                 db_config_path: Optional[str] = None):
         """
         Initialize stargazing location analyzer
         
@@ -104,9 +104,19 @@ class StargazingLocationAnalyzer:
             images_base_path: Light pollution image file base path
             min_height_difference: Minimum height difference between peaks and surrounding towns (meters)
             road_search_radius_km: Search radius for road connectivity detection (kilometers)
+            db_config_path: Optional path to database config file (JSON or TOML)
         """
         # Initialize peak finder
-        
+        db_client = None
+        cfg_path = db_config_path or os.environ.get('DB_CONFIG_PATH')
+        if cfg_path and os.path.exists(cfg_path):
+            try:
+                db_cfg = self._load_db_config(cfg_path)
+                db_client = PostGISClient(db_cfg)
+                print("PostGIS client initialized successfully")
+            except Exception as e:
+                print(f"PostGIS client initialization failed: {e}")
+                db_client = None
         
         # Initialize light pollution analyzer (if KML file is provided)
         self.light_pollution_analyzer = None
@@ -120,7 +130,7 @@ class StargazingLocationAnalyzer:
             except Exception as e:
                 print(f"Light pollution analyzer initialization failed: {e}")
                 self.light_pollution_analyzer = None
-            self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference, light_pollution_analyzer=self.light_pollution_analyzer)
+            self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference, light_pollution_analyzer=self.light_pollution_analyzer, db_client=db_client)
         else:
             if kml_file_path:
                 print(f"⚠️  Warning: KML file {kml_file_path} does not exist")
@@ -130,12 +140,36 @@ class StargazingLocationAnalyzer:
             print("⚠️  Recommend downloading light pollution map KML files from:")
             print("   - Light Pollution Map: https://www.lightpollutionmap.info/")
             print("   - Dark Site Finder: https://darksitefinder.com/")
-            self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference)
+            self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference, db_client=db_client)
         
         # Initialize road connectivity checker
         self.road_checker = RoadConnectivityChecker(search_radius_km=road_search_radius_km)
         
         print("Stargazing location analyzer initialization completed")
+
+    def _load_db_config(self, path: str) -> Dict[str, Any]:
+        """
+        Load database configuration from a file path (JSON or TOML).
+        
+        Args:
+            path: File path to configuration
+        
+        Returns:
+            Parsed configuration dictionary
+        """
+        ext = os.path.splitext(path)[1].lower()
+        if ext in ('.json', ''):
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        elif ext == '.toml':
+            try:
+                import tomllib  # Python 3.11+
+                with open(path, 'rb') as f:
+                    return tomllib.load(f)
+            except Exception as e:
+                raise RuntimeError(f"Failed to parse TOML config: {e}")
+        else:
+            raise ValueError(f"Unsupported config format: {ext}")
     
     def analyze_area(self, 
                     bbox: Tuple[float, float, float, float],
@@ -197,6 +231,8 @@ class StargazingLocationAnalyzer:
         
         print(f"Total {len(all_locations)} locations found, starting detailed analysis...")
         
+        if os.environ.get('FAST_TESTS') == '1':
+            include_road_connectivity = False
         # 2. Perform comprehensive analysis for each location
         stargazing_locations = []
         for i, location in enumerate(all_locations, 1):
@@ -255,8 +291,8 @@ class StargazingLocationAnalyzer:
             
             stargazing_locations.append(stargazing_location)
             
-            # Add delay to avoid API limits
-            time.sleep(0.5)
+            if os.environ.get('FAST_TESTS') != '1':
+                time.sleep(0.5)
         
         # Sort by score
         stargazing_locations.sort(key=lambda x: x.stargazing_score or 0, reverse=True)

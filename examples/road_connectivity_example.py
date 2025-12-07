@@ -7,11 +7,11 @@
 
 import os
 import sys
-# 添加src目录到Python路径
+# 添加 src 目录到Python路径以加载顶层包
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-from road_connectivity_checker import RoadConnectivityChecker, simple_road_check
+sys.path.append(os.path.join(current_dir, '..', 'src'))
+from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+from road_connectivity.simple_road_checker import simple_road_check
 import json
 import time
 

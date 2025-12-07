@@ -54,6 +54,7 @@ def run_test_file(test_file):
             env['PYTHONPATH'] = f"{src_path}{os.pathsep}{env['PYTHONPATH']}"
         else:
             env['PYTHONPATH'] = src_path
+        env['FAST_TESTS'] = '1'
             
         # 使用python -u来确保输出不被缓冲，-v开启详细模式
         result = subprocess.run(

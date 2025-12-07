@@ -11,10 +11,10 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 
-# 添加项目根目录到Python路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
+# 添加 src 目录到Python路径以加载顶层包
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../src'))
 
-from src.stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Location, Viewpoint, find_viewpoints
+from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Location, Viewpoint, find_viewpoints
 
 class TestViewpointFinder(unittest.TestCase):
     """

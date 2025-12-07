@@ -14,15 +14,16 @@ import random
 import hashlib
 import pickle
 from pathlib import Path
+import importlib.resources as res
 try:
-    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from src.cache.cache_config import get_cache_dir
+    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+    from cache.cache_config import get_cache_dir
 except ImportError:
     import sys
     import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-    from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from src.cache.cache_config import get_cache_dir
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
+    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+    from cache.cache_config import get_cache_dir
 import math
 
 class PostGISClient:
@@ -1402,7 +1403,8 @@ def find_peaks_with_height_difference(south: float, west: float, north: float, e
     Returns:
         List of qualified peaks
     """
-    finder = StarGazingPlaceFinder(min_height_difference=min_height_diff, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
+    kml_path = str(res.files('light_pollution').joinpath('resources', 'world_atlas', 'doc.kml'))
+    finder = StarGazingPlaceFinder(min_height_difference=min_height_diff, light_pollution_analyzer=LightPollutionAnalyzer(kml_path))
     return finder.find_peaks_in_area((south, west, north, east), max_locations)
 
 def find_viewpoints(south: float, west: float, north: float, east: float,
@@ -1417,7 +1419,8 @@ def find_viewpoints(south: float, west: float, north: float, east: float,
     Returns:
         List of viewpoints, sorted by elevation
     """
-    finder = StarGazingPlaceFinder(min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
+    kml_path = str(res.files('light_pollution').joinpath('resources', 'world_atlas', 'doc.kml'))
+    finder = StarGazingPlaceFinder(min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer(kml_path))
     return finder.find_viewpoints_in_area((south, west, north, east), max_viewpoints)
 
 if __name__ == "__main__":
@@ -1428,7 +1431,8 @@ if __name__ == "__main__":
     bbox = (39.5, 115.5, 40.5, 117.5)  # (south, west, north, east)
     
     # Create finder
-    finder = StarGazingPlaceFinder(min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer("world_atlas/doc.xml"))
+    kml_path = str(res.files('light_pollution').joinpath('resources', 'world_atlas', 'doc.kml'))
+    finder = StarGazingPlaceFinder(min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer(kml_path))
     
     # Find peaks
     peaks = finder.find_peaks_in_area(bbox, max_locations=20)

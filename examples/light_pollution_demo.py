@@ -15,10 +15,10 @@
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
-from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
+from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 
 def display_location_info(location, index):
     """
@@ -66,7 +66,7 @@ def test_light_pollution_integration():
     
     # 初始化光污染分析器（如果有KML文件的话）
     try:
-        light_analyzer = LightPollutionAnalyzer("world_atlas/doc.xml")
+        light_analyzer = LightPollutionAnalyzer("world_atlas/doc.kml")
         print("✓ 光污染分析器初始化成功")
     except Exception as e:
         print(f"⚠ 光污染分析器初始化失败: {e}")
@@ -142,7 +142,7 @@ def test_different_regions():
     
     # 初始化查找器
     try:
-        light_analyzer = LightPollutionAnalyzer("world_atlas/doc.xml")
+        light_analyzer = LightPollutionAnalyzer("world_atlas/doc.kml")
         finder = StarGazingPlaceFinder(light_pollution_analyzer=light_analyzer)
     except:
         finder = StarGazingPlaceFinder()

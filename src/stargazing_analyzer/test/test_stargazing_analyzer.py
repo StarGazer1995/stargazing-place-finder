@@ -17,11 +17,11 @@ import json
 import tempfile
 from datetime import datetime
 
-# 添加项目根目录到路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
+# 添加 src 目录到路径以加载顶层包
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../src'))
 
-from src.cache.cache_config import get_temp_file
-from src.stargazing_analyzer.stargazing_location_analyzer import (
+from cache.cache_config import get_temp_file
+from stargazing_analyzer.stargazing_location_analyzer import (
     StargazingLocationAnalyzer, 
     StargazingLocation,
     analyze_stargazing_area
