@@ -572,7 +572,8 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
                            location_types: List[str] = None,
                            min_height_diff: float = 100.0,
                            road_radius_km: float = 10.0,
-                           network_type: str = 'drive') -> List[StargazingLocation]:
+                           network_type: str = 'drive',
+                           db_config_path: Optional[str] = None) -> List[StargazingLocation]:
     """
     Convenience function: Analyze stargazing locations in specified area
     
@@ -584,6 +585,7 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
         min_height_diff: Minimum height difference (only for peaks)
         road_radius_km: Road search radius
         network_type: Network type
+        db_config_path: Optional path to database config file
         
     Returns:
         List of stargazing locations
@@ -599,7 +601,8 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
     analyzer = StargazingLocationAnalyzer(
         kml_file_path=kml_file_path,
         min_height_difference=min_height_diff,
-        road_search_radius_km=road_radius_km
+        road_search_radius_km=road_radius_km,
+        db_config_path=db_config_path
     )
     
     bbox = (south, west, north, east)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 (2025-12-25)
+
+- 配置增强: Web 服务支持通过 `STARGAZING_DB_CONFIG` 环境变量加载 PostGIS 数据库配置
+- API 更新: `analyze_stargazing_area` 函数新增 `db_config_path` 参数
+- 版本升级: `pyproject.toml` 版本号更新为 `0.3.1`
+
 ## 0.2.0 (2025-11-19)
 
 - CLI: 添加命令行入口 `stargazing-finder`

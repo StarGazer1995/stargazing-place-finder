@@ -54,6 +54,17 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 - **Road Connectivity**: Integrated RoadConnectivityChecker analyzing road accessibility of locations
 - **KML Parsing**: Specialized KML parser supporting ground overlay data parsing
 
+## Environment Configuration
+
+The web service supports the following environment variable configuration:
+
+- `STARGAZING_DB_CONFIG`: Specifies the path to the PostGIS database configuration file (JSON format) for loading custom database connection information.
+
+Example configuration:
+```bash
+export STARGAZING_DB_CONFIG="/path/to/db_config.json"
+```
+
 ## Legal Notice
 
 ⚠️ **Important Reminder**: This application strictly complies with relevant Chinese laws and regulations when using elevation data for location filtering. Please pay attention to relevant legal requirements during use.

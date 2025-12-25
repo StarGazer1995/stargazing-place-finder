@@ -557,6 +557,11 @@ def analyze_stargazing_area_endpoint():
         project_root = os.path.dirname(os.path.dirname(current_dir))
         kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
         
+        # Get DB config from environment variable
+        db_config_path = os.environ.get('STARGAZING_DB_CONFIG')
+        if db_config_path:
+            print(f"Using DB config from: {db_config_path}")
+        
         # 调用分析函数
         locations = analyze_stargazing_area(
             south=south,
@@ -566,7 +571,8 @@ def analyze_stargazing_area_endpoint():
             kml_file_path=kml_file if os.path.exists(kml_file) else None,
             max_locations=max_locations,
             min_height_diff=min_height_diff,
-            road_radius_km=road_radius_km
+            road_radius_km=road_radius_km,
+            db_config_path=db_config_path
         )
         
         # 转换为JSON格式
