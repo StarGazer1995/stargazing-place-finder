@@ -214,3 +214,4 @@ styled_map_output/
 maps*
 *.json
 config/postgis_config.toml
+.trae/

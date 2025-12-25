@@ -54,6 +54,17 @@
 - **道路连通性**: 集成RoadConnectivityChecker，分析地点的道路可达性
 - **KML解析**: 专用KML解析器，支持解析地面覆盖层数据
 
+## 环境变量配置
+
+Web 服务支持以下环境变量配置：
+
+- `STARGAZING_DB_CONFIG`: 指定 PostGIS 数据库配置文件的路径（JSON 格式），用于加载自定义的数据库连接信息。
+
+示例配置：
+```bash
+export STARGAZING_DB_CONFIG="/path/to/db_config.json"
+```
+
 ## 缓存配置
 
 项目采用统一的缓存管理系统，所有缓存文件都存储在项目根目录的 `cache` 文件夹中：
