@@ -56,7 +56,11 @@ class StargazingLocation:
     light_pollution_hex: Optional[str] = None
     light_pollution_brightness: Optional[int] = None
     light_pollution_level: Optional[str] = None
+    light_pollution_bortle: Optional[int] = None
     light_pollution_overlay: Optional[str] = None
+    
+    # Town isolation information
+    nearby_town_count: int = 0  # Number of additional towns within 20km radius
     
     # Road connectivity information
     road_accessible: Optional[bool] = None
@@ -248,6 +252,14 @@ class StargazingLocationAnalyzer:
         
         if os.environ.get('FAST_TESTS') == '1':
             include_road_connectivity = False
+        
+        # Fetch towns data once for town density computation
+        towns_data = []
+        try:
+            towns_data = self.mountain_finder.get_towns_from_overpass(bbox)
+        except Exception:
+            pass  # Town density is optional
+        
         # 2. Perform comprehensive analysis for each location
         stargazing_locations = []
         for i, location in enumerate(all_locations, 1):
@@ -267,6 +279,12 @@ class StargazingLocationAnalyzer:
                 description=location.description if hasattr(location, 'description') else None
             )
             
+            # Compute nearby town density
+            if towns_data:
+                stargazing_location.nearby_town_count = self._count_nearby_towns(
+                    location.latitude, location.longitude, towns_data, radius_km=20.0
+                )
+            
             # 3. Light pollution analysis
             if include_light_pollution:
                 if self.light_pollution_analyzer:
@@ -279,6 +297,7 @@ class StargazingLocationAnalyzer:
                             stargazing_location.light_pollution_hex = light_info['hex']
                             stargazing_location.light_pollution_brightness = light_info['brightness']
                             stargazing_location.light_pollution_level = light_info['pollution_level']
+                            stargazing_location.light_pollution_bortle = light_info['bortle']
                             stargazing_location.light_pollution_overlay = light_info.get('overlay_name')
                     except Exception as e:
                         print(f"  Light pollution analysis failed: {e}")
@@ -315,15 +334,53 @@ class StargazingLocationAnalyzer:
         print(f"Analysis completed, total {len(stargazing_locations)} stargazing locations")
         return stargazing_locations
     
+    def _count_nearby_towns(self, lat: float, lon: float, 
+                            towns: List[Dict], radius_km: float = 20.0) -> int:
+        """Count additional towns within a given radius (excluding the nearest).
+        
+        Args:
+            lat, lon: Location coordinates
+            towns: List of town data dicts
+            radius_km: Search radius in km
+            
+        Returns:
+            Number of additional towns within radius (0 = only nearest town or none)
+        """
+        if not towns:
+            return 0
+        
+        distances = []
+        for town in towns:
+            try:
+                if town.get('type') == 'node':
+                    t_lat, t_lon = town['lat'], town['lon']
+                elif 'center' in town:
+                    t_lat, t_lon = town['center']['lat'], town['center']['lon']
+                else:
+                    continue
+            except (KeyError, TypeError):
+                continue
+            
+            distance = self.mountain_finder.calculate_distance(lat, lon, t_lat, t_lon)
+            if distance <= radius_km:
+                distances.append(distance)
+        
+        # Exclude the nearest town (count additional towns only)
+        return max(0, len(distances) - 1)
+    
+    # Bortle → score mapping (0–35 points)
+    _BORTLE_SCORES = {1: 35, 2: 31, 3: 26, 4: 20, 5: 14, 6: 8, 7: 3, 8: 1, 9: 0}
+    
     def _calculate_stargazing_score(self, location: StargazingLocation) -> float:
         """
         Calculate comprehensive score for stargazing location.
-
+        
         Scoring weights (total 100 points):
-        - Light pollution (0-40 points): THE critical factor — darker sky = higher score
-        - Road accessibility (0-25 points): Practical usability — balance of access vs remoteness
-        - Elevation (0-20 points): Higher elevation = thinner atmosphere, less haze
-        - Location type (0-15 points): Mountain prominence, observatory quality, viewpoint height diff
+        - Light pollution  (0-35): Bortle scale — the most critical factor
+        - Town isolation   (0-20): Distance to nearest town + density penalty
+        - Road access      (0-20): Practical usability
+        - Elevation+terrain(0-15): Altitude + height above surrounding towns
+        - Location type    (0-10): Mountain prominence, observatory, viewpoint
         
         Args:
             location: Stargazing location object
@@ -333,68 +390,121 @@ class StargazingLocationAnalyzer:
         """
         score = 0.0
         
-        # === 1. Light pollution (0-40 points) — most important factor ===
-        if location.light_pollution_brightness is not None:
-            # Smoother, continuous scoring based on brightness (0-255)
-            # Darker sky (lower brightness) = higher score
-            light_score = (255.0 - location.light_pollution_brightness) / 255.0 * 40.0
-            score += light_score
+        # ================================================================
+        # 1. Light Pollution (0-35 points) — Bortle-based
+        # ================================================================
+        if location.light_pollution_bortle is not None:
+            score += self._BORTLE_SCORES.get(location.light_pollution_bortle, 18)
+        elif location.light_pollution_brightness is not None:
+            # Fallback: approximate Bortle from brightness, then score
+            b = location.light_pollution_brightness
+            if b < 30:
+                score += 35      # ~Bortle 1
+            elif b < 60:
+                score += 31      # ~Bortle 2
+            elif b < 90:
+                score += 26      # ~Bortle 3
+            elif b < 120:
+                score += 20      # ~Bortle 4
+            elif b < 150:
+                score += 14      # ~Bortle 5
+            elif b < 180:
+                score += 8       # ~Bortle 6
+            elif b < 210:
+                score += 3       # ~Bortle 7
+            elif b < 240:
+                score += 1       # ~Bortle 8
+            else:
+                score += 0       # ~Bortle 9
         elif location.light_pollution_level:
-            # Legacy: try string matching for backward compatibility
-            pollution_scores = {
-                'Extremely Low': 40, 'Very Low': 32, 'Low': 24, 'Medium': 16,
-                'High': 8, 'Very High': 3, 'Extremely High': 0
+            # Legacy string matching for old KML data
+            legacy = {
+                'Extremely Low': 35, 'Very Low': 31, 'Low': 26, 'Medium': 20,
+                'High': 14, 'Very High': 8, 'Extremely High': 3
             }
-            score += pollution_scores.get(location.light_pollution_level, 20)
+            score += legacy.get(location.light_pollution_level, 18)
         else:
-            # No light pollution data → conservative medium score
             print(f"⚠️  Warning: {location.name} lacks light pollution data, scoring accuracy affected")
-            score += 20  # Half of 40 points
+            score += 18  # Conservative middle
         
-        # === 2. Road accessibility (0-25 points) ===
+        # ================================================================
+        # 2. Town Isolation (0-20 points) — Distance + density
+        # ================================================================
+        town_dist = location.distance_to_nearest_town
+        if town_dist is not None and town_dist > 0:
+            if town_dist >= 50:
+                dist_score = 16
+            elif town_dist >= 30:
+                dist_score = 14
+            elif town_dist >= 20:
+                dist_score = 11
+            elif town_dist >= 10:
+                dist_score = 7
+            elif town_dist >= 5:
+                dist_score = 3
+            else:
+                dist_score = 0
+            
+            # Density penalty: -2 per additional town within 20km (max -8)
+            density_penalty = min(location.nearby_town_count * 2, 8)
+            score += max(0, dist_score - density_penalty)
+        else:
+            score += 8  # Unknown town distance → medium
+        
+        # ================================================================
+        # 3. Road Accessibility (0-20 points)
+        # ================================================================
         if location.road_accessible is not None:
             if location.road_accessible:
                 if location.distance_to_road_km is not None:
                     d = location.distance_to_road_km
                     if d < 0.5:
-                        score += 18   # Very close — convenient but potential light/noise
+                        score += 14   # Very close — convenient but potential light/noise
                     elif d <= 5:
-                        score += 25   # Ideal: remote enough yet accessible
+                        score += 20   # Ideal: remote enough yet accessible
                     elif d <= 10:
-                        score += 18   # Acceptable distance
+                        score += 16   # Acceptable distance
                     elif d <= 20:
-                        score += 12   # Far, but reachable
+                        score += 10   # Far, but reachable
                     else:
-                        score += 5    # Very far — poor accessibility
+                        score += 4    # Very far — poor accessibility
                 else:
-                    score += 15       # Accessible but distance unknown
+                    score += 12       # Accessible but distance unknown
             else:
                 score += 0            # Not accessible at all
         else:
-            score += 12               # Unknown status — medium score
+            score += 10               # Unknown status
         
-        # === 3. Elevation (0-20 points) ===
+        # ================================================================
+        # 4. Elevation + Terrain (0-15 points)
+        #    Combines absolute altitude and height above nearest town
+        # ================================================================
         if location.elevation:
-            # 1 point per 150m elevation, capped at 20 (3000m)
-            elevation_score = min(location.elevation / 150.0, 20.0)
-            score += elevation_score
+            # Base elevation: 1pt per 200m, capped at 8 (1600m)
+            elevation_score = min(location.elevation / 200.0, 8.0)
+            
+            # Height-difference bonus: the higher above nearest town, the better
+            # (above the light/haze layer)
+            height_bonus = 0.0
+            if location.height_difference:
+                height_bonus = min(location.height_difference / 200.0, 7.0)
+            
+            score += elevation_score + height_bonus
         
-        # === 4. Location type specific (0-15 points) ===
+        # ================================================================
+        # 5. Location Type (0-10 points)
+        # ================================================================
         if location.is_mountain_peak():
             if location.prominence:
-                # 1 point per 100m prominence, capped at 15 (1500m)
-                prominence_score = min(location.prominence / 100.0, 15.0)
-                score += prominence_score
+                # 1pt per 200m prominence, capped at 10 (2000m)
+                score += min(location.prominence / 200.0, 10.0)
         elif location.is_observatory():
-            # Observatory: high base score but not max (city observatories exist)
-            score += 12
+            score += 6   # Observatory base (city observatories exist)
         elif location.is_viewpoint():
             if location.height_difference:
-                # 1 point per 80m height difference, capped at 15 (1200m)
-                height_diff_score = min(location.height_difference / 80.0, 15.0)
-                score += height_diff_score
+                score += min(location.height_difference / 150.0, 10.0)
             else:
-                score += 8  # Default medium score
+                score += 5
         
         return round(score, 1)
     
