@@ -1,0 +1,29 @@
+# Trigger Copilot code review by posting a /copilot-review comment on the PR.
+# Works with GitHub Copilot Individual (no org subscription required).
+#
+# Triggers when a PR targeting `main` is opened or updated with new commits.
+
+name: Copilot Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  request-review:
+    name: Request Copilot Review
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Trigger Copilot code review
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "/copilot-review"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
