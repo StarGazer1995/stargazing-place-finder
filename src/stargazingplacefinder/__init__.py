@@ -7,7 +7,6 @@ from stargazing_analyzer.public_api import (
 from light_pollution.public_api import (
     init_light_pollution_analyzer,
     get_light_pollution_grid,
-    get_light_pollution_images,
     analyze_coordinate,
 )
 
@@ -17,6 +16,5 @@ __all__ = [
     'analyze_area_simple',
     'init_light_pollution_analyzer',
     'get_light_pollution_grid',
-    'get_light_pollution_images',
     'analyze_coordinate',
 ]

@@ -245,42 +245,6 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
         },
     }
 
-def get_light_pollution_images(north: float, south: float, east: float, west: float) -> Dict[str, Any]:
-    """
-    获取指定边界内的光污染图片数据，返回结构与HTTP接口一致。
-
-    Args:
-        north: 北边界纬度
-        south: 南边界纬度
-        east: 东边界经度
-        west: 西边界经度
-
-    Returns:
-        dict: {success, count, images, query_bounds}
-    """
-    analyzer = _require_analyzer()
-    images = analyzer.get_light_pollution_images_in_bounds(north, south, east, west)
-    serializable_images: List[Dict[str, Any]] = []
-    for item in images:
-        serializable_images.append({
-            'name': item.get('name'),
-            'image_path': item.get('image_path'),
-            'image_data': item.get('image_data'),
-            'bounds': item.get('bounds'),
-            'exists': item.get('exists'),
-        })
-    return {
-        'success': True,
-        'count': len(serializable_images),
-        'images': serializable_images,
-        'query_bounds': {
-            'north': north,
-            'south': south,
-            'east': east,
-            'west': west,
-        },
-    }
-
 def analyze_coordinate(lat: float, lng: float) -> Dict[str, Any]:
     """
     分析单点坐标光污染指标，返回与HTTP接口一致的结构。

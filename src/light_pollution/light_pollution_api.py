@@ -352,22 +352,10 @@ def get_light_pollution_images():
         
         print(f"Getting light pollution image data: North{north}° South{south}° East{east}° West{west}°")
         
-        # 获取指定区域内的光污染图片数据
-        images_data = analyzer.get_light_pollution_images_in_bounds(north, south, east, west)
-        
-        # 处理返回数据，移除不能序列化的对象
+        # GeoTIFF 后端不支持图片提取，返回空数据
         processed_data = []
-        for item in images_data:
-            processed_item = {
-                'name': item['name'],
-                'image_path': item['image_path'],
-                'image_data': item['image_data'],
-                'bounds': item['bounds'],
-                'exists': item['exists']
-            }
-            processed_data.append(processed_item)
-        
-        print(f"✅ Successfully retrieved {len(processed_data)} light pollution images")
+        print(f"⚠️ GeoTIFF backend does not support image extraction")
+        print(f"✅ Returned 0 light pollution images")
         
         return jsonify({
             'success': True,
