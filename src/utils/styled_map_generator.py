@@ -257,17 +257,17 @@ def main():
     """
     Main function: Generate HTML-style light pollution map
     """
-    # KML file path
+    # GeoTIFF file path
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(current_dir))
-    kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
+    geotiff_file = os.path.join(project_root, 'src/light_pollution/resources/viirs_china_2025.tif')
     
     try:
         print("🎨 === HTML-style Light Pollution Map Generator ===")
         print("Initializing styled map generator...")
         
         # Initialize generator
-        generator = StyledMapGenerator(kml_file)
+        generator = StyledMapGenerator(geotiff_file)
         
         # Generate comprehensive styled map collection
         output_dir = os.path.join(project_root, 'styled_map_output')

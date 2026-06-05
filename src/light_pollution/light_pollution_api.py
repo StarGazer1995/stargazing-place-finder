@@ -36,18 +36,17 @@ def init_analyzer():
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(current_dir))
-        kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
+        geotiff_file = os.path.join(project_root, 'src/light_pollution/resources/viirs_china_2025.tif')
         
         print(f"Initializing light pollution analyzer...")
-        print(f"KML file path: {kml_file}")
+        print(f"GeoTIFF file path: {geotiff_file}")
         
-        analyzer = LightPollutionAnalyzer(kml_file)
+        analyzer = LightPollutionAnalyzer(geotiff_path=geotiff_file)
         print(f"✅ Light pollution analyzer initialization completed")
         
         # 显示统计信息
         stats = analyzer.get_statistics()
-        print(f"Overlay count: {stats['count']}")
-        print(f"Images base path: {stats['images_base_path']}")
+        print(f"Dataset dimensions: {stats.get('width')}x{stats.get('height')}")
         print(f"Images directory exists: {stats['images_directory_exists']}")
         
     except Exception as e:
@@ -552,10 +551,10 @@ def analyze_stargazing_area_endpoint():
         
         print(f"Analyzing stargazing area: North{north}° South{south}° East{east}° West{west}°")
         
-        # 获取KML文件路径
+        # 获取 GeoTIFF 文件路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(current_dir))
-        kml_file = os.path.join(project_root, 'world_atlas', 'doc.kml')
+        geotiff_path = os.path.join(project_root, 'src/light_pollution/resources/viirs_china_2025.tif')
         
         # Get DB config from environment variable
         db_config_path = os.environ.get('STARGAZING_DB_CONFIG')

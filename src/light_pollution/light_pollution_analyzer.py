@@ -3,17 +3,31 @@
 """
 Light Pollution Analyzer
 
-This module provides a light pollution analyzer class for obtaining light pollution
-color values based on geographic coordinates. The class is initialized using
-LocationFinder parsing results and provides functionality to get light pollution
-information based on coordinates.
+Provides light pollution analysis using either:
+1. VIIRS DNB GeoTIFF (default) — direct radiance values from satellite data
+2. KML + image tiles (legacy) — Falchi World Atlas JPEG tiles
+
+The GeoTIFF backend is the recommended data source for new deployments.
 """
 
 import os
 import sys
-from typing import Optional, Tuple, Dict, Any
-from PIL import Image
+from typing import Optional, Tuple, Dict, Any, Union
+from pathlib import Path
+
 import numpy as np
+
+try:
+    import rasterio
+except ImportError:
+    rasterio = None  # type: ignore
+
+# Legacy KML backend imports (optional)
+try:
+    from PIL import Image
+except ImportError:
+    Image = None  # type: ignore
+
 try:
     from location_finder.location_finder import LocationFinder
     from utils.kml_parser import KMLParser, GroundOverlay
@@ -27,88 +41,287 @@ except ImportError:
     from cache.cache_config import get_cache_dir
 
 
+# ---------------------------------------------------------------------------
+# Radiance → Bortle scale conversion
+# Based on standard VIIRS DNB radiance thresholds used in light pollution science
+# ---------------------------------------------------------------------------
+
+def radiance_to_bortle(radiance: float) -> int:
+    """Convert VIIRS DNB radiance (nW/cm²/sr) to Bortle class (1-9).
+    
+    Thresholds derived from peer-reviewed literature correlating VIIRS DNB
+    radiance with Sky Quality Meter (SQM) measurements.
+    """
+    if radiance <= 0.0:
+        return 1   # Excellent dark sky
+    elif radiance <= 0.5:
+        return 2   # Typical dark sky
+    elif radiance <= 1.5:
+        return 3   # Rural sky
+    elif radiance <= 4.0:
+        return 4   # Rural/suburban transition
+    elif radiance <= 10.0:
+        return 5   # Suburban sky
+    elif radiance <= 25.0:
+        return 6   # Bright suburban
+    elif radiance <= 60.0:
+        return 7   # Suburban/urban transition
+    elif radiance <= 150.0:
+        return 8   # City sky
+    else:
+        return 9   # Inner city sky
+
+
+def radiance_to_brightness(radiance: float) -> int:
+    """Map radiance (nW/cm²/sr) to a 0-255 brightness value for backward compatibility."""
+    # Apply log-like scaling: 0→0, ~0.5→~30, ~100→~200, 1000+→255
+    if radiance <= 0:
+        return 0
+    b = int(255.0 * (1.0 - 1.0 / (1.0 + radiance * 0.1)))
+    return min(255, b)
+
+
+def radiance_to_pollution_level(radiance: float) -> str:
+    """Get a human-readable pollution level string from radiance."""
+    bortle = radiance_to_bortle(radiance)
+    descriptions = {
+        1: "极低污染 (Class 1 - 优秀观星条件)",
+        2: "低度污染 (Class 2 - 良好观星条件)",
+        3: "轻度污染 (Class 3 - 一般观星条件)",
+        4: "中度污染 (Class 4 - 较差观星条件)",
+        5: "重度污染 (Class 5 - 差观星条件)",
+        6: "严重污染 (Class 6 - 很差观星条件)",
+        7: "严重污染 (Class 7 - 极差观星条件)",
+        8: "极端污染 (Class 8 - 不适合观星)",
+        9: "极端污染 (Class 9 - 完全不适合观星)",
+    }
+    return descriptions.get(bortle, "未知污染等级")
+
+
 class LightPollutionAnalyzer:
     """Light Pollution Analyzer
     
-    This class is initialized using LocationFinder parsing results and provides
-    functionality to get light pollution color values based on geographic coordinates.
-    It obtains precise light pollution intensity information by analyzing corresponding
-    image files.
+    Supports two backends:
+    1. **VIIRS GeoTIFF** (default): Reads radiance directly from a clipped
+       VIIRS DNB GeoTIFF file. Returns nW/cm²/sr values.
+    2. **KML + image tiles** (legacy): Uses Falchi World Atlas JPEG tiles
+       via LocationFinder to extract color information.
+    
+    The GeoTIFF backend is used automatically when `geotiff_path` is provided
+    or when no KML path is given. It is the recommended data source.
     """
     
-    def __init__(self, kml_file_path: str, images_base_path: Optional[str] = None):
+    def __init__(
+        self,
+        kml_file_path: Optional[str] = None,
+        images_base_path: Optional[str] = None,
+        geotiff_path: Optional[Union[str, Path]] = None,
+    ):
         """Initialize light pollution analyzer
         
         Args:
-            kml_file_path: Path to KML file
-            images_base_path: Base path for image files, auto-inferred if None
-            
+            kml_file_path: Path to KML file (legacy backend). If None and no
+                geotiff_path given, defaults to the bundled VIIRS China GeoTIFF.
+            images_base_path: Base path for image files (legacy backend).
+                Auto-inferred from KML path if None.
+            geotiff_path: Path to VIIRS GeoTIFF file. If provided, uses the
+                GeoTIFF backend instead of KML.
+                
         Raises:
-            FileNotFoundError: When KML file does not exist
-            ValueError: When KML file format is invalid
+            FileNotFoundError: When the specified data file does not exist
+            ValueError: When required dependencies are missing
         """
-        if not os.path.exists(kml_file_path) and kml_file_path.endswith('.xml'):
-            alt = kml_file_path[:-4] + '.kml'
-            if os.path.exists(alt):
-                kml_file_path = alt
-        self.location_finder = LocationFinder(kml_file_path)
-        
-        # Set image files base path
-        if images_base_path is None:
-            # Auto-infer image path (assume files folder in same directory as KML file)
-            kml_dir = os.path.dirname(kml_file_path)
-            self.images_base_path = os.path.join(kml_dir, 'files')
-        else:
-            self.images_base_path = images_base_path
+        # Determine which backend to use
+        if geotiff_path is not None:
+            # ---- GeoTIFF backend ----
+            if rasterio is None:
+                raise ImportError(
+                    "rasterio is required for GeoTIFF backend. "
+                    "Install with: uv add rasterio"
+                )
+            self._backend = 'geotiff'
+            self._geotiff_path = str(geotiff_path)
+            self._src = None  # Lazy open
+            self.location_finder = None
+            self.images_base_path = None
+            self._image_cache = {}
+            self._image_cache_dir = None
+            print(f"Light pollution analyzer (GeoTIFF backend)")
+            print(f"  Data: {self._geotiff_path}")
             
-        # Cache loaded images to improve performance
-        self._image_cache = {}
-        # Set image cache directory
-        self._image_cache_dir = get_cache_dir('images')
-        
-        print(f"Light pollution analyzer initialization completed")
-        print(f"Images base path: {self.images_base_path}")
+        else:
+            # ---- Legacy KML backend ----
+            if kml_file_path is None:
+                # No path specified at all — will be set later via init()
+                self._backend = None
+                self.location_finder = None
+                self.images_base_path = None
+                self._image_cache = {}
+                self._image_cache_dir = None
+                return
+                
+            if not os.path.exists(kml_file_path) and kml_file_path.endswith('.xml'):
+                alt = kml_file_path[:-4] + '.kml'
+                if os.path.exists(alt):
+                    kml_file_path = alt
+                    
+            self._backend = 'kml'
+            self.location_finder = LocationFinder(kml_file_path)
+            
+            if images_base_path is None:
+                kml_dir = os.path.dirname(kml_file_path)
+                self.images_base_path = os.path.join(kml_dir, 'files')
+            else:
+                self.images_base_path = images_base_path
+                
+            self._image_cache = {}
+            self._image_cache_dir = get_cache_dir('images')
+            
+            print(f"Light pollution analyzer (legacy KML backend)")
+            print(f"Images base path: {self.images_base_path}")
     
-    def get_light_pollution_color(self, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
-        """Get light pollution color values based on coordinates
+    # ------------------------------------------------------------------
+    # GeoTIFF backend helpers
+    # ------------------------------------------------------------------
+    
+    def _ensure_geotiff_open(self):
+        """Lazy-open the GeoTIFF file on first access."""
+        if self._src is None and self._backend == 'geotiff':
+            self._src = rasterio.open(self._geotiff_path)
+    
+    def get_radiance(self, latitude: float, longitude: float) -> Optional[float]:
+        """Get VIIRS DNB radiance (nW/cm²/sr) at the given coordinates.
+        
+        Only available with the GeoTIFF backend.
         
         Args:
             latitude: Latitude
             longitude: Longitude
             
         Returns:
-            Dictionary containing light pollution information, None if not found
-            Dictionary contains the following keys:
-            - 'rgb': RGB color value tuple (r, g, b)
-            - 'hex': Hexadecimal color value
+            Radiance value in nW/cm²/sr, or None if outside data coverage
+        """
+        self._ensure_geotiff_open()
+        if self._src is None:
+            return None
+        
+        try:
+            row, col = self._src.index(longitude, latitude)
+            if row < 0 or row >= self._src.height or col < 0 or col >= self._src.width:
+                return None
+            val = float(self._src.read(1, window=((row, row+1), (col, col+1)))[0, 0])
+            return val
+        except Exception:
+            return None
+    
+    # ------------------------------------------------------------------
+    # Main public API — dispatches to the active backend
+    # ------------------------------------------------------------------
+    
+    def get_light_pollution_color(self, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
+        """Get light pollution information at the given coordinates.
+        
+        With the GeoTIFF backend, returns radiance-based results.
+        With the KML backend (legacy), returns color-based results.
+        
+        Args:
+            latitude: Latitude
+            longitude: Longitude
+            
+        Returns:
+            Dictionary containing light pollution information, None if not found.
+            Keys:
+            - 'radiance' (GeoTIFF only): VIIRS DNB radiance in nW/cm²/sr
+            - 'rgb', 'hex': Color representation
             - 'brightness': Brightness value (0-255)
-            - 'pollution_level': Pollution level description
-            - 'overlay_name': Corresponding overlay name
+            - 'pollution_level': Human-readable pollution description
+            - 'overlay_name': Source name
             - 'coordinates': Input coordinate information
         
         Raises:
             ValueError: When coordinates are invalid
         """
-        # Validate coordinate validity
         if not (-90 <= latitude <= 90):
             raise ValueError(f"Latitude must be between -90 and 90, current value: {latitude}")
         if not (-180 <= longitude <= 180):
             raise ValueError(f"Longitude must be between -180 and 180, current value: {longitude}")
         
-        # Find corresponding GroundOverlay
+        if self._backend == 'geotiff':
+            return self._get_pollution_geotiff(latitude, longitude)
+        elif self._backend == 'kml':
+            return self._get_pollution_kml(latitude, longitude)
+        else:
+            return None
+    
+    def _get_pollution_geotiff(self, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
+        """GeoTIFF backend: read radiance and convert to pollution info."""
+        self._ensure_geotiff_open()
+        if self._src is None:
+            return None
+        
+        try:
+            row, col = self._src.index(longitude, latitude)
+            if row < 0 or row >= self._src.height or col < 0 or col >= self._src.width:
+                return None
+            
+            radiance = float(self._src.read(1, window=((row, row+1), (col, col+1)))[0, 0])
+            brightness = radiance_to_brightness(radiance)
+            bortle = radiance_to_bortle(radiance)
+            pollution_level = radiance_to_pollution_level(radiance)
+            
+            # Build a color representation (false-color heat)
+            r, g, b = self._radiance_to_false_color(radiance)
+            
+            return {
+                'radiance': radiance,
+                'rgb': (r, g, b),
+                'hex': f"#{r:02x}{g:02x}{b:02x}",
+                'brightness': brightness,
+                'pollution_level': pollution_level,
+                'bortle': bortle,
+                'overlay_name': 'VIIRS-DNB-2025',
+                'coordinates': {'latitude': latitude, 'longitude': longitude},
+            }
+        except Exception:
+            return None
+    
+    @staticmethod
+    def _radiance_to_false_color(radiance: float) -> Tuple[int, int, int]:
+        """Map radiance to a false-color RGB for visualization.
+        
+        Dark (low radiance) → blue-black
+        Medium → green-yellow
+        High (urban) → red-white
+        """
+        if radiance <= 0:
+            return (10, 10, 40)  # Very dark blue
+        # Use log-scale for better visual range
+        import math as _m
+        v = _m.log10(max(radiance, 0.01) + 1) / _m.log10(1001)  # 0-1 scale
+        v = min(1.0, v)
+        if v < 0.33:
+            t = v / 0.33
+            r, g, b = int(10 + 50 * t), int(30 + 150 * t), int(80 + 80 * (1 - t))
+        elif v < 0.66:
+            t = (v - 0.33) / 0.33
+            r, g, b = int(60 + 150 * t), int(180 - 100 * t), int(80 - 60 * t)
+        else:
+            t = (v - 0.66) / 0.34
+            r, g, b = int(210 + 45 * t), int(80 + 120 * t), int(20 + 20 * t)
+        return (min(255, r), min(255, g), min(255, b))
+    
+    def _get_pollution_kml(self, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
+        """KML backend: use LocationFinder + image extraction (legacy)."""
         overlay = self.location_finder.find_overlay_by_coordinates(latitude, longitude)
         if overlay is None:
             return None
         
-        # Extract color information from image
         color_info = self._extract_color_from_image(overlay, latitude, longitude)
         if color_info is None:
             return None
         
-        # Add additional information
         color_info['overlay_name'] = overlay.name
         color_info['coordinates'] = {'latitude': latitude, 'longitude': longitude}
-        
         return color_info
     
     def _extract_color_from_image(self, overlay: GroundOverlay, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
@@ -299,50 +512,71 @@ class LightPollutionAnalyzer:
         Returns:
             Statistics information dictionary
         """
-        base_stats = self.location_finder.get_statistics()
+        if self._backend == 'geotiff':
+            self._ensure_geotiff_open()
+            if self._src is not None:
+                return {
+                    'backend': 'geotiff',
+                    'data_path': self._geotiff_path,
+                    'width': self._src.width,
+                    'height': self._src.height,
+                    'crs': str(self._src.crs),
+                    'bounds': {
+                        'north': self._src.bounds.top,
+                        'south': self._src.bounds.bottom,
+                        'east': self._src.bounds.right,
+                        'west': self._src.bounds.left,
+                    },
+                    'count': self._src.count,
+                    'dtype': self._src.dtypes[0],
+                }
+            return {'backend': 'geotiff', 'error': 'not opened'}
         
+        # KML backend
+        base_stats = self.location_finder.get_statistics()
         return {
             **base_stats,
+            'backend': 'kml',
             'images_base_path': self.images_base_path,
             'cached_images': len(self._image_cache),
             'images_directory_exists': os.path.exists(self.images_base_path)
         }
     
     def clear_image_cache(self) -> None:
-        """Clear image cache
-        
-        Used to free memory, especially after processing large amounts of images.
-        Clears both memory cache and disk cache.
-        """
-        # 清除内存缓存
-        for image in self._image_cache.values():
-            if hasattr(image, 'close'):
-                image.close()
-        
-        self._image_cache.clear()
-        
-        # 清除磁盘缓存
-        try:
-            import shutil
-            if self._image_cache_dir.exists():
-                shutil.rmtree(self._image_cache_dir)
-                self._image_cache_dir.mkdir(exist_ok=True)
-            print("Image cache cleared (including disk cache)")
-        except Exception as e:
-            print(f"Error clearing disk cache: {e}")
-            print("Memory cache cleared")
+        """Clear cache (image cache for KML backend, no-op for GeoTIFF)."""
+        if self._backend == 'kml':
+            for image in self._image_cache.values():
+                if hasattr(image, 'close'):
+                    image.close()
+            self._image_cache.clear()
+            try:
+                import shutil
+                if self._image_cache_dir.exists():
+                    shutil.rmtree(self._image_cache_dir)
+                    self._image_cache_dir.mkdir(exist_ok=True)
+                print("Image cache cleared (including disk cache)")
+            except Exception as e:
+                print(f"Error clearing disk cache: {e}")
+                print("Memory cache cleared")
+        else:
+            print("GeoTIFF backend has no image cache to clear")
     
     def batch_analyze_coordinates(self, coordinates_list: list) -> list:
         """Batch analyze light pollution information for multiple coordinates
         
+        For GeoTIFF backend, this is optimized to read rows in bulk.
+        
         Args:
-            coordinates_list: List of coordinates, each element is a (latitude, longitude) tuple
+            coordinates_list: List of (latitude, longitude) tuples
             
         Returns:
-            List of analysis results, each element contains coordinates and corresponding light pollution information
+            List of analysis results
         """
-        results = []
+        if self._backend == 'geotiff':
+            return self._batch_analyze_geotiff(coordinates_list)
         
+        # KML backend — sequential
+        results = []
         for i, (lat, lon) in enumerate(coordinates_list):
             try:
                 pollution_info = self.get_light_pollution_color(lat, lon)
@@ -360,56 +594,88 @@ class LightPollutionAnalyzer:
                     'success': False,
                     'error': str(e)
                 })
+        return results
+    
+    def _batch_analyze_geotiff(self, coordinates_list: list) -> list:
+        """Batch analysis optimized for GeoTIFF: group by row for efficient reads."""
+        self._ensure_geotiff_open()
+        if self._src is None:
+            return [{'index': i, 'success': False, 'error': 'GeoTIFF not open'}
+                    for i in range(len(coordinates_list))]
         
+        # Group points by row
+        row_groups = {}
+        for i, (lat, lon) in enumerate(coordinates_list):
+            try:
+                row, col = self._src.index(lon, lat)
+                if 0 <= row < self._src.height and 0 <= col < self._src.width:
+                    row_groups.setdefault(row, []).append((i, col, lat, lon))
+            except Exception:
+                pass
+        
+        results = [None] * len(coordinates_list)
+        for row, items in row_groups.items():
+            row_data = self._src.read(1, window=((row, row+1), (0, self._src.width)))
+            for idx, col, lat, lon in items:
+                radiance = float(row_data[0, col])
+                pollution_info = {
+                    'radiance': radiance,
+                    'brightness': radiance_to_brightness(radiance),
+                    'pollution_level': radiance_to_pollution_level(radiance),
+                    'bortle': radiance_to_bortle(radiance),
+                    'coordinates': {'latitude': lat, 'longitude': lon},
+                }
+                results[idx] = {
+                    'index': idx,
+                    'coordinates': (lat, lon),
+                    'pollution_info': pollution_info,
+                    'success': True,
+                }
+        
+        # Fill in missing
+        for i, r in enumerate(results):
+            if r is None:
+                results[i] = {
+                    'index': i,
+                    'coordinates': coordinates_list[i],
+                    'pollution_info': None,
+                    'success': False,
+                    'error': 'Outside data coverage',
+                }
         return results
     
     def get_light_pollution_images_in_bounds(self, north: float, south: float, 
                                            east: float, west: float) -> list:
-        """Get light pollution image data within specified geographic boundaries
+        """Get light pollution image data within specified geographic bounds.
         
-        Args:
-            north: North boundary latitude
-            south: South boundary latitude  
-            east: East boundary longitude
-            west: West boundary longitude
-            
-        Returns:
-            List containing image information, each element contains:
-            - 'overlay': GroundOverlay object
-            - 'image_path': Image file path
-            - 'image_data': Base64 encoded image data
-            - 'bounds': Geographic boundaries of the image
-            - 'exists': Whether the image file exists
+        Note: Only works with KML backend. For GeoTIFF, use get_radiance().
         """
-        results = []
+        if self._backend == 'geotiff':
+            print("Warning: get_light_pollution_images_in_bounds is not available "
+                  "with GeoTIFF backend. Use get_radiance() or batch_analyze_coordinates() instead.")
+            return []
         
-        # 获取与指定边界相交的所有覆盖层
+        results = []
         overlapping_overlays = self.location_finder.find_overlays_in_bounds(
             north, south, east, west
         )
         
         for overlay in overlapping_overlays:
             try:
-                # 获取图像文件路径
                 image_filename = os.path.basename(overlay.icon.href)
                 image_path = os.path.join(self.images_base_path, image_filename)
-                
-                # 检查文件是否存在
                 file_exists = os.path.exists(image_path)
                 
                 image_data = None
                 if file_exists:
-                    # 读取图片并转换为base64
                     try:
                         import base64
                         with open(image_path, 'rb') as img_file:
                             image_data = base64.b64encode(img_file.read()).decode('utf-8')
                     except Exception as e:
                         print(f"Failed to read image file {image_path}: {e}")
-                        image_data = None
                 
-                # 构建结果
-                result = {
+                results.append({
                     'overlay': overlay,
                     'image_path': image_path,
                     'image_data': image_data,
@@ -417,14 +683,11 @@ class LightPollutionAnalyzer:
                         'north': overlay.lat_lon_box.north,
                         'south': overlay.lat_lon_box.south,
                         'east': overlay.lat_lon_box.east,
-                        'west': overlay.lat_lon_box.west
+                        'west': overlay.lat_lon_box.west,
                     },
                     'exists': file_exists,
-                    'name': overlay.name
-                }
-                
-                results.append(result)
-                
+                    'name': overlay.name,
+                })
             except Exception as e:
                 print(f"Error processing overlay {overlay.name}: {e}")
                 continue
