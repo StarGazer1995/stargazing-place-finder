@@ -47,14 +47,13 @@ def run_test_file(test_file):
     print(f"{'='*60}")
     
     try:
-        # 设置环境变量，将src目录和项目根目录添加到PYTHONPATH
+        # 设置环境变量，将src目录添加到PYTHONPATH
         env = os.environ.copy()
-        project_root = str(Path.cwd())
         src_path = str(Path.cwd() / "src")
         if 'PYTHONPATH' in env:
-            env['PYTHONPATH'] = f"{src_path}{os.pathsep}{project_root}{os.pathsep}{env['PYTHONPATH']}"
+            env['PYTHONPATH'] = f"{src_path}{os.pathsep}{env['PYTHONPATH']}"
         else:
-            env['PYTHONPATH'] = f"{src_path}{os.pathsep}{project_root}"
+            env['PYTHONPATH'] = src_path
         env['FAST_TESTS'] = '1'
             
         # 使用python -u来确保输出不被缓冲，-v开启详细模式
