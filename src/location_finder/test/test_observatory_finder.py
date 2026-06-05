@@ -16,7 +16,11 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../src'))
 
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Location, Observatory
+try:
+    from src.models import Location, Observatory
+except ImportError:
+    from models import Location, Observatory
+from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
 
 class TestObservatoryFinder(unittest.TestCase):
     """
@@ -144,7 +148,14 @@ class TestObservatoryFinder(unittest.TestCase):
         mock_elevation.return_value = 100.0
         
         # 模拟光污染数据
-        mock_light_pollution.return_value = [{'pollution_level': 'Low'}]
+        mock_light_pollution.return_value = [
+            {
+                'index': 0,
+                'coordinates': (39.9042, 116.4074),
+                'pollution_info': MagicMock(pollution_level='Low'),
+                'success': True,
+            }
+        ]
         
         # 调用方法
         result = self.finder.find_observatories_in_area(self.test_bbox, max_observatories=10)

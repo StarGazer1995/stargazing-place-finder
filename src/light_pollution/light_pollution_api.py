@@ -233,7 +233,7 @@ def get_light_pollution_data():
                     
                     if pollution_info:
                         # 从真实数据中提取信息
-                        brightness = pollution_info['brightness']
+                        brightness = pollution_info.brightness
                         bortle = brightness_to_bortle(brightness)
                         sqm = bortle_to_sqm(bortle)
                         intensity = brightness / 255.0
@@ -246,9 +246,9 @@ def get_light_pollution_data():
                             'sqm': f'{sqm:.1f}',
                             'intensity': intensity,
                             'brightness': brightness,
-                            'rgb': pollution_info['rgb'],
-                            'hex': pollution_info['hex'],
-                            'overlay_name': pollution_info['overlay_name']
+                            'rgb': pollution_info.rgb,
+                            'hex': pollution_info.hex,
+                            'overlay_name': pollution_info.overlay_name
                         })
                     else:
                         # 如果没有找到数据，使用默认值
@@ -405,7 +405,7 @@ def analyze_coordinate():
         
         if pollution_info:
             # 从真实数据中提取信息
-            brightness = pollution_info['brightness']
+            brightness = pollution_info.brightness
             bortle = brightness_to_bortle(brightness)
             sqm = bortle_to_sqm(bortle)
             intensity = brightness / 255.0
@@ -426,11 +426,11 @@ def analyze_coordinate():
                         'description': description
                     },
                     'color_info': {
-                        'rgb': pollution_info['rgb'],
-                        'hex': pollution_info['hex']
+                        'rgb': pollution_info.rgb,
+                        'hex': pollution_info.hex
                     },
                     'source': {
-                        'overlay_name': pollution_info['overlay_name'],
+                        'overlay_name': pollution_info.overlay_name,
                         'data_type': 'real_data'
                     }
                 }

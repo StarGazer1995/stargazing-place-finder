@@ -118,7 +118,7 @@ def main():
         # 演示详细信息获取
         print("\n=== Detailed Information Retrieval Example ===")
         info = finder.get_overlay_info(beijing_lat, beijing_lon)
-        print(f"Location: ({info['coordinates']['latitude']}, {info['coordinates']['longitude']})")
+        print(f"Location: ({info.latitude}, {info.longitude})")
         print(f"Overlay count: {info['overlay_count']}")
         
         if info['overlays']:

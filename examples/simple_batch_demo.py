@@ -10,7 +10,8 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from stargazing_analyzer.elevation_batch_query import BatchElevationQuery, ElevationResult
+from src.stargazing_analyzer.elevation_batch_query import BatchElevationQuery
+from src.models import ElevationResult
 
 def main():
     """主函数：演示批量查询功能"""

@@ -1,33 +1,7 @@
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Optional
-from dataclasses import dataclass
 
-
-@dataclass
-class LatLonBox:
-    """Data class representing a geographic bounding box"""
-    north: float
-    south: float
-    east: float
-    west: float
-    rotation: float = 0.0
-
-
-@dataclass
-class Icon:
-    """Data class representing an icon"""
-    href: str
-
-
-@dataclass
-class GroundOverlay:
-    """Data class representing a ground overlay"""
-    name: str
-    draw_order: int
-    color: str
-    description: str
-    icon: Icon
-    lat_lon_box: LatLonBox
+from src.models import LatLonBox, Icon, GroundOverlay
 
 
 class KMLParser:

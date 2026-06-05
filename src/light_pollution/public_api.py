@@ -178,13 +178,9 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
             try:
                 pollution_info = analyzer.get_light_pollution_color(lat, lng)
                 if pollution_info:
-                    # GeoTIFF backend provides bortle directly; KML backend needs conversion
-                    if 'bortle' in pollution_info:
-                        bortle = int(pollution_info['bortle'])
-                    else:
-                        bortle = brightness_to_bortle(int(pollution_info['brightness']))
+                    bortle = pollution_info.bortle
                     sqm = bortle_to_sqm(bortle)
-                    brightness = int(pollution_info['brightness'])
+                    brightness = pollution_info.brightness
                     intensity = brightness / 255.0
                     entry = {
                         'name': f'数据点 {point_index + 1}',
@@ -194,12 +190,11 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
                         'sqm': f'{sqm:.1f}',
                         'intensity': intensity,
                         'brightness': brightness,
-                        'rgb': pollution_info['rgb'],
-                        'hex': pollution_info['hex'],
-                        'overlay_name': pollution_info['overlay_name'],
+                        'rgb': pollution_info.rgb,
+                        'hex': pollution_info.hex,
+                        'overlay_name': pollution_info.overlay_name,
+                        'radiance': pollution_info.radiance,
                     }
-                    if 'radiance' in pollution_info:
-                        entry['radiance'] = pollution_info['radiance']
                     data.append(entry)
                 else:
                     data.append({
@@ -259,12 +254,8 @@ def analyze_coordinate(lat: float, lng: float) -> Dict[str, Any]:
     analyzer = _require_analyzer()
     pollution_info = analyzer.get_light_pollution_color(lat, lng)
     if pollution_info:
-        # GeoTIFF backend provides bortle directly
-        if 'bortle' in pollution_info:
-            bortle = int(pollution_info['bortle'])
-        else:
-            bortle = brightness_to_bortle(int(pollution_info['brightness']))
-        brightness = int(pollution_info['brightness'])
+        bortle = pollution_info.bortle
+        brightness = pollution_info.brightness
         sqm = bortle_to_sqm(bortle)
         description_map = {
             1: "优秀暗空",
@@ -287,19 +278,18 @@ def analyze_coordinate(lat: float, lng: float) -> Dict[str, Any]:
                     'intensity': brightness / 255.0,
                     'brightness': brightness,
                     'description': description_map.get(bortle, '未知等级'),
+                    'radiance': pollution_info.radiance,
                 },
                 'color_info': {
-                    'rgb': pollution_info['rgb'],
-                    'hex': pollution_info['hex'],
+                    'rgb': pollution_info.rgb,
+                    'hex': pollution_info.hex,
                 },
                 'source': {
-                    'overlay_name': pollution_info['overlay_name'],
+                    'overlay_name': pollution_info.overlay_name,
                     'data_type': 'real_data',
                 },
             },
         }
-        if 'radiance' in pollution_info:
-            result['data']['light_pollution']['radiance'] = pollution_info['radiance']
         return result
     else:
         return {

@@ -22,10 +22,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../src'))
 
 from cache.cache_config import get_temp_file
 from stargazing_analyzer.stargazing_location_analyzer import (
-    StargazingLocationAnalyzer, 
-    StargazingLocation,
+    StargazingLocationAnalyzer,
     analyze_stargazing_area
 )
+try:
+    from src.models import StargazingLocation
+except ImportError:
+    from models import StargazingLocation
 
 def test_analyzer_initialization():
     """

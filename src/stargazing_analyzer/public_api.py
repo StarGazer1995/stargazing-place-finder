@@ -89,28 +89,7 @@ def analyze_area(bbox: Tuple[float, float, float, float],
     )
     serialized: List[Dict[str, Any]] = []
     for r in results:
-        serialized.append({
-            'name': getattr(r, 'name', None),
-            'latitude': getattr(r, 'latitude', None),
-            'longitude': getattr(r, 'longitude', None),
-            'elevation': getattr(r, 'elevation', None),
-            'prominence': getattr(r, 'prominence', None),
-            'distance_to_nearest_town': getattr(r, 'distance_to_nearest_town', None),
-            'nearest_town_name': getattr(r, 'nearest_town_name', None),
-            'height_difference': getattr(r, 'height_difference', None),
-            'light_pollution_rgb': getattr(r, 'light_pollution_rgb', None),
-            'light_pollution_hex': getattr(r, 'light_pollution_hex', None),
-            'light_pollution_brightness': getattr(r, 'light_pollution_brightness', None),
-            'light_pollution_level': getattr(r, 'light_pollution_level', None),
-            'light_pollution_overlay': getattr(r, 'light_pollution_overlay', None),
-            'road_accessible': getattr(r, 'road_accessible', None),
-            'distance_to_road_km': getattr(r, 'distance_to_road_km', None),
-            'road_network_type': getattr(r, 'road_network_type', None),
-            'road_check_error': getattr(r, 'road_check_error', None),
-            'stargazing_score': getattr(r, 'stargazing_score', None),
-            'recommendation_level': getattr(r, 'recommendation_level', None),
-            'analysis_notes': getattr(r, 'analysis_notes', None),
-        })
+        serialized.append(r.model_dump(exclude_none=True))
     return serialized
 
 def analyze_area_simple(south: float, west: float, north: float, east: float,
@@ -148,26 +127,5 @@ def analyze_area_simple(south: float, west: float, north: float, east: float,
     )
     serialized: List[Dict[str, Any]] = []
     for r in results:
-        serialized.append({
-            'name': getattr(r, 'name', None),
-            'latitude': getattr(r, 'latitude', None),
-            'longitude': getattr(r, 'longitude', None),
-            'elevation': getattr(r, 'elevation', None),
-            'prominence': getattr(r, 'prominence', None),
-            'distance_to_nearest_town': getattr(r, 'distance_to_nearest_town', None),
-            'nearest_town_name': getattr(r, 'nearest_town_name', None),
-            'height_difference': getattr(r, 'height_difference', None),
-            'light_pollution_rgb': getattr(r, 'light_pollution_rgb', None),
-            'light_pollution_hex': getattr(r, 'light_pollution_hex', None),
-            'light_pollution_brightness': getattr(r, 'light_pollution_brightness', None),
-            'light_pollution_level': getattr(r, 'light_pollution_level', None),
-            'light_pollution_overlay': getattr(r, 'light_pollution_overlay', None),
-            'road_accessible': getattr(r, 'road_accessible', None),
-            'distance_to_road_km': getattr(r, 'distance_to_road_km', None),
-            'road_network_type': getattr(r, 'road_network_type', None),
-            'road_check_error': getattr(r, 'road_check_error', None),
-            'stargazing_score': getattr(r, 'stargazing_score', None),
-            'recommendation_level': getattr(r, 'recommendation_level', None),
-            'analysis_notes': getattr(r, 'analysis_notes', None),
-        })
+        serialized.append(r.model_dump(exclude_none=True))
     return serialized

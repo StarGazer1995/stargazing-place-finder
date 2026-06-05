@@ -610,9 +610,9 @@ class LightPollutionMap:
             
             try:
                 result = self.analyzer.get_light_pollution_color(lat, lon)
-                if result and 'brightness' in result:
+                if result:
                     # 使用亮度值作为热力图强度
-                    intensity = result['brightness'] / 255.0
+                    intensity = result.brightness / 255.0
                     heat_data.append([lat, lon, intensity])
                     valid_points += 1
             except Exception as e:
@@ -724,8 +724,8 @@ class LightPollutionMap:
             
             try:
                 result = self.analyzer.get_light_pollution_color(lat, lon)
-                if result and 'pollution_level' in result:
-                    level = result['pollution_level']
+                if result:
+                    level = result.pollution_level
                     color_key = 'blue' if level <= 2 else 'green' if level <= 4 else 'orange' if level <= 6 else 'red'
                     
                     # 创建弹出信息
@@ -733,9 +733,9 @@ class LightPollutionMap:
                     <b>光污染信息</b><br>
                     坐标: ({lat:.4f}, {lon:.4f})<br>
                     污染等级: {level}<br>
-                    RGB颜色: {result.get('rgb_color', 'N/A')}<br>
-                    亮度值: {result.get('brightness', 'N/A')}<br>
-                    覆盖层: {result.get('overlay_name', 'N/A')}
+                    RGB颜色: {result.rgb}<br>
+                    亮度值: {result.brightness}<br>
+                    覆盖层: {result.overlay_name}
                     """
                     
                     # 标记已被移除，仅保留数据统计
@@ -854,8 +854,8 @@ class LightPollutionMap:
             
             try:
                 result = self.analyzer.get_light_pollution_color(lat, lon)
-                if result and 'pollution_level' in result:
-                    level = result['pollution_level']
+                if result:
+                    level = result.pollution_level
                     
                     # 根据污染等级选择图标颜色
                     if level <= 2:
@@ -876,10 +876,10 @@ class LightPollutionMap:
                     <b>光污染分析结果</b><br>
                     坐标: ({lat:.4f}, {lon:.4f})<br>
                     污染等级: {level} ({level_desc})<br>
-                    RGB颜色: {result.get('rgb_color', 'N/A')}<br>
-                    十六进制: {result.get('hex_color', 'N/A')}<br>
-                    亮度值: {result.get('brightness', 'N/A')}<br>
-                    覆盖层: {result.get('overlay_name', 'N/A')}
+                    RGB颜色: {result.rgb}<br>
+                    十六进制: {result.hex}<br>
+                    亮度值: {result.brightness}<br>
+                    覆盖层: {result.overlay_name}
                     """
                     
                     # 聚类标记已被移除，仅保留数据统计

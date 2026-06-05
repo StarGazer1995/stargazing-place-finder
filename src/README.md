@@ -101,11 +101,11 @@ beijing_lat, beijing_lon = 39.9042, 116.4074
 pollution_info = analyzer.get_light_pollution_color(beijing_lat, beijing_lon)
 if pollution_info:
     print(f"北京光污染信息:")
-    print(f"  RGB颜色: {pollution_info['rgb']}")
-    print(f"  十六进制颜色: {pollution_info['hex']}")
-    print(f"  亮度值: {pollution_info['brightness']}/255")
-    print(f"  污染等级: {pollution_info['pollution_level']}")
-    print(f"  覆盖层: {pollution_info['overlay_name']}")
+    print(f"  RGB颜色: {pollution_info.rgb}")
+    print(f"  十六进制颜色: {pollution_info.hex}")
+    print(f"  亮度值: {pollution_info.brightness}/255")
+    print(f"  污染等级: {pollution_info.pollution_level}")
+    print(f"  覆盖层: {pollution_info.overlay_name}")
 
 # 批量分析多个坐标
 coordinates = [
@@ -119,7 +119,7 @@ for result in results:
     lat, lon = result['coordinates']
     if result['success'] and result['pollution_info']:
         info = result['pollution_info']
-        print(f"坐标 ({lat}, {lon}): 亮度={info['brightness']}, {info['pollution_level']}")
+        print(f"坐标 ({lat}, {lon}): 亮度={info.brightness}, {info.pollution_level}")
     else:
         error_msg = result.get('error', '未找到数据')
         print(f"坐标 ({lat}, {lon}): {error_msg}")

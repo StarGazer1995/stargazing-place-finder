@@ -40,6 +40,7 @@ dependencies = [
   "psycopg2-binary>=2.9.0",
   "requests>=2.25.0",
   "rasterio>=1.4.3",
+  "pydantic>=2.13.4",
 ]
 
 [project.scripts]

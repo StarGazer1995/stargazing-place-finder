@@ -1,11 +1,14 @@
 from typing import List, Optional, Tuple
+
+from src.models import GroundOverlay
+
 try:
-    from utils.kml_parser import KMLParser, GroundOverlay
+    from utils.kml_parser import KMLParser
 except ImportError:
     import sys
     import os
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
-    from utils.kml_parser import KMLParser, GroundOverlay
+    from utils.kml_parser import KMLParser
 
 
 class LocationFinder:
