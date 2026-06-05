@@ -54,4 +54,10 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: uv run twine upload dist/*
+        run: |
+          if [ -z "$TWINE_PASSWORD" ]; then
+            echo "❌ TWINE_PASSWORD is empty — secret not found!"
+            exit 1
+          fi
+          echo "Token length: ${#TWINE_PASSWORD}"
+          uv run twine upload dist/*
