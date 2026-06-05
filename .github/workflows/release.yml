@@ -18,8 +18,11 @@ jobs:
     name: Build & Publish to PyPI
     runs-on: ubuntu-latest
     permissions:
-      contents: read  # needed to check out the repo
-      id-token: write # needed for trusted publishing (optional but recommended)
+      contents: read
+      id-token: write
+    env:
+      TWINE_USERNAME: __token__
+      TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -51,9 +54,6 @@ jobs:
         run: uv run twine check dist/*
 
       - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           if [ -z "$TWINE_PASSWORD" ]; then
             echo "❌ TWINE_PASSWORD is empty — secret not found!"
