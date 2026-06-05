@@ -20,9 +20,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      TWINE_USERNAME: __token__
-      TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -54,10 +51,14 @@ jobs:
         run: uv run twine check dist/*
 
       - name: Publish to PyPI
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: |
-          if [ -z "$TWINE_PASSWORD" ]; then
-            echo "❌ TWINE_PASSWORD is empty — secret not found!"
+          # Debug
+          echo "GITHUB_TOKEN length: ${#GITHUB_TOKEN}"
+          echo "PYPI_TOKEN length: ${#PYPI_TOKEN}"
+          if [ -z "$PYPI_TOKEN" ]; then
+            echo "❌ PYPI_TOKEN is empty!"
             exit 1
           fi
-          echo "Token length: ${#TWINE_PASSWORD}"
-          uv run twine upload dist/*
+          uv run twine upload dist/* --username __token__ --password "$PYPI_TOKEN"
