@@ -15,17 +15,13 @@ from .stargazing_location_analyzer import (
 
 _sa_analyzer: Optional[StargazingLocationAnalyzer] = None
 
-def _default_paths() -> Tuple[Path, Path]:
+def _default_geotiff_path() -> Path:
     """
-    返回包内资源目录下的KML与图片目录路径
+    返回包内默认的 VIIRS 中国区域 GeoTIFF 路径
     """
-    # 使用 importlib.resources 读取包内资源
-    kml_path = Path(res.files('light_pollution').joinpath('resources', 'world_atlas', 'doc.kml'))
-    images_base_path = kml_path.parent / 'files'
-    return kml_path, images_base_path
+    return Path(res.files('light_pollution').joinpath('resources', 'viirs_china_2025.tif'))
 
-def init_stargazing_analyzer(kml_file_path: Optional[Path] = None,
-                             images_base_path: Optional[Path] = None,
+def init_stargazing_analyzer(geotiff_path: Optional[Path] = None,
                              min_height_difference: float = 100.0,
                              road_search_radius_km: float = 10.0,
                              db_config_path: Optional[Path] = None) -> StargazingLocationAnalyzer:
@@ -33,8 +29,7 @@ def init_stargazing_analyzer(kml_file_path: Optional[Path] = None,
     初始化并返回天文观测位置分析器实例，供直接导入调用。
 
     Args:
-        kml_file_path: KML 文件路径，默认为包内资源 world_atlas/doc.kml
-        images_base_path: 图片目录，默认与 KML 同目录下 files
+        geotiff_path: VIIRS GeoTIFF 文件路径，默认为包内裁剪中国区域数据
         min_height_difference: 最小高差阈值
         road_search_radius_km: 道路搜索半径（公里）
         db_config_path: 数据库配置文件路径
@@ -43,13 +38,10 @@ def init_stargazing_analyzer(kml_file_path: Optional[Path] = None,
         已初始化的 StargazingLocationAnalyzer 实例
     """
     global _sa_analyzer
-    if kml_file_path is None or images_base_path is None:
-        default_kml, default_images = _default_paths()
-        kml_file_path = kml_file_path or default_kml
-        images_base_path = images_base_path or default_images
+    if geotiff_path is None:
+        geotiff_path = _default_geotiff_path()
     _sa_analyzer = StargazingLocationAnalyzer(
-        kml_file_path=str(kml_file_path),
-        images_base_path=str(images_base_path),
+        geotiff_path=str(geotiff_path),
         min_height_difference=min_height_difference,
         road_search_radius_km=road_search_radius_km,
         db_config_path=str(db_config_path) if db_config_path else None,

@@ -1,6 +1,6 @@
 import os
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from pathlib import Path
 
 try:
@@ -9,37 +9,58 @@ except ImportError:
     # Python<3.9 fallback
     import importlib_resources as res  # type: ignore
 
-from .light_pollution_analyzer import LightPollutionAnalyzer
+from .light_pollution_analyzer import (
+    LightPollutionAnalyzer,
+    radiance_to_bortle as _radiance_to_bortle,
+    radiance_to_brightness as _radiance_to_brightness,
+    radiance_to_pollution_level as _radiance_to_pollution_level,
+)
 
 _lp_analyzer: Optional[LightPollutionAnalyzer] = None
 
-def _default_paths() -> Tuple[Path, Path]:
+def _default_geotiff_path() -> Path:
     """
-    返回包内资源目录下的KML与图片目录路径
+    返回包内默认的 VIIRS 中国区域 GeoTIFF 路径
     """
-    # 使用 importlib.resources 读取包内资源
-    kml_path = Path(res.files(__package__).joinpath('resources', 'world_atlas', 'doc.kml'))
-    images_base_path = kml_path.parent / 'files'
-    return kml_path, images_base_path
+    return Path(res.files(__package__).joinpath('resources', 'viirs_china_2025.tif'))
 
-def init_light_pollution_analyzer(kml_file_path: Optional[Path] = None,
-                                  images_base_path: Optional[Path] = None) -> LightPollutionAnalyzer:
+def init_light_pollution_analyzer(
+    kml_file_path: Optional[Path] = None,
+    images_base_path: Optional[Path] = None,
+    geotiff_path: Optional[Union[Path, str]] = None,
+) -> LightPollutionAnalyzer:
     """
-    初始化并返回光污染分析器实例，供直接导入调用。
+    初始化并返回光污染分析器实例。
+
+    默认使用 VIIRS GeoTIFF 数据源（裁剪中国区域）。
+    可以通过传入 kml_file_path 切换到旧版的 KML 图片后端。
 
     Args:
-        kml_file_path: KML 文件路径，默认为包内资源 world_atlas/doc.kml
-        images_base_path: 光污染图片目录，默认与 KML 同目录下 files
+        kml_file_path: KML 文件路径（旧版后端）。设为非空值则使用 KML 后端。
+        images_base_path: 光污染图片目录（旧版），默认与 KML 同目录下 files。
+        geotiff_path: VIIRS GeoTIFF 文件路径。默认使用包内裁剪的中国区域数据。
 
     Returns:
         已初始化的 LightPollutionAnalyzer 实例
     """
     global _lp_analyzer
-    if kml_file_path is None or images_base_path is None:
-        default_kml, default_images = _default_paths()
-        kml_file_path = kml_file_path or default_kml
-        images_base_path = images_base_path or default_images
-    _lp_analyzer = LightPollutionAnalyzer(kml_file_path=str(kml_file_path), images_base_path=str(images_base_path))
+
+    if kml_file_path is not None:
+        # Legacy KML backend
+        if images_base_path is None:
+            _, default_images = _default_kml_paths()
+            images_base_path = images_base_path or default_images
+        _lp_analyzer = LightPollutionAnalyzer(
+            kml_file_path=str(kml_file_path),
+            images_base_path=str(images_base_path),
+        )
+    else:
+        # Default: GeoTIFF backend
+        if geotiff_path is None:
+            geotiff_path = _default_geotiff_path()
+        _lp_analyzer = LightPollutionAnalyzer(
+            geotiff_path=str(geotiff_path),
+        )
     return _lp_analyzer
 
 def _require_analyzer() -> LightPollutionAnalyzer:
@@ -54,9 +75,14 @@ def _require_analyzer() -> LightPollutionAnalyzer:
         init_light_pollution_analyzer()
     return _lp_analyzer  # type: ignore
 
+# ---------------------------------------------------------------------------
+# Conversion utilities
+# ---------------------------------------------------------------------------
+
 def brightness_to_bortle(brightness: int) -> int:
     """
     将亮度值(0-255)映射到波特尔等级(1-9)
+    保留用于向后兼容。
     """
     if brightness <= 28:
         return 1
@@ -93,6 +119,18 @@ def bortle_to_sqm(bortle: int) -> float:
         9: 15.5,
     }
     return float(sqm_values.get(bortle, 20.0))
+
+def radiance_to_bortle(radiance: float) -> int:
+    """将 VIIRS DNB 辐射度 (nW/cm²/sr) 转换为波特尔等级。"""
+    return _radiance_to_bortle(radiance)
+
+def radiance_to_brightness(radiance: float) -> int:
+    """将辐射度转换为 0-255 亮度值（向后兼容）。"""
+    return _radiance_to_brightness(radiance)
+
+def radiance_to_pollution_level(radiance: float) -> str:
+    """将辐射度转换为可读的污染等级描述。"""
+    return _radiance_to_pollution_level(radiance)
 
 def get_light_pollution_grid(north: float, south: float, east: float, west: float, zoom: int = 10) -> Dict[str, Any]:
     """
@@ -140,11 +178,15 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
             try:
                 pollution_info = analyzer.get_light_pollution_color(lat, lng)
                 if pollution_info:
-                    brightness = int(pollution_info['brightness'])
-                    bortle = brightness_to_bortle(brightness)
+                    # GeoTIFF backend provides bortle directly; KML backend needs conversion
+                    if 'bortle' in pollution_info:
+                        bortle = int(pollution_info['bortle'])
+                    else:
+                        bortle = brightness_to_bortle(int(pollution_info['brightness']))
                     sqm = bortle_to_sqm(bortle)
+                    brightness = int(pollution_info['brightness'])
                     intensity = brightness / 255.0
-                    data.append({
+                    entry = {
                         'name': f'数据点 {point_index + 1}',
                         'lat': lat,
                         'lng': lng,
@@ -155,7 +197,10 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
                         'rgb': pollution_info['rgb'],
                         'hex': pollution_info['hex'],
                         'overlay_name': pollution_info['overlay_name'],
-                    })
+                    }
+                    if 'radiance' in pollution_info:
+                        entry['radiance'] = pollution_info['radiance']
+                    data.append(entry)
                 else:
                     data.append({
                         'name': f'数据点 {point_index + 1}',
@@ -200,42 +245,6 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
         },
     }
 
-def get_light_pollution_images(north: float, south: float, east: float, west: float) -> Dict[str, Any]:
-    """
-    获取指定边界内的光污染图片数据，返回结构与HTTP接口一致。
-
-    Args:
-        north: 北边界纬度
-        south: 南边界纬度
-        east: 东边界经度
-        west: 西边界经度
-
-    Returns:
-        dict: {success, count, images, query_bounds}
-    """
-    analyzer = _require_analyzer()
-    images = analyzer.get_light_pollution_images_in_bounds(north, south, east, west)
-    serializable_images: List[Dict[str, Any]] = []
-    for item in images:
-        serializable_images.append({
-            'name': item.get('name'),
-            'image_path': item.get('image_path'),
-            'image_data': item.get('image_data'),
-            'bounds': item.get('bounds'),
-            'exists': item.get('exists'),
-        })
-    return {
-        'success': True,
-        'count': len(serializable_images),
-        'images': serializable_images,
-        'query_bounds': {
-            'north': north,
-            'south': south,
-            'east': east,
-            'west': west,
-        },
-    }
-
 def analyze_coordinate(lat: float, lng: float) -> Dict[str, Any]:
     """
     分析单点坐标光污染指标，返回与HTTP接口一致的结构。
@@ -250,8 +259,12 @@ def analyze_coordinate(lat: float, lng: float) -> Dict[str, Any]:
     analyzer = _require_analyzer()
     pollution_info = analyzer.get_light_pollution_color(lat, lng)
     if pollution_info:
+        # GeoTIFF backend provides bortle directly
+        if 'bortle' in pollution_info:
+            bortle = int(pollution_info['bortle'])
+        else:
+            bortle = brightness_to_bortle(int(pollution_info['brightness']))
         brightness = int(pollution_info['brightness'])
-        bortle = brightness_to_bortle(brightness)
         sqm = bortle_to_sqm(bortle)
         description_map = {
             1: "优秀暗空",
@@ -264,7 +277,7 @@ def analyze_coordinate(lat: float, lng: float) -> Dict[str, Any]:
             8: "城市天空",
             9: "内城天空",
         }
-        return {
+        result = {
             'success': True,
             'data': {
                 'coordinates': {'lat': lat, 'lng': lng},
@@ -285,6 +298,9 @@ def analyze_coordinate(lat: float, lng: float) -> Dict[str, Any]:
                 },
             },
         }
+        if 'radiance' in pollution_info:
+            result['data']['light_pollution']['radiance'] = pollution_info['radiance']
+        return result
     else:
         return {
             'success': True,

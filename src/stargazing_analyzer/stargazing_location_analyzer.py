@@ -93,6 +93,7 @@ class StargazingLocationAnalyzer:
     def __init__(self, 
                  kml_file_path: Optional[str] = None,
                  images_base_path: Optional[str] = None,
+                 geotiff_path: Optional[str] = None,
                  min_height_difference: float = 100.0,
                  road_search_radius_km: float = 10.0,
                  db_config_path: Optional[str] = None):
@@ -100,8 +101,11 @@ class StargazingLocationAnalyzer:
         Initialize stargazing location analyzer
         
         Args:
-            kml_file_path: Light pollution KML file path, skip light pollution analysis if None (strongly recommended to provide)
-            images_base_path: Light pollution image file base path
+            kml_file_path: Light pollution KML file path (legacy backend). 
+                If None and geotiff_path is also None, light pollution analysis is skipped.
+            images_base_path: Light pollution image file base path (legacy backend).
+            geotiff_path: VIIRS GeoTIFF file path (recommended). 
+                If provided, uses the GeoTIFF backend instead of KML.
             min_height_difference: Minimum height difference between peaks and surrounding towns (meters)
             road_search_radius_km: Search radius for road connectivity detection (kilometers)
             db_config_path: Optional path to database config file (JSON or TOML)
@@ -118,16 +122,27 @@ class StargazingLocationAnalyzer:
                 print(f"PostGIS client initialization failed: {e}")
                 db_client = None
         
-        # Initialize light pollution analyzer (if KML file is provided)
+        # Initialize light pollution analyzer
         self.light_pollution_analyzer = None
-        if kml_file_path and os.path.exists(kml_file_path):
+        if geotiff_path and os.path.exists(geotiff_path):
+            try:
+                self.light_pollution_analyzer = LightPollutionAnalyzer(
+                    geotiff_path=geotiff_path,
+                )
+                print("Light pollution analyzer initialized (GeoTIFF backend)")
+            except Exception as e:
+                print(f"Light pollution analyzer initialization failed: {e}")
+                self.light_pollution_analyzer = None
+        elif kml_file_path and os.path.exists(kml_file_path):
             try:
                 self.light_pollution_analyzer = LightPollutionAnalyzer(
                     kml_file_path=kml_file_path,
-                    images_base_path=images_base_path
+                    images_base_path=images_base_path,
                 )
-                print("Light pollution analyzer initialized successfully")
+                print("Light pollution analyzer initialized (KML backend)")
             except Exception as e:
+                print(f"Light pollution analyzer initialization failed: {e}")
+                self.light_pollution_analyzer = None
                 print(f"Light pollution analyzer initialization failed: {e}")
                 self.light_pollution_analyzer = None
             self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference, light_pollution_analyzer=self.light_pollution_analyzer, db_client=db_client)

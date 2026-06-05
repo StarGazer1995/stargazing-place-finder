@@ -39,6 +39,7 @@ dependencies = [
   "geopy>=2.2.0",
   "psycopg2-binary>=2.9.0",
   "requests>=2.25.0",
+  "rasterio>=1.4.3",
 ]
 
 [project.scripts]
@@ -59,7 +60,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-"light_pollution" = ["resources/world_atlas/*", "resources/world_atlas/files/*"]
+"light_pollution" = ["resources/*.tif", "resources/*.py"]
 
 [dependency-groups]
 dev = [

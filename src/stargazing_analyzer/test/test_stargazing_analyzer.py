@@ -491,5 +491,21 @@ def run_all_tests():
     return failed == 0
 
 if __name__ == "__main__":
-    success = run_all_tests()
-    sys.exit(0 if success else 1)
+    if os.environ.get('FAST_TESTS') == '1':
+        print("FAST_TESTS mode: skipping tests that require network access")
+        # Run only tests that don't need network (skip test_basic_analysis and test_convenience_function)
+        print("\n=== Fast mode: running offline-only tests ===\n")
+        try:
+            test_analyzer_initialization()
+            test_scoring_system()
+            test_data_persistence()
+            test_top_recommendations()
+            test_error_handling()
+            print("\n🎉 All offline tests passed in FAST_TESTS mode!")
+            sys.exit(0)
+        except Exception as e:
+            print(f"\n❌ Test failed: {e}")
+            sys.exit(1)
+    else:
+        success = run_all_tests()
+        sys.exit(0 if success else 1)
