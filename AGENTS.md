@@ -173,8 +173,10 @@ GitHub Copilot automatic PR code review **requires a Business or Enterprise subs
 - **Fix**: Use negations like `!src/cache/**` to un-ignore specific directories.
 
 ### Branch Protection on `main`
-- Force push to `main` is rejected due to repository rules.
-- **Workaround**: `git fetch origin && git reset --hard origin/main` to sync local main.
+- **ALL direct pushes to `main` are rejected** — every change must go through a Pull Request.
+- Force push is also blocked.
+- Workflow for any change: `git checkout -b <branch> → commit → push → create PR → merge → delete branch`.
+- To sync local main after a merged PR: `git checkout main && git fetch origin && git reset --hard origin/main`.
 
 ### `LightPollutionAnalyzer` GeoTIFF Migration
 - As of v0.4.0, the analyzer uses GeoTIFF data (not KML).
