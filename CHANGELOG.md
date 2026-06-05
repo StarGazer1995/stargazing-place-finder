@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 (2026-06-05)
+
+- 数据升级: 光污染数据源从 KML 图像瓦片升级为 VIIRS DNB 2025 GeoTIFF，数据更精确、更新
+- 缓存重构: 缓存配置模块从 `cache/` 迁移至 `src/cache/`，解决 `.gitignore` 误排除问题
+- CI 修复: 网络测试覆盖 `FAST_TESTS=1` 环境变量，避免 CI 中 Overpass API 超时
+- 新依赖: `rasterio` 用于 GeoTIFF 数据读取
+- 格式支持: 辐射度值直接读取（nW/cm²/sr），无需图片反向解析
+
 ## 0.3.1 (2025-12-25)
 
 - 配置增强: Web 服务支持通过 `STARGAZING_DB_CONFIG` 环境变量加载 PostGIS 数据库配置

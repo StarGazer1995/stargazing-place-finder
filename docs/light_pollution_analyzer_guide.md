@@ -2,17 +2,17 @@
 
 ## 概述
 
-`LightPollutionAnalyzer` 是一个专门用于分析地理位置光污染强度的Python模块。该模块通过解析KML文件和对应的图像数据，能够根据地理坐标精确获取光污染颜色数值和污染等级信息。结合道路连通性检测功能，可以全面评估观星地点的质量。
+`LightPollutionAnalyzer` 是一个专门用于分析地理位置光污染强度的Python模块。该模块通过读取 VIIRS DNB 卫星年度复合辐射度 GeoTIFF 文件，能够根据地理坐标精确获取辐射度数值、波特尔暗空等级和污染等级信息。结合道路连通性检测功能，可以全面评估观星地点的质量。
 
 ## 主要功能
 
 - 🌍 **地理坐标光污染查询**: 根据经纬度坐标获取精确的光污染信息
-- 🎨 **颜色信息提取**: 从光污染图像中提取RGB颜色值和亮度信息
-- 📊 **污染等级分类**: 自动计算并分类光污染等级（Class 1-7+）
+- 📡 **VIIRS DNB 数据**: 直接读取卫星辐射度（nW/cm²/sr），无需图片反解
+- 📊 **波特尔等级分类**: 基于辐射度自动转换为波特尔暗空等级 (Bortle 1-9)
 - 🚀 **批量分析**: 支持批量处理多个坐标点
-- 💾 **智能缓存**: 内存和磁盘双重缓存机制提升性能
-- 🗺️ **区域图像提取**: 获取指定地理边界内的光污染图像数据
-- 🔍 **双线性插值**: 使用插值算法提供sub-pixel级别的精确颜色值
+- 💾 **智能缓存**: 内存缓存机制提升性能，避免重复读取 GeoTIFF
+- 🗺️ **区域图像提取**: 获取指定地理边界内的光污染网格数据
+- 🔍 **双线性插值**: 使用插值算法提供sub-pixel级别的精确值
 - 🚗 **道路连通性检测**: 分析地点的道路可达性，确保推荐地点交通便利
 
 ## 安装和依赖
@@ -20,28 +20,25 @@
 ### 必需依赖
 
 ```python
-from PIL import Image
+import rasterio  # GeoTIFF 读取
 import numpy as np
 ```
 
 ### 内部模块依赖
 
 - `location_finder.LocationFinder`: 地理位置查找器
-- `kml_parser.GroundOverlay`: KML文件解析器
-- `cache_config.get_cache_dir`: 缓存配置管理
+- `src.cache.cache_config`: 缓存配置管理
 
 ## 快速开始
 
 ### 基本使用
 
 ```python
-from light_pollution_analyzer import LightPollutionAnalyzer
+from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 
-# 初始化分析器
+# 初始化分析器（使用默认 VIIRS GeoTIFF 数据）
 analyzer = LightPollutionAnalyzer(
-    kml_file_path="path/to/your/light_pollution.kml",
-    images_base_path="path/to/images/folder",  # 可选，自动推断
-    enable_road_connectivity=True  # 启用道路连通性检测
+    geotiff_path="src/light_pollution/resources/viirs_china_2025.tif"
 )
 
 # 查询单个坐标的光污染信息
@@ -50,17 +47,12 @@ longitude = 116.4074
 
 result = analyzer.get_light_pollution_color(latitude, longitude)
 if result:
-    print(f"RGB颜色: {result['rgb']}")
-    print(f"十六进制颜色: {result['hex']}")
+    print(f"波特尔等级: {result['bortle']}")
+    print(f"辐射度: {result.get('radiance', 'N/A')} nW/cm²/sr")
     print(f"亮度值: {result['brightness']}")
     print(f"污染等级: {result['pollution_level']}")
 else:
     print("该坐标位置没有光污染数据")
-
-# 检查道路连通性
-road_info = analyzer.check_road_connectivity(latitude, longitude)
-print(f"道路可达性: {road_info['score']}")
-print(f"最近道路距离: {road_info['nearest_road_distance']}米")
 ```
 
 ### 批量分析
@@ -84,23 +76,21 @@ for result in results:
         print(f"坐标 {result['coordinates']}: 分析失败")
 ```
 
-### 区域图像数据提取
+### 区域网格数据提取
 
 ```python
-# 获取指定区域内的光污染图像
+# 获取指定区域内的光污染网格数据
 north, south = 40.0, 39.0
 east, west = 117.0, 116.0
 
-image_data = analyzer.get_light_pollution_images_in_bounds(
-    north, south, east, west
-)
+# 使用 get_light_pollution_grid 获取网格数据
+from light_pollution.public_api import get_light_pollution_grid
+grid_data = get_light_pollution_grid(north, south, east, west, zoom=10)
 
-for img_info in image_data:
-    print(f"图像名称: {img_info['name']}")
-    print(f"文件存在: {img_info['exists']}")
-    print(f"地理边界: {img_info['bounds']}")
-    if img_info['image_data']:
-        print(f"图像数据长度: {len(img_info['image_data'])} 字符")
+if grid_data['success']:
+    print(f"数据点数: {grid_data['metadata']['total_points']}")
+    for point in grid_data['data'][:3]:  # 显示前3个
+        print(f"  波特尔: {point['bortle']}, SQM: {point['sqm']}")
 ```
 
 ## 详细API参考
@@ -108,17 +98,15 @@ for img_info in image_data:
 ### 类初始化
 
 ```python
-LightPollutionAnalyzer(kml_file_path: str, images_base_path: Optional[str] = None, enable_road_connectivity: bool = False)
+LightPollutionAnalyzer(geotiff_path: Optional[Union[str, Path]] = None)
 ```
 
 **参数:**
-- `kml_file_path`: KML文件的完整路径
-- `images_base_path`: 图像文件基础路径，如果为None则自动推断为KML文件同目录下的`files`文件夹
-- `enable_road_connectivity`: 是否启用道路连通性检测功能，默认为False
+- `geotiff_path`: VIIRS GeoTIFF 文件的完整路径。为 None 时分析器未初始化，需调用 `load_geotiff()`。
 
 **异常:**
-- `FileNotFoundError`: KML文件不存在
-- `ValueError`: KML文件格式错误
+- `FileNotFoundError`: GeoTIFF 文件不存在
+- `ImportError`: rasterio 未安装
 
 ### 主要方法
 
@@ -142,8 +130,10 @@ get_light_pollution_color(latitude: float, longitude: float) -> Optional[Dict[st
     'rgb': (r, g, b),                    # RGB颜色值元组
     'hex': '#rrggbb',                    # 十六进制颜色值
     'brightness': int,                   # 亮度值 (0-255)
+    'bortle': int,                       # 波特尔暗空等级 (1-9)
+    'radiance': float,                   # VIIRS DNB 辐射度 (nW/cm²/sr)
     'pollution_level': str,              # 污染等级描述
-    'overlay_name': str,                 # 对应的覆盖层名称
+    'overlay_name': str,                 # 对应的数据源名称
     'coordinates': {                     # 输入的坐标信息
         'latitude': float,
         'longitude': float
@@ -218,41 +208,50 @@ get_statistics() -> Dict[str, Any]
 ```
 
 获取分析器的统计信息，包括：
-- 基础统计信息（来自LocationFinder）
-- 图像基础路径
-- 缓存的图像数量
-- 图像目录是否存在
+- 后端类型（geotiff）
+- 数据文件路径
+- GeoTIFF 元数据（波段数、坐标参考系）
 
-#### clear_image_cache()
+#### get_metadata()
 
 ```python
-clear_image_cache() -> None
+get_metadata() -> Dict[str, Any]
 ```
 
-清除所有图像缓存（内存和磁盘），用于释放内存空间。
+获取已加载 GeoTIFF 的元数据。
+
+#### close()
+
+```python
+close() -> None
+```
+
+关闭 GeoTIFF 文件句柄，释放资源。
 
 ## 光污染等级分类
 
-分析器根据亮度值自动分类光污染等级：
+分析器基于 VIIRS DNB 辐射度（nW/cm²/sr）自动转换为波特尔暗空等级 (Bortle Scale)：
 
-| 亮度范围 | 等级 | 描述 | 观星条件 |
+| 辐射度范围 (nW/cm²/sr) | 波特尔等级 | 描述 | 观星条件 |
 |---------|------|------|----------|
-| 0-31 | Class 1 | 极低污染 | 优秀观星条件 |
-| 32-63 | Class 2 | 低污染 | 良好观星条件 |
-| 64-95 | Class 3 | 轻度污染 | 一般观星条件 |
-| 96-127 | Class 4 | 中度污染 | 较差观星条件 |
-| 128-159 | Class 5 | 重度污染 | 差观星条件 |
-| 160-191 | Class 6 | 严重污染 | 很差观星条件 |
-| 192+ | Class 7+ | 极重污染 | 极差观星条件 |
+| ≤ 0 | Bortle 1 | 优秀暗空 | 银河清晰可见，深空天体观测极佳 |
+| 0.01 – 0.5 | Bortle 2 | 典型暗空 | 银河结构明显 |
+| 0.5 – 1.5 | Bortle 3 | 乡村天空 | 银河可见，部分光污染 |
+| 1.5 – 4.0 | Bortle 4 | 乡村/郊区过渡 | 银河微弱可见 |
+| 4.0 – 10.0 | Bortle 5 | 郊区天空 | 银河难以察觉 |
+| 10.0 – 25.0 | Bortle 6 | 明亮郊区 | 银河不可见 |
+| 25.0 – 60.0 | Bortle 7 | 郊区/城市过渡 | 严重光污染 |
+| 60.0 – 150.0 | Bortle 8 | 城市天空 | 只能看到最亮星体 |
+| > 150 | Bortle 9 | 内城天空 | 几乎无法观测 |
 
 ## 性能优化
 
 ### 缓存机制
 
-分析器实现了两级缓存系统：
+分析器实现了内存缓存系统：
 
-1. **内存缓存**: 将加载的图像保存在内存中，避免重复读取
-2. **磁盘缓存**: 使用pickle序列化图像到磁盘，程序重启后仍可使用
+1. **GeoTIFF 数据**: 通过 rasterio 惰性读取，仅在查询时加载所需波段数据
+2. **结果缓存**: 查询结果在分析器生命周期内缓存，避免重复计算
 
 ### 双线性插值
 
@@ -266,9 +265,8 @@ clear_image_cache() -> None
 
 ### 常见异常
 
-- `ValueError`: 坐标超出有效范围
-- `FileNotFoundError`: KML文件或图像文件不存在
-- `PIL.UnidentifiedImageError`: 图像文件格式不支持
+- `FileNotFoundError`: GeoTIFF 文件不存在
+- `ImportError`: rasterio 未安装
 
 ### 容错机制
 
@@ -291,27 +289,29 @@ def evaluate_stargazing_location(analyzer, lat, lon, location_name):
         print(f"{location_name}: 无光污染数据")
         return
     
-    brightness = result['brightness']
-    level = result['pollution_level']
+    bortle = result.get('bortle', 'N/A')
+    radiance = result.get('radiance', 0)
     
     print(f"\n=== {location_name} 光污染评估 ===")
     print(f"坐标: ({lat}, {lon})")
-    print(f"RGB颜色: {result['rgb']}")
-    print(f"亮度值: {brightness}")
-    print(f"污染等级: {level}")
+    print(f"辐射度: {radiance} nW/cm²/sr")
+    print(f"波特尔等级: {bortle}")
+    print(f"污染等级: {result['pollution_level']}")
     
     # 给出观星建议
-    if brightness < 64:
+    if bortle <= 2:
         recommendation = "🌟 强烈推荐！优秀的观星地点"
-    elif brightness < 128:
-        recommendation = "⭐ 可以考虑，观星条件一般"
+    elif bortle <= 4:
+        recommendation = "⭐ 推荐，观星条件良好"
+    elif bortle <= 6:
+        recommendation = "👍 可以考虑，观星条件一般"
     else:
         recommendation = "❌ 不推荐，光污染严重"
     
     print(f"观星建议: {recommendation}")
 
 # 使用示例
-analyzer = LightPollutionAnalyzer("data/light_pollution.kml")
+analyzer = LightPollutionAnalyzer(geotiff_path="src/light_pollution/resources/viirs_china_2025.tif")
 
 # 评估多个地点
 locations = [
@@ -322,9 +322,6 @@ locations = [
 
 for lat, lon, name in locations:
     evaluate_stargazing_location(analyzer, lat, lon, name)
-
-# 清理缓存
-analyzer.clear_image_cache()
 ```
 
 ### 区域光污染热力图数据准备
@@ -370,25 +367,25 @@ print(f"生成了 {len(heatmap_data)} 个数据点")
 
 ## 最佳实践
 
-1. **合理使用缓存**: 对于大量查询，保持分析器实例以利用缓存
+1. **合理缓存**: 保持分析器实例复用，避免重复打开 GeoTIFF 文件
 2. **批量处理**: 使用批量方法处理多个坐标以提高效率
-3. **内存管理**: 处理完成后调用 `clear_image_cache()` 释放内存
-4. **错误处理**: 始终检查返回值是否为None
-5. **坐标验证**: 确保输入的坐标在有效范围内
+3. **资源管理**: 处理完成后调用 `analyzer.close()` 释放 GeoTIFF 文件句柄
+4. **错误处理**: 始终检查返回值是否为 None
+5. **坐标验证**: 确保输入的坐标在 GeoTIFF 覆盖范围内
 
 ## 故障排除
 
 ### 常见问题
 
 **Q: 返回None值**
-- 检查坐标是否在KML文件覆盖范围内
-- 确认图像文件是否存在
+- 检查坐标是否在 GeoTIFF 文件覆盖范围内
+- 确认 GeoTIFF 文件是否存在
 - 验证坐标格式是否正确
 
-**Q: 图像加载失败**
-- 检查图像文件路径是否正确
-- 确认图像文件格式是否支持（PNG, JPG等）
-- 检查文件权限
+**Q: GeoTIFF 加载失败**
+- 检查 rasterio 是否正确安装：`pip install rasterio`
+- 验证 GeoTIFF 文件路径是否正确
+- 确认文件格式是否有效（.tif / .tiff）
 
 **Q: 内存使用过高**
 - 定期调用 `clear_image_cache()`
@@ -399,27 +396,35 @@ print(f"生成了 {len(heatmap_data)} 个数据点")
 
 ### 坐标转换算法
 
-分析器使用线性映射将地理坐标转换为图像像素坐标：
+分析器使用 rasterio 的 `index()` 方法将地理坐标转换为像素坐标：
 
 ```python
-# 计算相对位置（0-1之间）
-lat_ratio = (latitude - south) / (north - south)
-lon_ratio = (longitude - west) / (east - west)
-
-# 转换为像素坐标（注意Y轴翻转）
-pixel_x = lon_ratio * image_width
-pixel_y = (1 - lat_ratio) * image_height
+# 使用 rasterio 进行地理坐标到像素坐标的转换
+row, col = self._src.index(longitude, latitude)
 ```
 
-### 亮度计算公式
+### 辐射度转换公式
 
-使用标准的亮度计算公式：
+VIIRS DNB 辐射度值（nW/cm²/sr）通过以下公式转换为 0-255 亮度值（向后兼容）：
 
 ```python
-brightness = 0.299 * R + 0.587 * G + 0.114 * B
+brightness = 255.0 * (1.0 - 1.0 / (1.0 + radiance * 0.1))
 ```
 
-这个公式考虑了人眼对不同颜色的敏感度差异。
+波特尔等级通过辐射量阈值直接映射，无需经过亮度中间值：
+
+```python
+def radiance_to_bortle(radiance: float) -> int:
+    if radiance <= 0.0:   return 1  # 优秀暗空
+    if radiance <= 0.5:   return 2  # 典型暗空
+    if radiance <= 1.5:   return 3  # 乡村天空
+    if radiance <= 4.0:   return 4  # 乡村/郊区过渡
+    if radiance <= 10.0:  return 5  # 郊区天空
+    if radiance <= 25.0:  return 6  # 明亮郊区
+    if radiance <= 60.0:  return 7  # 郊区/城市过渡
+    if radiance <= 150.0: return 8  # 城市天空
+    return 9                        # 内城天空
+```
 
 ### 道路连通性评分算法
 
@@ -460,15 +465,15 @@ def calculate_connectivity_score(nearest_road_distance, road_type):
 
 ### 自定义污染等级
 
-可以通过继承类来自定义污染等级分类：
+可以通过继承类来自定义波特尔等级阈值：
 
 ```python
 class CustomLightPollutionAnalyzer(LightPollutionAnalyzer):
-    def _calculate_pollution_level(self, brightness: int) -> str:
+    def _calculate_pollution_level(self, radiance: float) -> str:
         # 自定义分类逻辑
-        if brightness < 50:
+        if radiance < 0.3:
             return "极佳观星条件"
-        elif brightness < 100:
+        elif radiance < 2.0:
             return "良好观星条件"
         else:
             return "不适合观星"
