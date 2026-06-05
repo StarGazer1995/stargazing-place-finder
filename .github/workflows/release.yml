@@ -3,8 +3,8 @@
 #   git tag v0.4.0
 #   git push origin v0.4.0
 #
-# Builds the package, validates it, and publishes to PyPI.
-# Requires a PyPI API token stored as a GitHub secret named PYPI_API_TOKEN.
+# Uses PyPI Trusted Publishing (OIDC) — no API token needed.
+# Set up on PyPI: https://pypi.org/manage/project/stargazing-place-finder/settings/publishing/
 
 name: Release to PyPI
 
@@ -17,10 +17,9 @@ jobs:
   build-and-publish:
     name: Build & Publish to PyPI
     runs-on: ubuntu-latest
-    environment: pypi
     permissions:
       contents: read
-      id-token: write
+      id-token: write  # required for OIDC trusted publishing
 
     steps:
       - name: Checkout repository
@@ -52,14 +51,4 @@ jobs:
         run: uv run twine check dist/*
 
       - name: Publish to PyPI
-        env:
-          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          # Debug
-          echo "GITHUB_TOKEN length: ${#GITHUB_TOKEN}"
-          echo "PYPI_TOKEN length: ${#PYPI_TOKEN}"
-          if [ -z "$PYPI_TOKEN" ]; then
-            echo "❌ PYPI_TOKEN is empty!"
-            exit 1
-          fi
-          uv run twine upload dist/* --username __token__ --password "$PYPI_TOKEN"
+        uses: pypa/gh-action-pypi-publish@release/v1
