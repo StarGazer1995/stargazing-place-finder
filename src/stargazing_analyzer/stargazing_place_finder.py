@@ -804,7 +804,11 @@ class StarGazingPlaceFinder:
                     time.sleep(delay)
                 
                 print(f"Getting {data_type} data...")
-                response = requests.post(self.overpass_url, data=query, timeout=45)
+                headers = {
+                    'User-Agent': 'StarGazingPlaceFinder/0.4.0 (stargazing app; contact@example.com)',
+                    'Accept': 'application/json',
+                }
+                response = requests.post(self.overpass_url, data=query, timeout=45, headers=headers)
                 
                 if debug:
                     print(f"Response status code: {response.status_code}")

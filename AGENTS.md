@@ -128,3 +128,74 @@ Dev: `pytest`, `pytest-cov`, `requests-mock`, `responses`, `freezegun`, `build`,
 4. Update `CHANGELOG.md` with the version bump and description
 5. Version in `pyproject.toml` must match the changelog entry
 6. Run full test suite before finalizing (`uv run python src/test/run_src_tests.py`)
+
+## CI/CD & Release Workflow
+
+### PyPI Publishing: OIDC Trusted Publishing (No API Token)
+
+**Do NOT use `PYPI_API_TOKEN` or any API-token-based approach.** GitHub Secrets consistently resolved to empty strings in this repository's Actions environment — the root cause was never identified. Instead, use PyPI Trusted Publishing (OIDC):
+
+- **Workflow file**: `.github/workflows/release.yml` (triggered by `v*` tags)
+- **Permission required**: `id-token: write` at job level
+- **Publisher action**: `pypa/gh-action-pypi-publish@release/v1` (no password/token config)
+- **PyPI configuration**: On pypi.org → Publishing → Trusted Publisher Mgmt:
+  - Owner: `StarGazer1995`
+  - Repository: `stargazing-place-finder`
+  - Workflow: `release.yml`
+
+**How to release a new version:**
+```bash
+# 1. Bump version in pyproject.toml and CHANGELOG.md
+# 2. Run full test suite
+uv run python src/test/run_src_tests.py
+# 3. Commit, tag, and push
+git add -A && git commit -m "Release vX.Y.Z"
+git tag vX.Y.Z
+git push origin main
+git push origin vX.Y.Z
+# CI will automatically build, verify, and publish to PyPI
+```
+
+### Copilot Code Review
+
+GitHub Copilot automatic PR code review **requires a Business or Enterprise subscription**. It does NOT work with personal/individual Copilot plans, even if enabled in repository Rules settings. Do not attempt to set up `copilot-review.yml` workflows — they will not trigger.
+
+## Common Pitfalls
+
+### GitHub Secrets Empty in Actions
+- `secrets.PYPI_API_TOKEN` and similar repository secrets may resolve to empty strings in workflow runs with no visible error.
+- Expression-based secrets (`${{ secrets.NAME }}`) are only available in expression context, not as automatic shell environment variables.
+- **Workaround**: Use OIDC Trusted Publishing for PyPI instead of API tokens.
+
+### `.gitignore` Glob Pitfalls
+- Patterns like `*cache*` match directory paths, not just filenames.
+- `src/cache/test/` was matched by `*cache*`, blocking test files from being tracked.
+- **Fix**: Use negations like `!src/cache/**` to un-ignore specific directories.
+
+### Branch Protection on `main`
+- **ALL direct pushes to `main` are rejected** — every change must go through a Pull Request.
+- Force push is also blocked.
+- Workflow for any change: `git checkout -b <branch> → commit → push → create PR → merge → delete branch`.
+- To sync local main after a merged PR: `git checkout main && git fetch origin && git reset --hard origin/main`.
+
+### `LightPollutionAnalyzer` GeoTIFF Migration
+- As of v0.4.0, the analyzer uses GeoTIFF data (not KML).
+- Constructor takes `geotiff_path` (keyword arg, default `None` for lazy init).
+- Old methods `_image_cache_dir` and `clear_image_cache()` no longer exist.
+- Use `close()` to release resources.
+
+## Database Configuration
+
+PostGIS database connection is configured via JSON or TOML:
+
+```json
+{
+  "host": "192.168.1.8",
+  "port": 5455,
+  "database": "osm_db",
+  "user": "postgres",
+  "password": "your_password"
+}
+```
+
+Config file path: set `STARGAZING_DB_CONFIG` env var, or place at `config/postgis_config.json` / `config/postgis_config.toml`.
