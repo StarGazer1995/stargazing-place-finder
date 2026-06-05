@@ -213,6 +213,8 @@ styled_map_output/
 *cache*
 !src/cache/
 !src/cache/cache_config.py
+!src/cache/test
+!src/cache/**
 # 原始 11GB VIIRS GeoTIFF 原始数据（已在 cache/ 中，裁剪版在 resources/ 中用 LFS 跟踪）
 cache/VNL_npp_*.tif
 cache/VNL_npp_*.tif.gz/
