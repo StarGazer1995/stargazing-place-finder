@@ -54,15 +54,43 @@
 - **道路连通性**: 集成RoadConnectivityChecker，分析地点的道路可达性
 - **GeoTIFF解析**: 使用 rasterio 直接读取 VIIRS 辐射度数据，支持波特尔等级转换
 
-## 环境变量配置
+## 数据库配置
+
+PostGIS 数据库用于存储高程数据和地理位置信息，需要配置数据库连接才能使用相关功能。
+
+### 配置文件格式
+
+支持 JSON 和 TOML 两种格式：
+
+**JSON 格式** (`config/db_config.json`):
+```json
+{
+    "host": "192.168.1.8",
+    "port": 5455,
+    "database": "osm_db",
+    "user": "postgres",
+    "password": "postgres123"
+}
+```
+
+**TOML 格式** (`config/postgis_config.toml`):
+```toml
+host = "192.168.1.8"
+port = 5455
+database = "osm_db"
+user = "postgres"
+password = "postgres123"
+```
+
+### 环境变量配置
 
 Web 服务支持以下环境变量配置：
 
-- `STARGAZING_DB_CONFIG`: 指定 PostGIS 数据库配置文件的路径（JSON 格式），用于加载自定义的数据库连接信息。
+- `STARGAZING_DB_CONFIG`: 指定 PostGIS 数据库配置文件的路径，用于加载自定义的数据库连接信息。
 
-示例配置：
+示例：
 ```bash
-export STARGAZING_DB_CONFIG="/path/to/db_config.json"
+export STARGAZING_DB_CONFIG="/path/to/config/db_config.json"
 ```
 
 ## 缓存配置

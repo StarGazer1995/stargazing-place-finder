@@ -54,15 +54,43 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 - **Road Connectivity**: Integrated RoadConnectivityChecker analyzing road accessibility of locations
 - **GeoTIFF Parsing**: Direct VIIRS radiance reading via rasterio with Bortle scale conversion
 
-## Environment Configuration
+## Database Configuration
+
+The PostGIS database stores elevation data and geographic location information. Database connection must be configured to use related features.
+
+### Configuration File Formats
+
+Both JSON and TOML formats are supported:
+
+**JSON Format** (`config/db_config.json`):
+```json
+{
+    "host": "192.168.1.8",
+    "port": 5455,
+    "database": "osm_db",
+    "user": "postgres",
+    "password": "postgres123"
+}
+```
+
+**TOML Format** (`config/postgis_config.toml`):
+```toml
+host = "192.168.1.8"
+port = 5455
+database = "osm_db"
+user = "postgres"
+password = "postgres123"
+```
+
+### Environment Variable Configuration
 
 The web service supports the following environment variable configuration:
 
-- `STARGAZING_DB_CONFIG`: Specifies the path to the PostGIS database configuration file (JSON format) for loading custom database connection information.
+- `STARGAZING_DB_CONFIG`: Specifies the path to the PostGIS database configuration file for loading custom database connection information.
 
-Example configuration:
+Example:
 ```bash
-export STARGAZING_DB_CONFIG="/path/to/db_config.json"
+export STARGAZING_DB_CONFIG="/path/to/config/db_config.json"
 ```
 
 ## Legal Notice

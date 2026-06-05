@@ -23,7 +23,7 @@ def get_elevation_from_postgis(lat, lon):
     
     # 使用之前验证过的数据库连接配置
     db_config = {
-    'host': '10.0.0.16',
+    'host': '192.168.1.8',
     'port': 5455,
     'database': 'osm_db',
     'user': 'postgres',
@@ -117,7 +117,7 @@ def get_elevation_statistics():
     """获取数据库中海拔数据的统计信息"""
     
     db_config = {
-    'host': '10.0.0.16',
+    'host': '192.168.1.8',
     'port': 5455,
     'database': 'osm_db',
     'user': 'postgres',

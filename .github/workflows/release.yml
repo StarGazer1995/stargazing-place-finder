@@ -1,0 +1,57 @@
+# Release workflow: triggered by pushing a tag matching v*
+#
+#   git tag v0.4.0
+#   git push origin v0.4.0
+#
+# Builds the package, validates it, and publishes to PyPI.
+# Requires a PyPI API token stored as a GitHub secret named PYPI_API_TOKEN.
+
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-publish:
+    name: Build & Publish to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read  # needed to check out the repo
+      id-token: write # needed for trusted publishing (optional but recommended)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify tag matches pyproject.toml version
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          PYPROJ_VERSION=$(grep -E '^version\s*=' pyproject.toml | sed 's/.*"\(.*\)".*/\1/')
+          if [ "$TAG_VERSION" != "$PYPROJ_VERSION" ]; then
+            echo "❌ Tag version v${TAG_VERSION} does not match pyproject.toml version ${PYPROJ_VERSION}"
+            exit 1
+          fi
+          echo "✅ Version ${TAG_VERSION} matches pyproject.toml"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Build package
+        run: uv run python -m build
+
+      - name: Check package quality
+        run: uv run twine check dist/*
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: uv run twine upload dist/*
