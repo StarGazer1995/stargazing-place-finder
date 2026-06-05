@@ -134,8 +134,8 @@ class LightPollutionVisualizer:
                     try:
                         pollution_info = self.analyzer.get_light_pollution_color(lat, lon)
                         if pollution_info:
-                            brightness_grid[i, j] = pollution_info['brightness']
-                            pollution_levels.append(pollution_info['pollution_level'])
+                            brightness_grid[i, j] = pollution_info.brightness
+                            pollution_levels.append(pollution_info.pollution_level)
                             valid_coordinates.append((lat, lon, pollution_info))
                     except Exception as e:
                         # Ignore errors, continue processing other points
@@ -370,7 +370,7 @@ class LightPollutionVisualizer:
         # Extract data
         lats = [coord[0] for coord in coordinates]
         lons = [coord[1] for coord in coordinates]
-        brightness_values = [data['brightness'] for data in pollution_data]
+        brightness_values = [data.brightness for data in pollution_data]
         
         # Draw scatter plot
         scatter = ax.scatter(lons, lats, c=brightness_values, cmap='YlOrRd', 

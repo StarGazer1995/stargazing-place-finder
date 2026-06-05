@@ -16,6 +16,14 @@ from pathlib import Path
 import numpy as np
 
 try:
+    from src.models import LightPollutionInfo
+except ImportError:
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    from models import LightPollutionInfo
+
+try:
     import rasterio
 except ImportError:
     rasterio = None  # type: ignore
@@ -168,7 +176,7 @@ class LightPollutionAnalyzer:
         except Exception:
             return None
 
-    def get_light_pollution_color(self, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
+    def get_light_pollution_color(self, latitude: float, longitude: float) -> Optional[LightPollutionInfo]:
         """Get light pollution information at the given coordinates.
 
         Args:
@@ -176,8 +184,9 @@ class LightPollutionAnalyzer:
             longitude: Longitude
 
         Returns:
-            Dictionary with keys: radiance, rgb, hex, brightness, pollution_level,
-            bortle, overlay_name, coordinates.  None if outside data coverage.
+            LightPollutionInfo with fields: radiance, rgb, hex, brightness,
+            pollution_level, bortle, overlay_name, coordinates.
+            None if outside data coverage.
 
         Raises:
             ValueError: When coordinates are invalid.
@@ -200,16 +209,16 @@ class LightPollutionAnalyzer:
             bortle = radiance_to_bortle(radiance)
             r, g, b = radiance_to_false_color(radiance)
 
-            return {
-                'radiance': radiance,
-                'rgb': (r, g, b),
-                'hex': f"#{r:02x}{g:02x}{b:02x}",
-                'brightness': brightness,
-                'pollution_level': radiance_to_pollution_level(radiance),
-                'bortle': bortle,
-                'overlay_name': 'VIIRS-DNB-2025',
-                'coordinates': {'latitude': latitude, 'longitude': longitude},
-            }
+            return LightPollutionInfo(
+                radiance=radiance,
+                rgb=(r, g, b),
+                hex=f"#{r:02x}{g:02x}{b:02x}",
+                brightness=brightness,
+                bortle=bortle,
+                pollution_level=radiance_to_pollution_level(radiance),
+                overlay_name='VIIRS-DNB-2025',
+                latitude=latitude, longitude=longitude,
+            )
         except Exception:
             return None
 
@@ -250,16 +259,16 @@ class LightPollutionAnalyzer:
                 results[idx] = {
                     'index': idx,
                     'coordinates': (lat, lon),
-                    'pollution_info': {
-                        'radiance': radiance,
-                        'rgb': (r, g, b),
-                        'hex': f"#{r:02x}{g:02x}{b:02x}",
-                        'brightness': radiance_to_brightness(radiance),
-                        'pollution_level': radiance_to_pollution_level(radiance),
-                        'bortle': bortle,
-                        'overlay_name': 'VIIRS-DNB-2025',
-                        'coordinates': {'latitude': lat, 'longitude': lon},
-                    },
+                    'pollution_info': LightPollutionInfo(
+                        radiance=radiance,
+                        rgb=(r, g, b),
+                        hex=f"#{r:02x}{g:02x}{b:02x}",
+                        brightness=radiance_to_brightness(radiance),
+                        pollution_level=radiance_to_pollution_level(radiance),
+                        bortle=bortle,
+                        overlay_name='VIIRS-DNB-2025',
+                        latitude=lat, longitude=lon,
+                    ),
                     'success': True,
                 }
 

@@ -10,7 +10,6 @@ providing users with one-stop stargazing location assessment services.
 import json
 import os
 from typing import List, Dict, Tuple, Optional, Any
-from dataclasses import dataclass, asdict
 import time
 from datetime import datetime
 
@@ -19,6 +18,7 @@ try:
     from .stargazing_place_finder import StarGazingPlaceFinder, Peak, PostGISClient
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
     from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+    from src.models import StargazingLocation
 except ImportError:
     import sys
     import os
@@ -26,64 +26,7 @@ except ImportError:
     from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Peak, PostGISClient
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
     from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
-
-
-@dataclass
-class StargazingLocation:
-    """
-    Stargazing location data class
-    Supports multiple types of stargazing locations such as peaks, observatories, viewpoints
-    Contains basic location information, light pollution data, and road connectivity information
-    """
-    # Basic location information (adapted to unified Location class)
-    name: str
-    latitude: float
-    longitude: float
-    elevation: float
-    distance_to_nearest_town: float
-    nearest_town_name: str
-    
-    # Location type and description
-    location_type: str = "mountain_peak"  # "mountain_peak", "observatory", "viewpoint"
-    description: Optional[str] = None
-    
-    # Peak-specific information
-    prominence: Optional[float] = None
-    height_difference: Optional[float] = None
-    
-    # Light pollution information
-    light_pollution_rgb: Optional[Tuple[int, int, int]] = None
-    light_pollution_hex: Optional[str] = None
-    light_pollution_brightness: Optional[int] = None
-    light_pollution_level: Optional[str] = None
-    light_pollution_bortle: Optional[int] = None
-    light_pollution_overlay: Optional[str] = None
-    
-    # Town isolation information
-    nearby_town_count: int = 0  # Number of additional towns within 20km radius
-    
-    # Road connectivity information
-    road_accessible: Optional[bool] = None
-    distance_to_road_km: Optional[float] = None
-    road_network_type: Optional[str] = None
-    road_check_error: Optional[str] = None
-    
-    # Comprehensive scoring
-    stargazing_score: Optional[float] = None
-    recommendation_level: Optional[str] = None
-    analysis_notes: Optional[str] = None
-    
-    def is_mountain_peak(self) -> bool:
-        """Check if it's a mountain peak"""
-        return self.location_type == "mountain_peak"
-    
-    def is_observatory(self) -> bool:
-        """Check if it's an observatory"""
-        return self.location_type == "observatory"
-    
-    def is_viewpoint(self) -> bool:
-        """Check if it's a viewpoint"""
-        return self.location_type == "viewpoint"
+    from models import StargazingLocation
 
 
 class StargazingLocationAnalyzer:
@@ -271,12 +214,12 @@ class StargazingLocationAnalyzer:
                 latitude=location.latitude,
                 longitude=location.longitude,
                 elevation=location.elevation,
-                prominence=location.prominence if hasattr(location, 'prominence') and location.prominence else 0.0,
+                prominence=location.prominence or 0.0,
                 distance_to_nearest_town=location.distance_to_nearest_town,
                 nearest_town_name=location.nearest_town_name,
-                height_difference=location.height_difference if hasattr(location, 'height_difference') and location.height_difference else 0.0,
+                height_difference=location.height_difference or 0.0,
                 location_type=location.location_type,
-                description=location.description if hasattr(location, 'description') else None
+                description=location.description
             )
             
             # Compute nearby town density
@@ -293,12 +236,12 @@ class StargazingLocationAnalyzer:
                             location.latitude, location.longitude
                         )
                         if light_info:
-                            stargazing_location.light_pollution_rgb = light_info['rgb']
-                            stargazing_location.light_pollution_hex = light_info['hex']
-                            stargazing_location.light_pollution_brightness = light_info['brightness']
-                            stargazing_location.light_pollution_level = light_info['pollution_level']
-                            stargazing_location.light_pollution_bortle = light_info['bortle']
-                            stargazing_location.light_pollution_overlay = light_info.get('overlay_name')
+                            stargazing_location.light_pollution_rgb = light_info.rgb
+                            stargazing_location.light_pollution_hex = light_info.hex
+                            stargazing_location.light_pollution_brightness = light_info.brightness
+                            stargazing_location.light_pollution_level = light_info.pollution_level
+                            stargazing_location.light_pollution_bortle = light_info.bortle
+                            stargazing_location.light_pollution_overlay = light_info.overlay_name
                     except Exception as e:
                         print(f"  Light pollution analysis failed: {e}")
                 else:
@@ -613,7 +556,7 @@ class StargazingLocationAnalyzer:
                 "road_search_radius_km": self.road_checker.search_radius_km,
                 "has_light_pollution_analyzer": self.light_pollution_analyzer is not None
             },
-            "locations": [asdict(location) for location in locations]
+            "locations": [location.model_dump(mode='json', exclude_none=True) for location in locations]
         }
         
         with open(filename, 'w', encoding='utf-8') as f:

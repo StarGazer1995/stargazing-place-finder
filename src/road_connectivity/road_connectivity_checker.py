@@ -13,7 +13,14 @@ from typing import Tuple, Optional
 from typing import List, Dict, Tuple, Optional
 import logging
 from geopy.distance import geodesic
-from dataclasses import dataclass
+try:
+    from src.models import RoadAccessInfo
+except ImportError:
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    from models import RoadAccessInfo
+
 try:
     from cache.cache_config import get_cache_dir, setup_osmnx_cache
     from stargazing_analyzer.stargazing_place_finder import LocationCache, Location
@@ -28,17 +35,6 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-@dataclass
-class RoadAccessInfo:
-    """Road connectivity information"""
-    latitude: float = 0.0
-    longitude: float = 0.0
-    is_road_accessible: bool = False #  Whether there is a path to the nearest road
-    network_nodes_count: int = 0 # Number of nearest road network nodes
-    nearest_road_type: Optional[str] = None # Nearest road type
-    distance_to_road_km: Optional[float] = None # Distance to nearest road (kilometers)
-    error: Optional[str] = None # Error message
 
 class RoadAccessInfoCache(LocationCache):
     def __init__(self,  cache_expiry_hours: int = 24):

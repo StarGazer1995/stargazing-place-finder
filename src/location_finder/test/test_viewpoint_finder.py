@@ -14,7 +14,11 @@ from unittest.mock import patch, MagicMock
 # 添加 src 目录到Python路径以加载顶层包
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../src'))
 
-from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Location, Viewpoint, find_viewpoints
+try:
+    from src.models import Location, Viewpoint
+except ImportError:
+    from models import Location, Viewpoint
+from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, find_viewpoints
 
 class TestViewpointFinder(unittest.TestCase):
     """

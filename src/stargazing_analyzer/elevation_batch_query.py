@@ -10,20 +10,16 @@ import psycopg2
 import time
 from typing import List, Dict, Tuple, Optional, Union
 import logging
-from dataclasses import dataclass
+
+try:
+    from src.models import ElevationResult
+except ImportError:
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    from models import ElevationResult
 
 logger = logging.getLogger(__name__)
-
-@dataclass
-class ElevationResult:
-    """海拔查询结果"""
-    latitude: float
-    longitude: float
-    elevation: Optional[float] = None
-    source_name: Optional[str] = None
-    distance_meters: Optional[float] = None
-    feature_type: Optional[str] = None
-    error: Optional[str] = None
 
 class BatchElevationQuery:
     """
@@ -230,7 +226,7 @@ class BatchElevationQuery:
                     
             except Exception as e:
                 logger.warning(f"查询点 {names[i]} ({lat}, {lon}) 失败: {e}")
-                results.append(ElevationResult(lat, lon, error=str(e)))
+                results.append(ElevationResult(latitude=lat, longitude=lon, error=str(e)))
         
         return results
     
@@ -288,7 +284,7 @@ class BatchElevationQuery:
                 
         except Exception as e:
             logger.error(f"单点查询失败: {e}")
-            return ElevationResult(lat, lon, error=str(e))
+            return ElevationResult(latitude=lat, longitude=lon, error=str(e))
         finally:
             if cursor:
                 cursor.close()

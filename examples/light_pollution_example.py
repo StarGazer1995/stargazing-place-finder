@@ -88,11 +88,11 @@ def main():
                 pollution_info = analyzer.get_light_pollution_color(lat, lon)
                 
                 if pollution_info:
-                    print(f"Overlay: {pollution_info['overlay_name']}")
-                    print(f"RGB color: {pollution_info['rgb']}")
-                    print(f"Hex color: {pollution_info['hex']}")
-                    print(f"Brightness value: {pollution_info['brightness']}/255")
-                    print(f"Pollution level: {pollution_info['pollution_level']}")
+                    print(f"Overlay: {pollution_info.overlay_name}")
+                    print(f"RGB color: {pollution_info.rgb}")
+                    print(f"Hex color: {pollution_info.hex}")
+                    print(f"Brightness value: {pollution_info.brightness}/255")
+                    print(f"Pollution level: {pollution_info.pollution_level}")
                 else:
                     print("No corresponding light pollution data found")
                     
@@ -118,8 +118,8 @@ def main():
         for result in batch_results:
             lat, lon = result['coordinates']
             if result['success'] and result['pollution_info']:
-                pollution_level = result['pollution_info']['pollution_level']
-                brightness = result['pollution_info']['brightness']
+                pollution_level = result['pollution_info'].pollution_level
+                brightness = result['pollution_info'].brightness
                 print(f"  Coordinates ({lat}, {lon}): Brightness {brightness}, {pollution_level}")
             else:
                 error_msg = result.get('error', '未找到数据')
@@ -133,8 +133,8 @@ def main():
         
         for result in batch_results:
             if result['success'] and result['pollution_info']:
-                level = result['pollution_info']['pollution_level']
-                brightness = result['pollution_info']['brightness']
+                level = result['pollution_info'].pollution_level
+                brightness = result['pollution_info'].brightness
                 
                 # 提取等级类别（Class 1, Class 2等）
                 if 'Class' in level:
@@ -183,7 +183,7 @@ def main():
             # 测试边界坐标
             result = analyzer.get_light_pollution_color(90, 180)
             if result:
-                print(f"Boundary coordinate analysis successful: Pollution level {result['pollution_level']}")
+                print(f"Boundary coordinate analysis successful: Pollution level {result.pollution_level}")
             else:
                 print("No corresponding data found for boundary coordinates")
         except Exception as e:

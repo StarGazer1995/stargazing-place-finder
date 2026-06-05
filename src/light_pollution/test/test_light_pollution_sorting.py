@@ -64,9 +64,9 @@ class TestLightPollutionSorting(unittest.TestCase):
         """
         # 模拟光污染分析结果（按brightness从低到高）
         mock_pollution_results = [
-            {'index': 0, 'pollution_info': {'brightness': 0.3}},  # 地点A - 低光污染
-            {'index': 1, 'pollution_info': {'brightness': 0.8}},  # 地点B - 高光污染
-            {'index': 2, 'pollution_info': {'brightness': 0.5}}   # 地点C - 中等光污染
+            {'index': 0, 'pollution_info': Mock(brightness=0.3)},  # 地点A - 低光污染
+            {'index': 1, 'pollution_info': Mock(brightness=0.8)},  # 地点B - 高光污染
+            {'index': 2, 'pollution_info': Mock(brightness=0.5)}   # 地点C - 中等光污染
         ]
         
         self.mock_light_analyzer.batch_analyze_coordinates.return_value = mock_pollution_results
@@ -110,7 +110,7 @@ class TestLightPollutionSorting(unittest.TestCase):
         single_place = [{'type': 'node', 'lat': 40.0, 'lon': 116.0, 'tags': {'name': '单个地点'}}]
         
         mock_pollution_result = [
-            {'index': 0, 'pollution_info': {'brightness': 0.5}}
+            {'index': 0, 'pollution_info': Mock(brightness=0.5)}
         ]
         self.mock_light_analyzer.batch_analyze_coordinates.return_value = mock_pollution_result
         
@@ -133,9 +133,9 @@ class TestLightPollutionSorting(unittest.TestCase):
         ]
         
         mock_pollution_results = [
-            {'index': 0, 'pollution_info': {'brightness': 0.1}},
-            {'index': 1, 'pollution_info': {'brightness': 0.2}},
-            {'index': 2, 'pollution_info': {'brightness': 0.3}}
+            {'index': 0, 'pollution_info': Mock(brightness=0.1)},
+            {'index': 1, 'pollution_info': Mock(brightness=0.2)},
+            {'index': 2, 'pollution_info': Mock(brightness=0.3)}
         ]
         
         self.mock_light_analyzer.batch_analyze_coordinates.return_value = mock_pollution_results

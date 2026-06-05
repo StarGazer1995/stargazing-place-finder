@@ -11,7 +11,10 @@ import os
 # 添加 src 目录到Python路径以加载顶层包
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../src'))
 
-from stargazing_analyzer.stargazing_place_finder import Location, Peak, Observatory, Viewpoint
+try:
+    from src.models import Location, Peak, Observatory, Viewpoint
+except ImportError:
+    from models import Location, Peak, Observatory, Viewpoint
 
 def test_unified_location_class():
     """测试统一的Location类"""
@@ -145,9 +148,9 @@ def test_type_checking_methods():
     print("=== Testing Type Checking Methods ===")
     
     locations = [
-        Location("山峰", 40.0, 116.0, 1500.0, 10.0, "城镇A", "mountain_peak"),
-        Location("天文台", 39.0, 115.0, 1200.0, 15.0, "城镇B", "observatory"),
-        Location("观景台", 38.0, 114.0, 800.0, 5.0, "城镇C", "viewpoint")
+        Location(name="山峰", latitude=40.0, longitude=116.0, elevation=1500.0, distance_to_nearest_town=10.0, nearest_town_name="城镇A", location_type="mountain_peak"),
+        Location(name="天文台", latitude=39.0, longitude=115.0, elevation=1200.0, distance_to_nearest_town=15.0, nearest_town_name="城镇B", location_type="observatory"),
+        Location(name="观景台", latitude=38.0, longitude=114.0, elevation=800.0, distance_to_nearest_town=5.0, nearest_town_name="城镇C", location_type="viewpoint")
     ]
     
     for location in locations:

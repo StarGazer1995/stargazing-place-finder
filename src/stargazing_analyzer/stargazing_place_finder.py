@@ -8,7 +8,6 @@ import requests
 import json
 from typing import List, Dict, Tuple, Optional
 import math
-from dataclasses import dataclass
 import time
 import random
 import hashlib
@@ -24,7 +23,15 @@ except ImportError:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
     from cache.cache_config import get_cache_dir
-import math
+
+try:
+    from src.models import Location, Peak, Observatory, Viewpoint
+except ImportError:
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
+    from models import Location, Peak, Observatory, Viewpoint
+
 
 class PostGISClient:
     """
@@ -181,44 +188,6 @@ class PostGISClient:
             except Exception:
                 pass
 
-
-@dataclass
-class Location:
-    """Unified location data class supporting multiple types like mountain peaks, observatories, viewpoints, etc."""
-    # Basic required fields
-    name: str  # Location name
-    latitude: float  # Latitude
-    longitude: float  # Longitude
-    elevation: float  # Elevation (meters)
-    distance_to_nearest_town: float  # Distance to nearest town (kilometers)
-    nearest_town_name: str  # Nearest town name
-    location_type: str  # Location type: "mountain_peak", "observatory", "viewpoint"
-    
-    # Optional fields, used according to different types
-    description: Optional[str] = None  # Description information
-    prominence: Optional[float] = None  # Relative height (meters) - mainly for peaks
-    height_difference: Optional[float] = None  # Height difference from nearest town (meters) - mainly for peaks
-    observatory_type: Optional[str] = None  # Observatory type - only for observatories
-    viewpoint_type: Optional[str] = None  # Viewpoint type - only for viewpoints
-    light_pollution_level: Optional[str] = None  # Light pollution level
-    scenic_value: Optional[str] = None  # Scenic value level - mainly for viewpoints
-    
-    def is_mountain_peak(self) -> bool:
-        """Check if it's a mountain peak"""
-        return self.location_type == "mountain_peak"
-    
-    def is_observatory(self) -> bool:
-        """Check if it's an observatory"""
-        return self.location_type == "observatory"
-    
-    def is_viewpoint(self) -> bool:
-        """Check if it's a viewpoint"""
-        return self.location_type == "viewpoint"
-
-# For backward compatibility, keep original class names as aliases
-Peak = Location
-Observatory = Location
-Viewpoint = Location
 
 class LocationCache:
     """
@@ -994,7 +963,7 @@ class StarGazingPlaceFinder:
             return []
         places_light_pollutions = self.light_pollution_analyzer.batch_analyze_coordinates(places_coord)
         # Sort by light pollution level, lower pollution is better for stargazing, so reverse=False
-        places_light_pollutions = sorted(places_light_pollutions, key=lambda x: x['pollution_info']["brightness"], reverse=False)
+        places_light_pollutions = sorted(places_light_pollutions, key=lambda x: x['pollution_info'].brightness, reverse=False)
         # Rearrange places list according to sorted indices
         sorted_places = [valid_places[place_light_pollution['index']] for place_light_pollution in places_light_pollutions]
         # Add light pollution information
@@ -1167,7 +1136,7 @@ class StarGazingPlaceFinder:
             # Get light pollution information
             light_pollution_level = None
             if 'light_pollution' in location_data:
-                light_pollution_level = location_data['light_pollution'].get('pollution_level', 'Unknown pollution level')
+                light_pollution_level = getattr(location_data['light_pollution'], 'pollution_level', 'Unknown pollution level')
             
             # Use specific processing function to create Location object
             location = location_processor_func(
