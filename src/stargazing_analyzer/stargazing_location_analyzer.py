@@ -317,13 +317,13 @@ class StargazingLocationAnalyzer:
     
     def _calculate_stargazing_score(self, location: StargazingLocation) -> float:
         """
-        Calculate comprehensive score for stargazing location (adapted for multiple location types)
-        
-        Scoring criteria:
-        - Elevation (0-30 points): Higher elevation is better
-        - Location type specific score (0-25 points): Calculated based on different types
-        - Light pollution level (0-25 points): Less light pollution is better
-        - Road accessibility (0-20 points): Accessible with moderate distance is best
+        Calculate comprehensive score for stargazing location.
+
+        Scoring weights (total 100 points):
+        - Light pollution (0-40 points): THE critical factor — darker sky = higher score
+        - Road accessibility (0-25 points): Practical usability — balance of access vs remoteness
+        - Elevation (0-20 points): Higher elevation = thinner atmosphere, less haze
+        - Location type (0-15 points): Mountain prominence, observatory quality, viewpoint height diff
         
         Args:
             location: Stargazing location object
@@ -333,70 +333,68 @@ class StargazingLocationAnalyzer:
         """
         score = 0.0
         
-        # 1. Elevation score (0-30 points)
-        if location.elevation:
-            # 1 point per 100 meters elevation, maximum 30 points
-            elevation_score = min(location.elevation / 100 * 1, 30)
-            score += elevation_score
-        
-        # 2. Location type specific score (0-25 points)
-        if location.is_mountain_peak():
-            # Mountain peak: prominence score
-            if location.prominence:
-                # 1 point per 50 meters prominence, maximum 25 points
-                prominence_score = min(location.prominence / 50 * 1, 25)
-                score += prominence_score
-        elif location.is_observatory():
-            # Observatory: fixed high score (professional observation facility)
-            score += 25
-        elif location.is_viewpoint():
-            # Viewpoint: score based on height difference
-            if location.height_difference:
-                # 1 point per 40 meters height difference, maximum 25 points
-                height_diff_score = min(location.height_difference / 40 * 1, 25)
-                score += height_diff_score
-            else:
-                score += 15  # Default medium score
-        
-        # 3. Light pollution score (0-25 points)
-        if location.light_pollution_level:
-            pollution_scores = {
-                'Extremely Low': 25, 'Very Low': 20, 'Low': 15, 'Medium': 10, 
-                'High': 5, 'Very High': 2, 'Extremely High': 0
-            }
-            score += pollution_scores.get(location.light_pollution_level, 0)
-        elif location.light_pollution_brightness is not None:
-            # If no level but brightness data available, calculate based on brightness
-            light_score = max(0, (255 - location.light_pollution_brightness) / 255.0 * 25)
+        # === 1. Light pollution (0-40 points) — most important factor ===
+        if location.light_pollution_brightness is not None:
+            # Smoother, continuous scoring based on brightness (0-255)
+            # Darker sky (lower brightness) = higher score
+            light_score = (255.0 - location.light_pollution_brightness) / 255.0 * 40.0
             score += light_score
+        elif location.light_pollution_level:
+            # Legacy: try string matching for backward compatibility
+            pollution_scores = {
+                'Extremely Low': 40, 'Very Low': 32, 'Low': 24, 'Medium': 16,
+                'High': 8, 'Very High': 3, 'Extremely High': 0
+            }
+            score += pollution_scores.get(location.light_pollution_level, 20)
         else:
-            # If no light pollution data, give warning and use default score
+            # No light pollution data → conservative medium score
             print(f"⚠️  Warning: {location.name} lacks light pollution data, scoring accuracy affected")
-            score += 12  # Half of 25 points weight
+            score += 20  # Half of 40 points
         
-        # 4. Road accessibility score (0-20 points)
+        # === 2. Road accessibility (0-25 points) ===
         if location.road_accessible is not None:
             if location.road_accessible:
-                # When accessible, closer to road is better (but not too close)
                 if location.distance_to_road_km is not None:
-                    if 0.5 <= location.distance_to_road_km <= 5:
-                        # Ideal distance: 0.5-5 km
-                        score += 20
-                    elif location.distance_to_road_km <= 10:
-                        # Acceptable distance: 5-10 km
-                        score += 15
-                    elif location.distance_to_road_km <= 20:
-                        # Far distance: 10-20 km
-                        score += 10
+                    d = location.distance_to_road_km
+                    if d < 0.5:
+                        score += 18   # Very close — convenient but potential light/noise
+                    elif d <= 5:
+                        score += 25   # Ideal: remote enough yet accessible
+                    elif d <= 10:
+                        score += 18   # Acceptable distance
+                    elif d <= 20:
+                        score += 12   # Far, but reachable
                     else:
-                        # Very far distance: >20 km
-                        score += 5
+                        score += 5    # Very far — poor accessibility
                 else:
-                    score += 10  # Accessible but distance unknown
+                    score += 15       # Accessible but distance unknown
             else:
-                score += 0  # Not accessible
+                score += 0            # Not accessible at all
         else:
-            score += 10  # Unknown status given medium score
+            score += 12               # Unknown status — medium score
+        
+        # === 3. Elevation (0-20 points) ===
+        if location.elevation:
+            # 1 point per 150m elevation, capped at 20 (3000m)
+            elevation_score = min(location.elevation / 150.0, 20.0)
+            score += elevation_score
+        
+        # === 4. Location type specific (0-15 points) ===
+        if location.is_mountain_peak():
+            if location.prominence:
+                # 1 point per 100m prominence, capped at 15 (1500m)
+                prominence_score = min(location.prominence / 100.0, 15.0)
+                score += prominence_score
+        elif location.is_observatory():
+            # Observatory: high base score but not max (city observatories exist)
+            score += 12
+        elif location.is_viewpoint():
+            if location.height_difference:
+                # 1 point per 80m height difference, capped at 15 (1200m)
+                height_diff_score = min(location.height_difference / 80.0, 15.0)
+                score += height_diff_score
+            else:
+                score += 8  # Default medium score
         
         return round(score, 1)
     
