@@ -7,33 +7,36 @@
 ## 功能特点
 
 ### 🌃 完整的光污染分析
-- **实时分析**: 基于NASA光污染地图数据进行实时分析
-- **多级分类**: 提供7个等级的光污染分类（Class 1-7+）
+- **实时分析**: 基于 VIIRS DNB 2025 卫星辐射度数据进行实时分析
+- **波特尔等级**: 提供 1-9 级波特尔暗空分类
 - **智能排序**: 自动按光污染程度排序，优先显示观星条件更好的地点
 - **全面覆盖**: 支持山峰、天文台、观景台三种地点类型
 
 ### 📊 光污染等级说明
 
-| 等级 | 描述 | 观星条件 | 亮度范围 |
+| 波特尔等级 | 描述 | 观星条件 | 辐射度 (nW/cm²/sr) |
 |------|------|----------|----------|
-| Class 1 | 极低污染 | 优秀观星条件 | 0-20 |
-| Class 2 | 低度污染 | 良好观星条件 | 21-40 |
-| Class 3 | 轻度污染 | 一般观星条件 | 41-80 |
-| Class 4 | 中度污染 | 较差观星条件 | 81-120 |
-| Class 5 | 重度污染 | 差观星条件 | 121-160 |
-| Class 6 | 严重污染 | 很差观星条件 | 161-200 |
-| Class 7+ | 极重污染 | 极差观星条件 | 201-255 |
+| 1 | 优秀暗空 | 银河清晰，深空观测极佳 | ≤ 0 |
+| 2 | 典型暗空 | 银河结构明显 | 0.01 – 0.5 |
+| 3 | 乡村天空 | 银河可见 | 0.5 – 1.5 |
+| 4 | 乡村/郊区过渡 | 银河微弱可见 | 1.5 – 4.0 |
+| 5 | 郊区天空 | 银河难以察觉 | 4.0 – 10.0 |
+| 6 | 明亮郊区 | 银河不可见 | 10.0 – 25.0 |
+| 7 | 郊区/城市过渡 | 严重光污染 | 25.0 – 60.0 |
+| 8 | 城市天空 | 仅最亮星体可见 | 60.0 – 150.0 |
+| 9 | 内城天空 | 几乎无法观测 | > 150 |
 
 ## 使用方法
 
 ### 1. 基本使用
 
 ```python
-from src.stargazing_place_finder import StarGazingPlaceFinder
-from src.light_pollution_analyzer import LightPollutionAnalyzer
+from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 
-# 初始化光污染分析器
-light_analyzer = LightPollutionAnalyzer("world_atlas/doc.xml")
+# 初始化光污染分析器（使用 VIIRS GeoTIFF 数据）
+light_analyzer = LightPollutionAnalyzer(
+    geotiff_path="src/light_pollution/resources/viirs_china_2025.tif"
+)
 
 # 初始化查找器并集成光污染分析
 finder = StarGazingPlaceFinder(
@@ -114,11 +117,13 @@ class Location:
 
 ```python
 {
-    'rgb': (220, 24, 1),  # RGB颜色值
-    'hex': '#dc1801',     # 十六进制颜色
-    'brightness': 79,     # 亮度值 (0-255)
-    'pollution_level': '轻度污染 (Class 3 - 一般观星条件)',
-    'overlay_name': 'ArtificialSkyBrightness508.JPG',
+    'rgb': (r, g, b),      # RGB颜色值
+    'hex': '#rrggbb',      # 十六进制颜色
+    'brightness': 79,      # 亮度值 (0-255)
+    'bortle': 3,           # 波特尔暗空等级 (1-9)
+    'radiance': 1.2,       # VIIRS DNB 辐射度 (nW/cm²/sr)
+    'pollution_level': '乡村天空 (Bortle 3)',
+    'overlay_name': 'viirs_china_2025.tif',
     'coordinates': {
         'latitude': 40.9711269,
         'longitude': 117.9413161
@@ -131,10 +136,9 @@ class Location:
 ### 光污染分析器配置
 
 ```python
-# 使用自定义KML文件
+# 使用自定义 GeoTIFF 文件
 light_analyzer = LightPollutionAnalyzer(
-    kml_file_path="path/to/your/light_pollution.kml",
-    image_base_path="path/to/images/"
+    geotiff_path="path/to/your/viirs_data.tif"
 )
 
 # 不使用光污染分析器（将显示"未知污染等级"）
@@ -169,7 +173,7 @@ def find_best_stargazing_spots(bbox, max_results=10):
     good_spots = []
     for location in all_locations:
         if location.light_pollution_level:
-            if "Class 1" in location.light_pollution_level or "Class 2" in location.light_pollution_level:
+            if "Bortle 1" in location.light_pollution_level or "Bortle 2" in location.light_pollution_level:
                 good_spots.append(location)
     
     return good_spots[:max_results]
@@ -178,17 +182,17 @@ def find_best_stargazing_spots(bbox, max_results=10):
 ### 2. 光污染等级过滤
 
 ```python
-def filter_by_pollution_level(locations, max_class=3):
+def filter_by_pollution_level(locations, max_bortle=4):
     """
     按光污染等级过滤地点
     """
     filtered = []
     for location in locations:
         if location.light_pollution_level:
-            # 提取等级数字
-            if f"Class {max_class}" in location.light_pollution_level:
-                class_num = int(location.light_pollution_level.split("Class ")[1].split(" ")[0].replace("+", ""))
-                if class_num <= max_class:
+            # 检查波特尔等级
+            if "Bortle " in location.light_pollution_level:
+                bortle = int(location.light_pollution_level.split("Bortle ")[1].split(")")[0])
+                if bortle <= max_bortle:
                     filtered.append(location)
     return filtered
 ```
@@ -240,14 +244,16 @@ def generate_stargazing_report(bbox):
 ### 常见问题
 
 1. **光污染信息显示为"未知"**
-   - 检查KML文件路径是否正确
-   - 确认图像文件是否存在
-   - 验证坐标是否在覆盖范围内
+   - 检查 GeoTIFF 文件路径是否正确
+   - 确认 rasterio 是否正确安装
+   - 验证坐标是否在数据覆盖范围内
 
 2. **光污染分析器初始化失败**
    ```python
    try:
-       light_analyzer = LightPollutionAnalyzer("world_atlas/doc.xml")
+       light_analyzer = LightPollutionAnalyzer(
+           geotiff_path="src/light_pollution/resources/viirs_china_2025.tif"
+       )
    except Exception as e:
        print(f"光污染分析器初始化失败: {e}")
        light_analyzer = None

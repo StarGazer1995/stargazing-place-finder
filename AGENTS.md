@@ -4,7 +4,7 @@ Guidance for AI coding agents working on this repository.
 
 ## Project Overview
 
-A Python application for finding optimal stargazing locations using NASA light pollution data, geographic information analysis, and road connectivity detection. Targets Chinese geography but supports international expansion.
+A Python application for finding optimal stargazing locations using VIIRS DNB 2025 satellite light pollution data (GeoTIFF), geographic information analysis, and road connectivity detection. Targets Chinese geography but supports international expansion.
 
 ## Environment & Setup
 
@@ -18,7 +18,9 @@ A Python application for finding optimal stargazing locations using NASA light p
 
 ```
 src/
-├── light_pollution/       # Light pollution analysis (NASA dark sky data)
+├── light_pollution/       # Light pollution analysis (VIIRS GeoTIFF backend)
+│   └── resources/         # viirs_china_2025.tif (GeoTIFF data)
+├── cache/                 # Unified cache configuration (disk + OSMnx)
 ├── mountain_peak/         # Mountain peak finding & filtering
 ├── location_finder/       # Observatory & viewpoint discovery
 ├── road_connectivity/     # Road accessibility scoring
@@ -94,15 +96,15 @@ Run tests with `FAST_TESTS=1` for a faster test mode that skips slow geospatial 
 
 2. **Lazy initialization** — Global analyzers (`LightPollutionAnalyzer`, `RoadConnectivityChecker`) are initialized on first use, not at import time. This avoids expensive setup for CLI tools that may not use all features.
 
-3. **Package resource loading** — KML and image data are bundled via `importlib.resources` / `setuptools` `package-data`, not relative file paths. See `light_pollution/public_api.py:_default_paths()`.
+3. **Package resource loading** — GeoTIFF data is bundled via `importlib.resources` / `setuptools` `package-data`, not relative file paths. See `light_pollution/public_api.py:_default_geotiff_path()`.
 
 4. **Database is optional** — PostGIS-backed queries are behind a `PostGISClient` class. The system falls back to Overpass API when no database config is provided.
 
-5. **Cache layer** — Geocoding and elevation lookups are cached on disk via `cache/` directory (gitignored).
+5. **Cache layer** — Geocoding and elevation lookups are cached on disk via `src/cache/` module (gitignored except `__init__.py` and `cache_config.py`).
 
 ## Dependencies
 
-Core: `flask`, `flask-cors`, `folium`, `matplotlib`, `numpy`, `pillow`, `scipy`, `osmnx`, `networkx`, `geopy`, `psycopg2-binary`, `requests`
+Core: `flask`, `flask-cors`, `folium`, `matplotlib`, `numpy`, `pillow`, `scipy`, `osmnx`, `networkx`, `geopy`, `psycopg2-binary`, `requests`, `rasterio`
 
 Dev: `pytest`, `pytest-cov`, `requests-mock`, `responses`, `freezegun`, `build`, `twine`
 

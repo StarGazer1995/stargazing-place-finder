@@ -28,7 +28,7 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 ### Data Sources
 
 1. **Chinese Map Data**: Provides basic geographic information and administrative divisions
-2. **NASA Dark Sky Map**: Uses NASA-provided light pollution data to obtain accurate dark sky information
+2. **VIIRS DNB 2025 Satellite Data**: Uses NASA / NOAA VIIRS satellite annual composite radiance data (GeoTIFF format) for precise light pollution information
 
 ### Core Algorithm Workflow
 
@@ -45,14 +45,14 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 ## Technology Stack
 
 - **Map Service**: OpenStreetMap
-- **Data Source**: NASA Light Pollution Map
+- **Data Source**: VIIRS DNB 2025 Satellite Light Pollution Data (GeoTIFF)
 - **Visualization**: Heat map display, cluster maps, marker maps
 - **Geographic Data**: Chinese map data
-- **Cache Management**: Unified cache configuration system
+- **Cache Management**: Unified cache configuration system (`src/cache/`)
 - **Data Model**: Unified Location class architecture supporting multiple location types (peaks, observatories, viewpoints)
 - **Light Pollution Analysis**: Integrated LightPollutionAnalyzer providing real-time light pollution level assessment for all locations
 - **Road Connectivity**: Integrated RoadConnectivityChecker analyzing road accessibility of locations
-- **KML Parsing**: Specialized KML parser supporting ground overlay data parsing
+- **GeoTIFF Parsing**: Direct VIIRS radiance reading via rasterio with Bortle scale conversion
 
 ## Environment Configuration
 

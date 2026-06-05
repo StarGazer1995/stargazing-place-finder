@@ -17,26 +17,18 @@
 
 ### 如何获取光污染数据
 
-#### 推荐数据源
+项目默认内置 **VIIRS DNB 2025** 中国区域 GeoTIFF 数据（`src/light_pollution/resources/viirs_china_2025.tif`），无需手动下载。
 
-1. **Light Pollution Map** (推荐)
-   - 网址：https://www.lightpollutionmap.info/
-   - 特点：数据更新频繁，覆盖全球
-   - 下载方式：选择区域后导出KML格式
+如需使用其他区域的 VIIRS 数据：
 
-2. **Dark Site Finder**
-   - 网址：https://darksitefinder.com/
-   - 特点：专为天文观测设计
-   - 下载方式：提供KML格式下载
+1. **EOG VIIRS VNL v2.2** (推荐)
+   - 网址：https://eogdata.mines.edu/products/vnl/
+   - 特点：NASA / NOAA 官方数据，年度复合辐射度
+   - 下载方式：选择年份和区域后下载 GeoTIFF
 
-#### 下载步骤
-
-1. 访问 https://www.lightpollutionmap.info/
-2. 导航到你感兴趣的地理区域
-3. 点击右上角的"Export"按钮
-4. 选择"KML"格式
-5. 下载文件并重命名为 `light_pollution_map.kml`
-6. 将文件放置在项目根目录
+2. **旧版 KML 后端**（向后兼容）
+   - 可通过 `kml_file_path` 参数切换
+   - 适用于已有 KML 数据的用户
 
 ## 核心功能
 
@@ -46,9 +38,9 @@
 - 筛选符合最小高度差要求的山峰
 
 ### 2. 光污染分析
-- 基于KML光污染地图数据
-- 计算每个山峰位置的光污染等级
-- 提供RGB颜色值和亮度信息
+- 基于 VIIRS DNB 卫星辐射度数据（GeoTIFF 格式）
+- 计算每个山峰位置的波特尔暗空等级（Bortle 1-9）
+- 提供辐射度、RGB颜色值和亮度信息
 
 ### 3. 道路连通性检测
 - 检查山峰是否有道路可达
@@ -66,11 +58,10 @@
 ### 基础使用（有光污染数据）
 
 ```python
-from src.stargazing_location_analyzer import StargazingLocationAnalyzer
+from stargazing_analyzer import StargazingLocationAnalyzer
 
-# 初始化分析器（提供光污染数据文件）
+# 初始化分析器（使用内置 VIIRS GeoTIFF 数据）
 analyzer = StargazingLocationAnalyzer(
-    kml_file_path="light_pollution_map.kml",
     min_height_difference=100.0,
     road_search_radius_km=10.0
 )
@@ -94,12 +85,11 @@ analyzer.save_results(locations, "beijing_stargazing_spots.json")
 ### 便捷函数使用
 
 ```python
-from src.stargazing_location_analyzer import analyze_stargazing_area
+from stargazing_analyzer import analyze_stargazing_area
 
-# 使用便捷函数进行快速分析
+# 使用便捷函数进行快速分析（默认使用内置 VIIRS GeoTIFF 数据）
 locations = analyze_stargazing_area(
     south=39.5, west=115.5, north=40.5, east=117.0,
-    kml_file_path="light_pollution_map.kml",
     max_locations=15,
     min_height_diff=150.0
 )
@@ -113,11 +103,10 @@ print(f"找到 {len(locations)} 个观星地点")
 当没有提供光污染数据时，系统会显示以下警告：
 
 ```
-⚠️  警告: 未提供光污染数据文件
+⚠️  警告: 未初始化光污染分析器
 ⚠️  光污染数据是观星地点分析的重要组成部分
-⚠️  建议从以下网站下载光污染地图KML文件:
-   - Light Pollution Map: https://www.lightpollutionmap.info/
-   - Dark Site Finder: https://darksitefinder.com/
+⚠️  内置 VIIRS GeoTIFF 数据默认自动加载（中国区域）
+⚠️  如需其他区域数据，请使用 geotiff_path 参数指定
 ```
 
 ### 评分影响
@@ -137,7 +126,7 @@ print(f"找到 {len(locations)} 个观星地点")
 
 ```python
 analyzer = StargazingLocationAnalyzer(
-    kml_file_path="light_pollution_map.kml",  # 光污染KML文件路径（强烈推荐）
+    geotiff_path="src/light_pollution/resources/viirs_china_2025.tif",  # GeoTIFF 路径（可选，默认自动加载）
     min_height_difference=100.0,              # 最小高度差要求（米）
     road_search_radius_km=10.0                # 道路搜索半径（公里）
 )
@@ -193,7 +182,6 @@ class StargazingLocation:
 bbox = (39.5, 115.5, 40.5, 117.0)
 locations = analyze_stargazing_area(
     south=39.5, west=115.5, north=40.5, east=117.0,
-    kml_file_path="light_pollution_map.kml",
     max_locations=15,
     min_height_diff=150.0
 )
@@ -213,7 +201,6 @@ for region_name, bbox in regions.items():
     print(f"\n分析 {region_name}...")
     locations = analyze_stargazing_area(
         south=bbox[0], west=bbox[1], north=bbox[2], east=bbox[3],
-        kml_file_path="light_pollution_map.kml",
         max_locations=10
     )
     all_results[region_name] = locations
@@ -224,7 +211,6 @@ for region_name, bbox in regions.items():
 ```python
 # 对于更注重交通便利性的用户
 analyzer = StargazingLocationAnalyzer(
-    kml_file_path="light_pollution_map.kml",
     min_height_difference=50.0,    # 降低高度差要求
     road_search_radius_km=15.0     # 增加道路搜索范围
 )
@@ -234,7 +220,7 @@ analyzer = StargazingLocationAnalyzer(
 
 1. **合理设置搜索范围**：避免过大的边界框
 2. **限制山峰数量**：使用 `max_locations` 参数控制结果数量
-3. **缓存光污染数据**：系统会自动缓存已加载的KML数据
+3. **缓存光污染数据**：系统会缓存已加载的 GeoTIFF 数据
 4. **批量处理**：对多个区域使用同一个分析器实例
 
 ## 错误处理
@@ -243,7 +229,7 @@ analyzer = StargazingLocationAnalyzer(
 
 1. **无效的边界框坐标**
 2. **网络连接问题**
-3. **KML文件读取错误**
+3. **GeoTIFF 文件读取错误**
 4. **API调用失败**
 
 ## 集成到观星项目
@@ -259,8 +245,8 @@ from src.stargazing_location_analyzer import StargazingLocationAnalyzer
 mountain_finder = StarGazingPlaceFinder(min_height_difference=200.0)
 peaks = mountain_finder.find_peaks_in_area((39.5, 115.5, 40.5, 117.0))
 
-# 再用综合分析器进行详细评估
-analyzer = StargazingLocationAnalyzer(kml_file_path="light_pollution_map.kml")
+# 再用综合分析器进行详细评估（默认使用内置 GeoTIFF 数据）
+analyzer = StargazingLocationAnalyzer()
 detailed_analysis = analyzer.analyze_peaks(peaks)
 ```
 
@@ -271,7 +257,7 @@ detailed_analysis = analyzer.analyze_peaks(peaks)
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-analyzer = StargazingLocationAnalyzer(kml_file_path="light_pollution_map.kml")
+analyzer = StargazingLocationAnalyzer()  # 默认使用内置 GeoTIFF 数据
 
 @app.route('/api/analyze_stargazing', methods=['POST'])
 def analyze_stargazing():
@@ -300,12 +286,12 @@ def analyze_stargazing():
 ### 数据源
 - **山峰数据**: OpenStreetMap
 - **城镇数据**: OpenStreetMap
-- **光污染数据**: 用户提供的KML文件
+- **光污染数据**: VIIRS DNB 2025 GeoTIFF（内置，中国区域）
 - **道路网络**: OpenStreetMap
 
 ### 算法说明
 1. **高度差计算**: 使用海拔API获取精确高度数据
-2. **光污染分析**: 基于KML文件的颜色映射
+2. **光污染分析**: 基于 GeoTIFF 辐射度的波特尔等级映射
 3. **道路连通性**: 使用OSMnx进行网络分析
 4. **综合评分**: 加权平均多个评估维度
 
@@ -342,28 +328,28 @@ def add_weather_data(location):
 1. **数据准确性**: 结果依赖于OpenStreetMap数据的完整性和准确性
 2. **网络依赖**: 需要稳定的网络连接访问各种API
 3. **处理时间**: 大范围搜索可能需要较长时间
-4. **光污染数据**: 强烈建议提供最新的光污染KML文件
+4. **光污染数据**: 内置 VIIRS GeoTIFF 数据默认覆盖中国区域，可通过 geotiff_path 指定其他数据
 5. **坐标系统**: 使用WGS84坐标系统（经纬度）
 
 ## 常见问题
 
 ### Q: 为什么必须提供光污染数据？
-A: 光污染是影响观星质量的最重要因素，占评分权重的40%。没有这些数据，分析结果的准确性会大大降低。
+A: 光污染是影响观星质量的最重要因素，占评分权重的40%。系统内置 VIIRS 中国区域数据，默认自动加载。
 
-### Q: 如何获取最新的光污染数据？
-A: 建议从 https://www.lightpollutionmap.info/ 下载最新的KML格式光污染地图。
+### Q: 如何获取其他区域的光污染数据？
+A: 可从 EOG VIIRS VNL v2.2 (https://eogdata.mines.edu/products/vnl/) 下载 GeoTIFF 数据，或使用 kml_file_path 参数切换到旧版 KML 后端。
 
 ### Q: 分析速度很慢怎么办？
-A: 可以减小搜索范围、降低max_peaks参数，或者使用更快的网络连接。
+A: 可以减小搜索范围、降低max_peaks参数，或者使用更快的网络连接。光污染查询使用本地 GeoTIFF，速度很快。
 
 ### Q: 结果中没有找到山峰怎么办？
 A: 可能是搜索区域内确实没有符合条件的山峰，或者可以降低min_height_difference参数。
 
 ### Q: 可以分析海外地区吗？
-A: 可以，只要OpenStreetMap有相关数据，并且提供对应区域的光污染KML文件。
+A: 可以，只要OpenStreetMap有相关数据，并提供对应区域的 VIIRS GeoTIFF 光污染数据。
 
 ---
 
 **记住：光污染数据是获得准确观星地点评估的关键！**
 
-请确保从可靠来源下载最新的光污染地图数据，以获得最佳的分析结果。
+系统内置 VIIRS DNB 2025 中国区域数据，开箱即用。
