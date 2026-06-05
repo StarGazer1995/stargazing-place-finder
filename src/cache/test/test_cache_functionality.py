@@ -264,12 +264,14 @@ def run_tests():
     if result.failures:
         print("\n❌ Failed tests:")
         for test, traceback in result.failures:
-            print(f"   - {test}: {traceback.split('\n')[-2]}")
+            lines = traceback.split('\n')
+            print(f"   - {test}: {lines[-2]}")
     
     if result.errors:
         print("\n💥 Error tests:")
         for test, traceback in result.errors:
-            print(f"   - {test}: {traceback.split('\n')[-2]}")
+            lines = traceback.split('\n')
+            print(f"   - {test}: {lines[-2]}")
     
     return result.wasSuccessful()
 
