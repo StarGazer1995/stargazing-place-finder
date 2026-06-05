@@ -266,7 +266,7 @@ def main():
     
     # 数据库配置
     db_config = {
-        'host': '10.0.0.16',
+        'host': '192.168.1.8',
         'port': 5455,
         'database': 'osm_db',
         'user': 'postgres',
