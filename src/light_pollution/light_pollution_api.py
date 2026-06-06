@@ -10,9 +10,13 @@ import os
 import sys
 import json
 import math
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from typing import Dict, List, Tuple, Any, Optional
+from io import BytesIO
+
+import numpy as np
+from PIL import Image
 
 try:
     from .light_pollution_analyzer import LightPollutionAnalyzer
@@ -41,17 +45,234 @@ def init_analyzer():
         print(f"Initializing light pollution analyzer...")
         print(f"GeoTIFF file path: {geotiff_file}")
         
-        analyzer = LightPollutionAnalyzer(geotiff_path=geotiff_file)
+        analyzer = LightPollutionAnalyzer(
+            geotiff_path=geotiff_file,
+            skyglow_sigma_km=15.0,
+            skyglow_weight=0.4,
+        )
         print(f"✅ Light pollution analyzer initialization completed")
         
         # 显示统计信息
         stats = analyzer.get_statistics()
         print(f"Dataset dimensions: {stats.get('width')}x{stats.get('height')}")
-        print(f"Images directory exists: {stats['images_directory_exists']}")
+        print(f"Data path: {stats.get('data_path')}")
         
     except Exception as e:
         print(f"❌ Light pollution analyzer initialization failed: {e}")
         analyzer = None
+
+
+# ---------------------------------------------------------------------------
+# Dynamic tile server — samples GeoTIFF and renders PNG tiles on the fly
+# ---------------------------------------------------------------------------
+
+# Tile size in pixels
+_TILE_SIZE = 256
+# Simple in-memory tile cache
+_tile_cache: Dict[str, bytes] = {}
+_MAX_TILE_CACHE = 500
+
+# Colormap stops matching the heatmap gradient (value → RGB)
+_TILE_CMAP_STOPS = [
+    (0.00, (0, 0, 51)),
+    (0.10, (0, 0, 102)),
+    (0.20, (0, 51, 153)),
+    (0.30, (0, 102, 204)),
+    (0.40, (0, 153, 255)),
+    (0.50, (0, 204, 102)),
+    (0.60, (102, 255, 51)),
+    (0.70, (255, 255, 0)),
+    (0.80, (255, 153, 0)),
+    (0.90, (255, 51, 0)),
+    (1.00, (204, 0, 0)),
+]
+
+# Pre-built 256-entry RGBA lookup table
+_TILE_CMAP_LUT: Optional[np.ndarray] = None
+
+
+def _build_tile_cmap_lut() -> np.ndarray:
+    """Build a 256x4 RGBA lookup table from the colormap stops."""
+    global _TILE_CMAP_LUT
+    if _TILE_CMAP_LUT is not None:
+        return _TILE_CMAP_LUT
+
+    lut = np.zeros((256, 4), dtype=np.uint8)
+    for i in range(256):
+        v = i / 255.0
+        if v <= 0:
+            r, g, b = _TILE_CMAP_STOPS[0][1]
+        elif v >= 1.0:
+            r, g, b = _TILE_CMAP_STOPS[-1][1]
+        else:
+            for j in range(len(_TILE_CMAP_STOPS) - 1):
+                t0, (r0, g0, b0) = _TILE_CMAP_STOPS[j]
+                t1, (r1, g1, b1) = _TILE_CMAP_STOPS[j + 1]
+                if t0 <= v <= t1:
+                    f = (v - t0) / (t1 - t0)
+                    r = int(r0 + (r1 - r0) * f)
+                    g = int(g0 + (g1 - g0) * f)
+                    b = int(b0 + (b1 - b0) * f)
+                    break
+        lut[i] = (r, g, b, 255)
+    lut[0] = (0, 0, 51, 255)  # intensity=0 → dark sky
+
+    _TILE_CMAP_LUT = lut
+    return lut
+
+
+def _tile_to_lat(y: int, z: int) -> float:
+    """Convert XYZ tile Y coordinate to latitude (Web Mercator inverse)."""
+    n = math.pi - 2.0 * math.pi * y / (1 << z)
+    return math.degrees(math.atan(math.sinh(n)))
+
+
+def _tile_to_lng(x: int, z: int) -> float:
+    """Convert XYZ tile X coordinate to longitude."""
+    return x / (1 << z) * 360.0 - 180.0
+
+
+def _tile_bounds(x: int, y: int, z: int) -> Tuple[float, float, float, float]:
+    """Get (north, south, east, west) geographic bounds for an XYZ tile."""
+    north = _tile_to_lat(y, z)
+    south = _tile_to_lat(y + 1, z)
+    west = _tile_to_lng(x, z)
+    east = _tile_to_lng(x + 1, z)
+    return north, south, east, west
+
+
+def _empty_tile() -> Response:
+    """Return a 256x256 fully transparent PNG tile."""
+    key = '__empty__'
+    if key in _tile_cache:
+        return Response(_tile_cache[key], mimetype='image/png',
+                        headers={'Cache-Control': 'public, max-age=3600'})
+    rgba = np.zeros((_TILE_SIZE, _TILE_SIZE, 4), dtype=np.uint8)
+    img = Image.fromarray(rgba, 'RGBA')
+    buf = BytesIO()
+    img.save(buf, format='PNG')
+    _tile_cache[key] = buf.getvalue()
+    return Response(buf.getvalue(), mimetype='image/png',
+                    headers={'Cache-Control': 'public, max-age=3600'})
+
+
+@app.route('/api/light_pollution/tiles/<int:z>/<int:x>/<int:y>.png')
+def serve_light_pollution_tile(z: int, x: int, y: int) -> Response:
+    """
+    Dynamic tile endpoint — samples the VIIRS GeoTIFF and returns a PNG tile.
+
+    Tile coordinate system: XYZ (Slippy Map) — same as OpenStreetMap.
+    Callers fetch tiles via: /api/light_pollution/tiles/{z}/{x}/{y}.png
+    """
+    if analyzer is None or analyzer._src is None:
+        return _empty_tile()
+
+    # Check cache
+    cache_key = f'{z}/{x}/{y}'
+    cached = _tile_cache.get(cache_key)
+    if cached is not None:
+        return Response(cached, mimetype='image/png',
+                        headers={'Cache-Control': 'public, max-age=3600'})
+
+    src = analyzer._src
+
+    # Get tile geographic bounds
+    north, south, east, west = _tile_bounds(x, y, z)
+
+    # Clamp to valid latitude range
+    north = min(north, 90.0)
+    south = max(south, -90.0)
+
+    # Quick rejection: no overlap with GeoTIFF coverage
+    if (west > src.bounds.right or east < src.bounds.left or
+            south > src.bounds.top or north < src.bounds.bottom):
+        return _empty_tile()
+
+    # Clamp bounds to GeoTIFF extent to avoid edge reads
+    west = max(west, float(src.bounds.left))
+    east = min(east, float(src.bounds.right))
+    south = max(south, float(src.bounds.bottom))
+    north = min(north, float(src.bounds.top))
+
+    try:
+        # Convert geographic bounds to pixel coordinates
+        # src.index(lon, lat) → (row, col)
+        # row = vertical (latitude, 0=top/north), col = horizontal (longitude, 0=left/west)
+        row_nw, col_nw = src.index(west, north)   # NW corner of tile
+        row_se, col_se = src.index(east, south)   # SE corner of tile
+
+        # Row increases southward, col increases eastward
+        row_start = min(row_nw, row_se)
+        row_end = max(row_nw, row_se) + 1
+        col_start = min(col_nw, col_se)
+        col_end = max(col_nw, col_se) + 1
+
+        # Clamp to raster dimensions
+        row_start = max(0, row_start)
+        row_end = min(int(src.height), row_end)
+        col_start = max(0, col_start)
+        col_end = min(int(src.width), col_end)
+
+        if row_end <= row_start or col_end <= col_start:
+            return _empty_tile()
+
+        # Read window with decimation to tile size
+        data = src.read(
+            1,
+            window=((row_start, row_end), (col_start, col_end)),
+            out_shape=(_TILE_SIZE, _TILE_SIZE),
+        )
+
+        # Build RGBA tile
+        lut = _build_tile_cmap_lut()
+
+        # Determine valid pixels (not nodata, not NaN)
+        if data.dtype.kind == 'f':
+            valid = ~np.isnan(data)
+        else:
+            valid = np.ones_like(data, dtype=bool)
+
+        nodata = src.nodata
+        if nodata is not None:
+            valid = valid & (data != nodata)
+
+        # Add skyglow correction to compensate for VIIRS background subtraction
+        # The skyglow model diffuses city lights to simulate atmospheric scattering
+        if hasattr(analyzer, 'get_skyglow_for_window') and analyzer._skyglow_grid is not None:
+            sg = analyzer.get_skyglow_for_window(
+                west, east, south, north, (_TILE_SIZE, _TILE_SIZE)
+            )
+            data = data.astype(np.float32) + analyzer._skyglow_weight * sg
+
+        # Calculate intensity using same formula as brightness_to_intensity:
+        # intensity = 1.0 - 1.0/(1.0 + radiance * 0.1), capped at 1.0
+        with np.errstate(divide='ignore', invalid='ignore'):
+            intensity = np.where(valid, data, 0.0)
+            intensity = np.minimum(1.0, 1.0 - 1.0 / (1.0 + intensity * 0.1))
+
+        # Map through lookup table
+        idx = np.clip((intensity * 255).astype(np.uint8), 0, 255)
+        rgba = lut[idx].copy()
+        rgba[~valid] = (0, 0, 0, 0)
+
+        # Encode as PNG
+        img = Image.fromarray(rgba, 'RGBA')
+        buf = BytesIO()
+        img.save(buf, format='PNG')
+        png_data = buf.getvalue()
+
+        # Cache (limit size)
+        _tile_cache[cache_key] = png_data
+        if len(_tile_cache) > _MAX_TILE_CACHE:
+            _tile_cache.clear()
+
+        return Response(png_data, mimetype='image/png',
+                        headers={'Cache-Control': 'public, max-age=3600'})
+
+    except Exception as e:
+        print(f"⚠️ Tile render error ({z}/{x}/{y}): {e}")
+        return _empty_tile()
+
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -404,10 +625,10 @@ def analyze_coordinate():
         pollution_info = analyzer.get_light_pollution_color(lat, lng)
         
         if pollution_info:
-            # 从真实数据中提取信息
-            brightness = pollution_info.brightness
-            bortle = brightness_to_bortle(brightness)
+            # 从真实数据中提取信息 — 使用直接辐射度→波特尔转换，而非过时的亮度映射
+            bortle = pollution_info.bortle
             sqm = bortle_to_sqm(bortle)
+            brightness = pollution_info.brightness
             intensity = brightness / 255.0
             description = get_pollution_level_description(bortle)
             
@@ -423,6 +644,7 @@ def analyze_coordinate():
                         'sqm_value': round(sqm, 1),
                         'intensity': round(intensity, 3),
                         'brightness': brightness,
+                        'radiance': pollution_info.radiance,
                         'description': description
                     },
                     'color_info': {
@@ -628,11 +850,11 @@ if __name__ == '__main__':
     # 启动Flask服务器
     print("🚀 Starting light pollution data API server...")
     print("📡 API endpoints:")
-    print("  - GET /api/light_pollution - Get light pollution data")
-    print("  - GET /api/light_pollution_images - Get light pollution image data")
-    print("  - GET /api/coordinate_analysis - Analyze single coordinate point")
+    print("  - GET /api/light_pollution         - Get light pollution data (JSON)")
+    print("  - GET /api/light_pollution/tiles/{z}/{x}/{y}.png  - Dynamic raster tiles")
+    print("  - GET /api/coordinate_analysis     - Analyze single coordinate point")
     print("  - GET/POST /api/analyze_stargazing_area - Analyze stargazing area")
-    print("  - GET /api/health - Health check")
+    print("  - GET /api/health                  - Health check")
     print("🌐 Server address: http://localhost:5001")
     
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=False, use_reloader=False)

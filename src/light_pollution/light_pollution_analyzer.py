@@ -9,6 +9,7 @@ Returns nW/cm²/sr radiance directly — no more image-based inversion.
 Data source: EOG VIIRS VNL v2.2 (https://eogdata.mines.edu/products/vnl/)
 """
 
+import math
 import os
 from typing import Optional, Tuple, Dict, Any, Union
 from pathlib import Path
@@ -27,6 +28,16 @@ try:
     import rasterio
 except ImportError:
     rasterio = None  # type: ignore
+
+try:
+    from scipy.ndimage import gaussian_filter
+except ImportError:
+    gaussian_filter = None  # type: ignore
+
+# GeoTIFF resolution in km/pixel (approximately)
+_GEOTIFF_RES_DEG = 0.0041666667
+_KM_PER_DEG = 111.0
+_GEOTIFF_RES_KM = _GEOTIFF_RES_DEG * _KM_PER_DEG  # ~0.463 km/px
 
 
 # ---------------------------------------------------------------------------
@@ -121,12 +132,17 @@ class LightPollutionAnalyzer:
     def __init__(
         self,
         geotiff_path: Optional[Union[str, Path]] = None,
+        skyglow_sigma_km: float = 15.0,
+        skyglow_weight: float = 0.4,
     ):
         """Initialize the analyzer.
 
         Args:
             geotiff_path: Path to VIIRS GeoTIFF file.
                 If None, you must call init() later with a valid path.
+            skyglow_sigma_km: Gaussian sigma (km) for skyglow diffusion.
+                0 disables skyglow correction.
+            skyglow_weight: How much of the skyglow to add back (0-1).
 
         Raises:
             ImportError: When rasterio is not installed.
@@ -140,6 +156,8 @@ class LightPollutionAnalyzer:
         if geotiff_path is None:
             self._geotiff_path = None
             self._src = None
+            self._skyglow_grid = None
+            self._skyglow_transform = None
             return
 
         geotiff_path = str(geotiff_path)
@@ -148,22 +166,174 @@ class LightPollutionAnalyzer:
 
         self._geotiff_path = geotiff_path
         self._src = rasterio.open(geotiff_path)
+        self._skyglow_sigma_km = skyglow_sigma_km
+        self._skyglow_weight = skyglow_weight
+        self._skyglow_grid = None
+        self._skyglow_transform = None
+        self._skyglow_ds = 1
+
         print(f"Light pollution analyzer initialized")
         print(f"  Data: {geotiff_path}")
+        print(f"  Skyglow model: sigma={skyglow_sigma_km}km, weight={skyglow_weight}")
+        if skyglow_sigma_km > 0:
+            self._compute_skyglow()
 
     # ------------------------------------------------------------------
-    # Public API
+    # Skyglow diffusion model
     # ------------------------------------------------------------------
 
-    def get_radiance(self, latitude: float, longitude: float) -> Optional[float]:
-        """Get VIIRS DNB radiance (nW/cm²/sr) at the given coordinates.
+    def _compute_skyglow(self) -> None:
+        """Compute a downsampled skyglow raster by Gaussian-blurring the VIIRS data.
+
+        VIIRS vcm data has background (ZTH) subtraction, which removes diffuse
+        skyglow from the signal. This method creates a smooth skyglow estimate
+        by blurring the light emission data at a coarse resolution — simulating
+        how city light scatters through the atmosphere.
+
+        The result is stored as a low-resolution grid (~7.4 km/px) to save memory.
+        """
+        if self._src is None or gaussian_filter is None:
+            return
+
+        full = self._src.read(1)
+
+        # Downsample factor (16x → ~7.4 km/px at equator)
+        ds = 16
+        h, w = full.shape
+        dh, dw = h // ds, w // ds
+        trimmed = full[:dh * ds, :dw * ds]
+
+        # Block average — mean of each ds × ds block
+        downsampled = trimmed.reshape(dh, ds, dw, ds).mean(axis=(1, 3))
+
+        # Convert sigma from km to pixels in downsampled grid
+        sigma_px = self._skyglow_sigma_km / (_GEOTIFF_RES_KM * ds)
+
+        # Apply Gaussian blur — this is the skyglow model
+        self._skyglow_grid = gaussian_filter(
+            downsampled.astype(np.float64), sigma=max(sigma_px, 0.5)
+        ).astype(np.float32)
+
+        # Geo-transform for the downsampled grid
+        self._skyglow_transform = (
+            float(self._src.bounds.left),        # west (x origin)
+            float(self._src.res[0] * ds),        # pixel width (degrees)
+            0.0,                                  # x rotation
+            float(self._src.bounds.top),          # north (y origin)
+            0.0,                                  # y rotation
+            -float(self._src.res[1] * ds),        # pixel height (degrees, negative)
+        )
+        self._skyglow_ds = ds
+        self._skyglow_shape = self._skyglow_grid.shape
+
+        print(f"  Skyglow grid: {self._skyglow_shape[1]}×{self._skyglow_shape[0]} "
+              f"at ~{_GEOTIFF_RES_KM * ds:.1f} km/px")
+
+    def _get_skyglow(self, latitude: float, longitude: float) -> float:
+        """Get the skyglow contribution (nW/cm²/sr) at a point via interpolation.
+
+        Args:
+            latitude: Latitude in degrees.
+            longitude: Longitude in degrees.
+
+        Returns:
+            Skyglow radiance value, or 0.0 if no skyglow model is loaded.
+        """
+        if self._skyglow_grid is None:
+            return 0.0
+
+        try:
+            west, res_x, _, north, _, res_y = self._skyglow_transform
+            col = (longitude - west) / res_x
+            row = (latitude - north) / res_y  # negative since res_y < 0
+
+            # Clamp to grid bounds
+            row = max(0, min(self._skyglow_shape[0] - 1, row))
+            col = max(0, min(self._skyglow_shape[1] - 1, col))
+
+            # Bilinear interpolation
+            r0, c0 = int(math.floor(row)), int(math.floor(col))
+            r1, c1 = min(r0 + 1, self._skyglow_shape[0] - 1), min(c0 + 1, self._skyglow_shape[1] - 1)
+            dr, dc = row - r0, col - c0
+
+            v00 = self._skyglow_grid[r0, c0]
+            v10 = self._skyglow_grid[r1, c0]
+            v01 = self._skyglow_grid[r0, c1]
+            v11 = self._skyglow_grid[r1, c1]
+
+            v0 = v00 * (1 - dr) + v10 * dr
+            v1 = v01 * (1 - dr) + v11 * dr
+            return float(v0 * (1 - dc) + v1 * dc)
+        except Exception:
+            return 0.0
+
+    def get_skyglow_for_window(
+        self,
+        west: float, east: float,
+        south: float, north: float,
+        out_shape: Tuple[int, int],
+    ) -> np.ndarray:
+        """Sample the skyglow grid over a geographic window, returned at out_shape.
+
+        Args:
+            west, east, south, north: Geographic bounds in degrees.
+            out_shape: (height, width) of the output array.
+
+        Returns:
+            2D numpy array of skyglow radiance values (float32),
+            or zeros if no skyglow model.
+        """
+        if self._skyglow_grid is None:
+            return np.zeros(out_shape, dtype=np.float32)
+
+        gw, gx, _, gn, _, gy = self._skyglow_transform
+        gx, gy = float(gx), float(gy)
+
+        # Pixel coordinates of the window corners in the skyglow grid
+        c0 = max(0.0, (west - gw) / gx)
+        c1 = min(self._skyglow_shape[1] - 1, (east - gw) / gx)
+        r0 = max(0.0, (north - gn) / gy)  # negative gy
+        r1 = min(self._skyglow_shape[0] - 1, (south - gn) / gy)
+
+        h_out, w_out = out_shape
+        if h_out <= 1 or w_out <= 1:
+            return np.zeros(out_shape, dtype=np.float32)
+
+        # Build sampling coordinates
+        rows = np.linspace(r0, r1, h_out)
+        cols = np.linspace(c0, c1, w_out)
+        rr, cc = np.meshgrid(rows, cols, indexing='ij')
+
+        # Bilinear interpolation on the grid
+        r0_i = np.floor(rr).astype(np.int32)
+        c0_i = np.floor(cc).astype(np.int32)
+        r1_i = np.minimum(r0_i + 1, self._skyglow_shape[0] - 1)
+        c1_i = np.minimum(c0_i + 1, self._skyglow_shape[1] - 1)
+        dr = rr - r0_i
+        dc = cc - c0_i
+
+        v00 = self._skyglow_grid[r0_i, c0_i]
+        v10 = self._skyglow_grid[r1_i, c0_i]
+        v01 = self._skyglow_grid[r0_i, c1_i]
+        v11 = self._skyglow_grid[r1_i, c1_i]
+
+        v0 = v00 * (1 - dr) + v10 * dr
+        v1 = v01 * (1 - dr) + v11 * dr
+        return (v0 * (1 - dc) + v1 * dc).astype(np.float32)
+
+    # ------------------------------------------------------------------
+    # Radiance accessors
+    # ------------------------------------------------------------------
+
+    def get_raw_radiance(self, latitude: float, longitude: float) -> Optional[float]:
+        """Get raw VIIRS DNB radiance (nW/cm²/sr) WITHOUT skyglow correction.
 
         Args:
             latitude: Latitude
             longitude: Longitude
 
         Returns:
-            Radiance value or None if outside coverage.
+            Raw radiance value or None if outside coverage.
         """
         if self._src is None:
             return None
@@ -176,8 +346,29 @@ class LightPollutionAnalyzer:
         except Exception:
             return None
 
+    def get_radiance(self, latitude: float, longitude: float) -> Optional[float]:
+        """Get total radiance (nW/cm²/sr) INCLUDING skyglow correction.
+
+        The skyglow correction adds back diffuse atmospheric scattering from
+        nearby cities, which is subtracted out in the VIIRS vcm product.
+
+        Args:
+            latitude: Latitude
+            longitude: Longitude
+
+        Returns:
+            Total radiance value (raw + skyglow), or None if outside coverage.
+        """
+        raw = self.get_raw_radiance(latitude, longitude)
+        if raw is None:
+            return None
+        skyglow = self._get_skyglow(latitude, longitude)
+        return raw + self._skyglow_weight * skyglow
+
     def get_light_pollution_color(self, latitude: float, longitude: float) -> Optional[LightPollutionInfo]:
         """Get light pollution information at the given coordinates.
+
+        Uses the skyglow-corrected radiance.
 
         Args:
             latitude: Latitude
@@ -200,11 +391,10 @@ class LightPollutionAnalyzer:
             return None
 
         try:
-            row, col = self._src.index(longitude, latitude)
-            if not (0 <= row < self._src.height and 0 <= col < self._src.width):
+            radiance = self.get_radiance(latitude, longitude)
+            if radiance is None:
                 return None
 
-            radiance = float(self._src.read(1, window=((row, row + 1), (col, col + 1)))[0, 0])
             brightness = radiance_to_brightness(radiance)
             bortle = radiance_to_bortle(radiance)
             r, g, b = radiance_to_false_color(radiance)
@@ -253,7 +443,10 @@ class LightPollutionAnalyzer:
         for row, items in row_groups.items():
             row_data = self._src.read(1, window=((row, row + 1), (0, self._src.width)))
             for idx, col, lat, lon in items:
-                radiance = float(row_data[0, col])
+                # Add skyglow correction
+                raw = float(row_data[0, col])
+                skyglow = self._get_skyglow(lat, lon)
+                radiance = raw + self._skyglow_weight * skyglow
                 bortle = radiance_to_bortle(radiance)
                 r, g, b = radiance_to_false_color(radiance)
                 results[idx] = {

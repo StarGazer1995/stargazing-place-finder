@@ -6,6 +6,13 @@
 echo "🌟 启动观星地点查找器..."
 echo "🌟 Starting Stargazing Place Finder..."
 
+# 清理之前可能残留的进程
+echo "🧹 清理旧的进程..."
+echo "🧹 Cleaning up old processes..."
+kill $(lsof -t -i :5001) 2>/dev/null || true
+kill $(lsof -t -i :8000) 2>/dev/null || true
+sleep 1
+
 # 检查是否安装了uv
 if ! command -v uv &> /dev/null; then
     echo "❌ 错误: 未找到 uv 包管理器"
@@ -28,6 +35,7 @@ uv run python src/utils/styled_map_generator.py
 # 复制资源文件
 echo "📁 复制资源文件..."
 echo "📁 Copying resource files..."
+mkdir -p styled_map_output/assets
 cp -r src/source/assets/* styled_map_output/assets/
 
 # 启动光污染API服务（后台运行）

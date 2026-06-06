@@ -60,6 +60,8 @@ def init_light_pollution_analyzer(
             geotiff_path = _default_geotiff_path()
         _lp_analyzer = LightPollutionAnalyzer(
             geotiff_path=str(geotiff_path),
+            skyglow_sigma_km=15.0,
+            skyglow_weight=0.4,
         )
     return _lp_analyzer
 
