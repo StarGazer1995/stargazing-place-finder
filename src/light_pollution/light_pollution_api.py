@@ -777,7 +777,7 @@ def analyze_stargazing_area_endpoint():
             west=west, 
             north=north,
             east=east,
-            kml_file_path=kml_file if os.path.exists(kml_file) else None,
+            geotiff_path=geotiff_path if os.path.exists(geotiff_path) else None,
             max_locations=max_locations,
             min_height_diff=min_height_diff,
             road_radius_km=road_radius_km,
