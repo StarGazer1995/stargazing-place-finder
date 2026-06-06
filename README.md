@@ -18,6 +18,127 @@
 
 ## 技术架构
 
+### 架构总览
+
+```mermaid
+graph TB
+    %% 样式定义
+    classDef ui fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
+    classDef orchestration fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef analysis fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef infra fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef external fill:#fce4ec,stroke:#c62828,stroke-width:2px
+
+    %% 用户界面层
+    subgraph UI["用户界面层 User Interface"]
+        CLI["CLI<br/>stargazing-finder<br/><i>命令行入口</i>"]
+        Web["Web Dashboard<br/><i>网页前端</i>"]
+        API["REST API<br/><i>JSON / PNG Tile 接口</i>"]
+    end
+
+    %% 编排层
+    subgraph ORCH["编排层 Orchestration"]
+        SA["stargazing_analyzer<br/><i>StargazingLocationAnalyzer</i><br/>综合评分·地点排序·分析协调"]
+    end
+
+    %% 分析模块
+    subgraph MOD["分析模块 Analysis Modules"]
+        LP["light_pollution<br/><i>LightPollutionAnalyzer</i><br/>VIIRS 辐射度→波特尔等级<br/>天光散射模型"]
+        MP["mountain_peak<br/><i>MountainPeakFinder</i><br/>海拔筛选·山峰定位<br/>周边分析"]
+        LF["location_finder<br/><i>ObservatoryFinder<br/>ViewpointFinder</i><br/>天文台·观景台发现"]
+        RC["road_connectivity<br/><i>RoadConnectivityChecker</i><br/>道路网络·可达性评分"]
+    end
+
+    %% 数据基础设施
+    subgraph INFRA["数据基础设施 Data Infrastructure"]
+        Cache["cache<br/><i>统一缓存管理</i><br/>磁盘缓存·OSMnx 缓存<br/>自动恢复"]
+        Models["models<br/><i>统一数据模型</i><br/>Location·LightPollutionInfo<br/>ElevationResult"]
+        Utils["utils<br/><i>工具模块</i><br/>KML 解析·地图生成<br/>地理计算"]
+    end
+
+    %% 外部数据源
+    subgraph EXT["外部数据源 External Data Sources"]
+        VIIRS["VIIRS DNB 2025<br/>GeoTIFF<br/><i>光污染辐射度数据</i>"]
+        OSM["OpenStreetMap<br/>Overpass API<br/><i>地理要素查询</i>"]
+        PG[("PostGIS<br/><i>空间数据库</i><br/>高程·地理信息")]
+    end
+
+    %% 连接线
+    CLI --> SA
+    Web --> SA
+    API --> SA
+
+    SA --> LP
+    SA --> MP
+    SA --> LF
+    SA --> RC
+
+    LP --> VIIRS
+    MP --> OSM
+    LF --> OSM
+    RC --> OSM
+
+    MP -.-> PG
+    LF -.-> PG
+
+    LP --> Cache
+    MP --> Cache
+    RC --> Cache
+
+    SA -.-> Models
+    SA -.-> Utils
+
+    %% 应用样式
+    class CLI,Web,API ui
+    class SA orchestration
+    class LP,MP,LF,RC analysis
+    class Cache,Models,Utils infra
+    class VIIRS,OSM,PG external
+```
+
+### 数据流
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant CLI as CLI / API
+    participant SA as stargazing_analyzer
+    participant LP as light_pollution
+    participant MP as mountain_peak
+    participant LF as location_finder
+    participant RC as road_connectivity
+    participant OSM as OpenStreetMap
+    participant VIIRS as VIIRS GeoTIFF
+
+    U->>CLI: 输入中心坐标 + 半径
+    CLI->>SA: 启动分析
+
+    par 并行分析
+        SA->>MP: 查找山峰
+        MP->>OSM: 查询地形数据
+        OSM-->>MP: 返回候选点
+        MP-->>SA: 山峰列表
+
+        SA->>LF: 查找天文台/观景台
+        LF->>OSM: 查询兴趣点
+        OSM-->>LF: 返回地点
+        LF-->>SA: 地点列表
+
+        SA->>LP: 分析光污染
+        LP->>VIIRS: 读取辐射度
+        VIIRS-->>LP: 辐射度 + 天光修正
+        LP-->>SA: 波特尔等级
+    end
+
+    SA->>RC: 计算道路可达性
+    RC->>OSM: 查询道路网络
+    OSM-->>RC: 路网数据
+    RC-->>SA: 可达性评分
+
+    SA-->>CLI: 综合排序结果
+    CLI-->>U: 展示观星地点推荐
+```
+
 ### 核心数据模型
 
 **统一Location类**: 项目采用统一的Location数据类来表示所有类型的地理位置，包括山峰、天文台和观景台。这种设计提供了：
@@ -38,7 +159,7 @@
 
 #### 2. 地图可视化
 1. **海拔筛选**: 搜索海拔高于周边地区100米以上的地点（搜索半径10公里）
-2. **暗度检测**: 从暗夜地图中获取该地点的光污染数值
+2. **暗度检测**: 从暗夜地图中获取该地点的光污染数值，**含天光散射模型修正**
 3. **周边分析**: 分析周边区域的光污染情况，构建热力图
 4. **地图展示**: 使用OpenStreetMap进行可视化展示
 

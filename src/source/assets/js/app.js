@@ -2,6 +2,7 @@
 let map;
 let currentOverlay = null;
 let currentImageLayers = [];
+let pollutionTileLayer = null;
 let dataCache = new Map();
 let imageCache = new Map();
 let currentLanguage = 'zh';
@@ -23,7 +24,8 @@ const API_CONFIG = {
     endpoints: {
         analyze: '/api/analyze_stargazing_area',
         health: '/api/health',
-        lightPollution: '/api/light_pollution_images',
+        lightPollution: '/api/light_pollution',
+        lightPollutionTiles: '/api/light_pollution/tiles/{z}/{x}/{y}.png',
         coordinateAnalysis: '/api/coordinate_analysis'
     }
 };
@@ -368,6 +370,16 @@ function initializeMap() {
         maxZoom: 18
     }).addTo(map);
     
+    // 添加动态光污染瓦片图层（直接从GeoTIFF采样渲染）
+    pollutionTileLayer = L.tileLayer(
+        `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.lightPollutionTiles}`,
+        {
+            maxZoom: 18,
+            opacity: 0.75,
+            attribution: 'VIIRS DNB 2025'
+        }
+    ).addTo(map);
+    
     // 不添加任何控件（按用户要求关闭所有控件）
     
     // 监听地图移动和缩放事件
@@ -572,156 +584,55 @@ function clearImageLayers() {
  * 加载光污染图像图层
  * @param {Object} bounds - 地图边界对象
  */
-async function loadLightPollutionImageLayers() {
+async function loadLightPollutionDataPoints() {
     try {
-        console.log('正在加载光污染图像图层...');
+        console.log('正在加载光污染统计...');
         
-        // 检查地图是否已初始化
         if (!map) {
-            console.warn('地图尚未初始化，无法加载图像图层');
+            console.warn('地图尚未初始化，无法加载数据');
             return;
         }
         
-        // 获取当前地图边界
         const bounds = map.getBounds();
         
-        // 构建API请求URL
-        const apiUrl = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.lightPollution}?` +
+        const apiUrl = `${API_CONFIG.baseUrl}/api/light_pollution?` +
             `north=${bounds.getNorth()}&south=${bounds.getSouth()}&` +
-            `east=${bounds.getEast()}&west=${bounds.getWest()}`;
-        
-        console.log('API请求URL:', apiUrl);
+            `east=${bounds.getEast()}&west=${bounds.getWest()}` +
+            `&zoom=${map.getZoom()}`;
         
         const response = await fetch(apiUrl);
         if (!response.ok) {
-            console.warn('无法获取光污染图像数据:', response.statusText);
+            console.warn('无法获取光污染数据:', response.statusText);
             return;
         }
         
-        const data = await response.json();
-        console.log('获取到的API响应数据:', data);
+        const json = await response.json();
         
-        // 清除现有图像图层
-        clearImageLayers();
-        
-        // 检查返回的数据结构
-        if (data.success && data.images && Array.isArray(data.images)) {
-            console.log('获取到图像数据:', data.images.length, '个图像');
-            console.log('查询边界:', data.query_bounds);
-            
-            // 添加每个图像作为图层
-            data.images.forEach((item, index) => {
-                console.log(`处理图像 ${index + 1}:`, {
-                    name: item.name,
-                    exists: item.exists,
-                    hasImageData: !!item.image_data,
-                    imageDataLength: item.image_data ? item.image_data.length : 0
-                });
-                
-                if (item.exists && item.image_data) {
-                    try {
-                        // 创建图像URL
-                        const imageUrl = `data:image/jpeg;base64,${item.image_data}`;
-                        console.log(`创建图像URL，长度: ${imageUrl.length}`);
-                        
-                        // 创建图像边界 - API返回的bounds是数组格式 [west, south, east, north]
-                        let west, south, east, north;
-                        if (Array.isArray(item.bounds)) {
-                            [west, south, east, north] = item.bounds;
-                        } else {
-                            // 兼容对象格式
-                            west = item.bounds.west;
-                            south = item.bounds.south;
-                            east = item.bounds.east;
-                            north = item.bounds.north;
-                        }
-                        const imageBounds = L.latLngBounds(
-                            [south, west],
-                            [north, east]
-                        );
-                        console.log('图像边界:', imageBounds);
-                        console.log('图像边界详细信息:', {
-                            southwest: imageBounds.getSouthWest(),
-                            northeast: imageBounds.getNorthEast(),
-                            center: imageBounds.getCenter()
-                        });
-                        
-                        // 检查当前地图边界
-                        const currentBounds = map.getBounds();
-                        console.log('当前地图边界:', currentBounds);
-                        console.log('图像边界与地图边界是否重叠:', currentBounds.intersects(imageBounds));
-                        
-                        // 创建图像覆盖层
-                        const imageOverlay = L.imageOverlay(imageUrl, imageBounds, {
-                            opacity: 0.3,
-                            interactive: false,
-                            pane: 'overlayPane',
-                            crossOrigin: 'anonymous',
-                            zIndex: 1000
-                        });
-                        
-                        console.log(`创建图像覆盖层对象:`, imageOverlay);
-                        
-                        // 添加错误处理
-                        imageOverlay.on('load', () => {
-                            console.log(`✅ 图像图层 ${index + 1} 加载成功: ${item.name}`);
-                            console.log('图像覆盖层已显示在地图上');
-                        });
-                        
-                        imageOverlay.on('error', (e) => {
-                            console.error(`❌ 图像图层 ${index + 1} 加载失败: ${item.name}`, e);
-                        });
-                        
-                        // 添加到地图
-                        console.log('正在将图像覆盖层添加到地图...');
-                        imageOverlay.addTo(map);
-                        currentImageLayers.push(imageOverlay);
-                        
-                        console.log(`✅ 已添加图像图层 ${index + 1}: ${item.name}`);
-                        console.log('当前图像图层数量:', currentImageLayers.length);
-                        
-                        // 强制设置样式确保可见性
-                        setTimeout(() => {
-                            const element = imageOverlay.getElement();
-                            if (element) {
-                                element.style.zIndex = '1000';
-                                element.style.opacity = '0.3';
-                                element.style.display = 'block';
-                                element.style.visibility = 'visible';
-                                console.log('✅ 强制设置图像元素样式:', {
-                                    zIndex: element.style.zIndex,
-                                    opacity: element.style.opacity,
-                                    display: element.style.display,
-                                    visibility: element.style.visibility,
-                                    src: element.src ? element.src.substring(0, 50) + '...' : 'no src'
-                                });
-                            } else {
-                                console.warn('⚠️ 无法获取图像元素');
-                            }
-                        }, 100);
-                        
-
-                        
-                        // 检查地图上的图层
-                        console.log('地图上的所有图层:', map._layers);
-                        console.log('图像覆盖层的Z-Index:', imageOverlay.getElement()?.style.zIndex);
-                    } catch (error) {
-                        console.error(`添加图像图层失败 ${item.name}:`, error);
-                    }
-                } else {
-                    console.warn(`跳过图像 ${index + 1}: exists=${item.exists}, hasImageData=${!!item.image_data}`);
-                }
-            });
-            
-            console.log(`成功加载 ${currentImageLayers.length} 个光污染图像图层`);
-        } else {
-            console.log('没有找到图像数据或数据格式不正确');
+        if (!json.success || !json.data || !Array.isArray(json.data)) {
+            console.log('没有获取到光污染数据');
+            return;
         }
         
+        // 更新统计面板（瓦片图层由 Leaflet 自动管理）
+        const points = json.data.map(d => ({
+            lat: d.lat,
+            lng: d.lng,
+            bortleClass: d.bortle,
+            intensity: d.intensity,
+            sqm: d.sqm
+        }));
+        const stats = calculateStats(points);
+        updateStatsPanel(stats);
+        
+        console.log(`✅ 统计面板已更新，${json.data.length} 个采样点`);
+        
     } catch (error) {
-        console.error('加载光污染图像图层失败:', error);
+        console.error('加载光污染统计数据失败:', error);
     }
 }
+
+// 保持向后兼容
+const loadLightPollutionImageLayers = loadLightPollutionDataPoints;
 
 /**
  * 计算数据统计
@@ -941,10 +852,8 @@ async function loadCurrentViewData() {
             currentOverlay = null;
         }
         
-        // 只加载图像图层，不加载点数据
-        await loadLightPollutionImageLayers();
-        
-        console.log('只加载图像图层，跳过点数据渲染');
+        // 加载光污染数据点
+        await loadLightPollutionDataPoints();
     } catch (error) {
         console.error('加载数据失败:', error);
     } finally {

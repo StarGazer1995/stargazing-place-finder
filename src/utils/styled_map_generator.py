@@ -91,7 +91,7 @@ class StyledMapGenerator:
 
         try:
             # Try to read external template file
-            template_path = os.path.join(os.path.dirname(__file__), 'source', 'template.html')
+            template_path = os.path.join(os.path.dirname(__file__), '..', 'source', 'template.html')
             if os.path.exists(template_path):
                 with open(template_path, 'r', encoding='utf-8') as f:
                     template_content = f.read()
