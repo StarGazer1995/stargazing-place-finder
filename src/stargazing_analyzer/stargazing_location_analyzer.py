@@ -80,6 +80,11 @@ class StargazingLocationAnalyzer:
             except Exception as e:
                 print(f"Light pollution analyzer initialization failed: {e}")
                 self.light_pollution_analyzer = None
+            self.mountain_finder = StarGazingPlaceFinder(
+                min_height_difference=min_height_difference,
+                light_pollution_analyzer=self.light_pollution_analyzer,
+                db_client=db_client,
+            )
         elif kml_file_path and os.path.exists(kml_file_path):
             try:
                 self.light_pollution_analyzer = LightPollutionAnalyzer(
@@ -90,9 +95,11 @@ class StargazingLocationAnalyzer:
             except Exception as e:
                 print(f"Light pollution analyzer initialization failed: {e}")
                 self.light_pollution_analyzer = None
-                print(f"Light pollution analyzer initialization failed: {e}")
-                self.light_pollution_analyzer = None
-            self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference, light_pollution_analyzer=self.light_pollution_analyzer, db_client=db_client)
+            self.mountain_finder = StarGazingPlaceFinder(
+                min_height_difference=min_height_difference,
+                light_pollution_analyzer=self.light_pollution_analyzer,
+                db_client=db_client,
+            )
         else:
             if kml_file_path:
                 print(f"⚠️  Warning: KML file {kml_file_path} does not exist")
