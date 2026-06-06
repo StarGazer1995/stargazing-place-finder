@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 (2026-06-06)
+
+- Bug 修复: GeoTIFF 后端初始化时缺少 `self.mountain_finder`，导致 `analyze_area()` 报 `AttributeError`
+- 代码清理: 移除 KML 后端分支中重复的异常打印行
+- 版本升级: `pyproject.toml` 版本号更新为 `0.4.2`
+
 ## 0.4.1 (2026-07-13)
 
 - 天光散射模型: 新增高斯模糊天光散射修正算法，修复 VIIRS vcm 数据背景扣除导致光污染低估的问题

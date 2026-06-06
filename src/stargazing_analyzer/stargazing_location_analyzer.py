@@ -69,7 +69,7 @@ class StargazingLocationAnalyzer:
                 print(f"PostGIS client initialization failed: {e}")
                 db_client = None
         
-        # Initialize light pollution analyzer
+        # Initialize light pollution analyzer (GeoTIFF backend only)
         self.light_pollution_analyzer = None
         if geotiff_path and os.path.exists(geotiff_path):
             try:
@@ -80,29 +80,22 @@ class StargazingLocationAnalyzer:
             except Exception as e:
                 print(f"Light pollution analyzer initialization failed: {e}")
                 self.light_pollution_analyzer = None
-        elif kml_file_path and os.path.exists(kml_file_path):
-            try:
-                self.light_pollution_analyzer = LightPollutionAnalyzer(
-                    kml_file_path=kml_file_path,
-                    images_base_path=images_base_path,
-                )
-                print("Light pollution analyzer initialized (KML backend)")
-            except Exception as e:
-                print(f"Light pollution analyzer initialization failed: {e}")
-                self.light_pollution_analyzer = None
-                print(f"Light pollution analyzer initialization failed: {e}")
-                self.light_pollution_analyzer = None
-            self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference, light_pollution_analyzer=self.light_pollution_analyzer, db_client=db_client)
+            self.mountain_finder = StarGazingPlaceFinder(
+                min_height_difference=min_height_difference,
+                light_pollution_analyzer=self.light_pollution_analyzer,
+                db_client=db_client,
+            )
         else:
-            if kml_file_path:
-                print(f"⚠️  Warning: KML file {kml_file_path} does not exist")
+            if geotiff_path:
+                print(f"⚠️  Warning: GeoTIFF file {geotiff_path} does not exist")
             else:
                 print("⚠️  Warning: No light pollution data file provided")
             print("⚠️  Light pollution data is an important component of stargazing location analysis")
-            print("⚠️  Recommend downloading light pollution map KML files from:")
-            print("   - Light Pollution Map: https://www.lightpollutionmap.info/")
-            print("   - Dark Site Finder: https://darksitefinder.com/")
-            self.mountain_finder = StarGazingPlaceFinder(min_height_difference=min_height_difference, db_client=db_client)
+            print("⚠️  Provide a VIIRS GeoTIFF file path via geotiff_path parameter")
+            self.mountain_finder = StarGazingPlaceFinder(
+                min_height_difference=min_height_difference,
+                db_client=db_client,
+            )
         
         # Initialize road connectivity checker
         self.road_checker = RoadConnectivityChecker(search_radius_km=road_search_radius_km)
@@ -634,6 +627,7 @@ class StargazingLocationAnalyzer:
 
 def analyze_stargazing_area(south: float, west: float, north: float, east: float,
                            kml_file_path: Optional[str] = None,
+                           geotiff_path: Optional[str] = None,
                            max_locations: int = 30,
                            location_types: List[str] = None,
                            min_height_diff: float = 100.0,
@@ -642,42 +636,37 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
                            db_config_path: Optional[str] = None) -> List[StargazingLocation]:
     """
     Convenience function: Analyze stargazing locations in specified area
-    
+
     Args:
         south, west, north, east: Bounding box coordinates
-        kml_file_path: Light pollution KML file path (strongly recommended)
+        kml_file_path: Deprecated, kept for backward compatibility.
+        geotiff_path: VIIRS GeoTIFF file path. If None, uses the GeoTIFF backend
+            with default bundled data (viirs_china_2025.tif).
         max_locations: Maximum number of locations
         location_types: List of location types, options: ['mountain_peak', 'observatory', 'viewpoint']
         min_height_diff: Minimum height difference (only for peaks)
         road_radius_km: Road search radius
         network_type: Network type
         db_config_path: Optional path to database config file
-        
+
     Returns:
         List of stargazing locations
-        
-    Note:
-        Light pollution data is crucial for accurate stargazing location assessment.
-        If kml_file_path is not provided, analysis accuracy will be affected.
     """
-    if kml_file_path is None:
-        print("⚠️  Warning: Convenience function did not provide light pollution data file")
-        print("⚠️  This will affect the accuracy of stargazing location assessment")
-    
     analyzer = StargazingLocationAnalyzer(
+        geotiff_path=geotiff_path,
         kml_file_path=kml_file_path,
         min_height_difference=min_height_diff,
         road_search_radius_km=road_radius_km,
         db_config_path=db_config_path
     )
-    
+
     bbox = (south, west, north, east)
     locations = analyzer.analyze_area(
         bbox=bbox,
         max_locations=max_locations,
         location_types=location_types,
         network_type=network_type,
-        include_light_pollution=(kml_file_path is not None),
+        include_light_pollution=True,
         include_road_connectivity=True
     )
     

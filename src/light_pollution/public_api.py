@@ -32,12 +32,12 @@ def init_light_pollution_analyzer(
     """
     初始化并返回光污染分析器实例。
 
-    默认使用 VIIRS GeoTIFF 数据源（裁剪中国区域）。
-    可以通过传入 kml_file_path 切换到旧版的 KML 图片后端。
+    使用 VIIRS GeoTIFF 数据源（默认裁剪中国区域）。
+    kml_file_path 和 images_base_path 参数保留仅为向后兼容，不再使用。
 
     Args:
-        kml_file_path: KML 文件路径（旧版后端）。设为非空值则使用 KML 后端。
-        images_base_path: 光污染图片目录（旧版），默认与 KML 同目录下 files。
+        kml_file_path: 已废弃，保留仅为向后兼容。
+        images_base_path: 已废弃，保留仅为向后兼容。
         geotiff_path: VIIRS GeoTIFF 文件路径。默认使用包内裁剪的中国区域数据。
 
     Returns:
@@ -45,24 +45,13 @@ def init_light_pollution_analyzer(
     """
     global _lp_analyzer
 
-    if kml_file_path is not None:
-        # Legacy KML backend
-        if images_base_path is None:
-            _, default_images = _default_kml_paths()
-            images_base_path = images_base_path or default_images
-        _lp_analyzer = LightPollutionAnalyzer(
-            kml_file_path=str(kml_file_path),
-            images_base_path=str(images_base_path),
-        )
-    else:
-        # Default: GeoTIFF backend
-        if geotiff_path is None:
-            geotiff_path = _default_geotiff_path()
-        _lp_analyzer = LightPollutionAnalyzer(
-            geotiff_path=str(geotiff_path),
-            skyglow_sigma_km=15.0,
-            skyglow_weight=0.4,
-        )
+    if geotiff_path is None:
+        geotiff_path = _default_geotiff_path()
+    _lp_analyzer = LightPollutionAnalyzer(
+        geotiff_path=str(geotiff_path),
+        skyglow_sigma_km=15.0,
+        skyglow_weight=0.4,
+    )
     return _lp_analyzer
 
 def _require_analyzer() -> LightPollutionAnalyzer:
