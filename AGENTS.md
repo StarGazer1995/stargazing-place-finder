@@ -145,15 +145,18 @@ Dev: `pytest`, `pytest-cov`, `requests-mock`, `responses`, `freezegun`, `build`,
 
 **How to release a new version:**
 ```bash
-# 1. Bump version in pyproject.toml and CHANGELOG.md
-# 2. Run full test suite
-uv run python src/test/run_src_tests.py
-# 3. Commit, tag, and push
-git add -A && git commit -m "Release vX.Y.Z"
+# 1. Create a release branch, bump version in pyproject.toml and CHANGELOG.md
+git checkout -b release/vX.Y.Z
+# ... edit pyproject.toml and CHANGELOG.md ...
+git add -A && git commit -m "chore: bump version to vX.Y.Z"
+git push origin release/vX.Y.Z
+# 2. Create PR from release/vX.Y.Z → main, get it reviewed and merged
+# 3. After merge, checkout main and tag the merge commit
+git checkout main && git fetch origin && git reset --hard origin/main
 git tag vX.Y.Z
-git push origin main
 git push origin vX.Y.Z
 # CI will automatically build, verify, and publish to PyPI
+# ⚠️ Push the tag ONLY ONCE — do not force-push or re-push the same tag.
 ```
 
 ### Copilot Code Review
@@ -183,6 +186,12 @@ GitHub Copilot automatic PR code review **requires a Business or Enterprise subs
 - Constructor takes `geotiff_path` (keyword arg, default `None` for lazy init).
 - Old methods `_image_cache_dir` and `clear_image_cache()` no longer exist.
 - Use `close()` to release resources.
+
+### Tag Push Triggers Duplicate PyPI Publish
+- PyPI **does not allow overwriting** a published version. Once `vX.Y.Z` is uploaded, any re-upload of the same version will fail with `400 File already exists`.
+- If the tag `vX.Y.Z` is pushed twice (even force-pushed to a different commit), the second run will try to re-publish the same artifacts and fail.
+- **Fix**: Push the release tag **exactly once** after the PR is merged. Do not force-push or re-push the same tag.
+- Correct order: merge release PR into `main` → create tag on the merge commit → `git push origin vX.Y.Z` (one time only).
 
 ## Database Configuration
 

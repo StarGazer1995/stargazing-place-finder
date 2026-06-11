@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 (2026-06-11)
+
+- 文档修复: 修正 AGENTS.md 中错误的发布流程（移除被 branch protection 拦截的 `git push origin main`）
+- 文档新增: AGENTS.md 新增 "Tag Push Triggers Duplicate PyPI Publish" 常见陷阱说明
+- 版本升级: `pyproject.toml` 版本号更新为 `0.5.1`
+
 ## 0.5.0 (2026-06-11)
 
 - 架构重构: 新增 `src/gis_service/` 统一 GIS 查询服务模块，集中管理 PostGIS、Overpass API 和海拔查询
