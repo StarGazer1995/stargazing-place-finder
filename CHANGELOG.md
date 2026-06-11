@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 (2026-06-11)
+
+- 性能优化: Phase 1 完成 — 50 点 analysis_area 从 200-500s 降至 ~3-5s
+  - **PostGIS 道路连通性**: 新增 `PostgisBackend.query_road_connectivity()`，kNN 查询 ~30ms/点（vs OSMnx 1-5s）
+  - **GisQueryService 接线**: `StargazingLocationAnalyzer` 创建并传入 Finder + Checker，使 PostGIS 加速真正生效
+  - **缓存 key 修复**: `_generate_cache_key()` 加 bbox 参数，不同 bbox 查询不互相覆盖
+  - **海拔 API 批量**: 新增 `batch_get_elevation()`，移除逐点 0.1s sleep
+  - **光污染网格批量**: `/api/light_pollution` 改用 `batch_analyze_coordinates()`，~3-10×
+  - **analyze_area 光污染批量**: 提前 `batch_analyze_coordinates()` 一次，循环内查表
+  - **逐点并行处理**: `ThreadPoolExecutor(max_workers=4)` 并行处理 50 点分析
+- 依赖补充: `pytest`, `pytest-cov`, `responses`, `freezegun`, `requests-mock` 加入 dev 依赖
+- 新增提交策略到 AGENTS.md（不提交未完成的设计文档、本地配置等）
+
 ## 0.5.2 (2026-06-11)
 
 - 依赖修复: 新增 `scikit-learn>=1.3.0` 为正式依赖，修复 OSMnx BallTree 未投影图最近邻搜索时的 `ImportError`
