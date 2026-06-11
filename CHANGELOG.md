@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2 (2026-06-11)
+
+- 依赖修复: 新增 `scikit-learn>=1.3.0` 为正式依赖，修复 OSMnx BallTree 未投影图最近邻搜索时的 `ImportError`
+  - osmnx 的 `nearest_nodes()` 在 lat/lon 坐标下依赖 `sklearn.neighbors.BallTree`，缺失时所有道路可达性检测全返回 `False`
+- 版本升级: `pyproject.toml` 版本号更新为 `0.5.2`
+
 ## 0.5.1 (2026-06-11)
 
 - 文档修复: 修正 AGENTS.md 中错误的发布流程（移除被 branch protection 拦截的 `git push origin main`）
