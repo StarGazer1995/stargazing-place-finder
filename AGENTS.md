@@ -163,6 +163,21 @@ git push origin vX.Y.Z
 
 GitHub Copilot automatic PR code review **requires a Business or Enterprise subscription**. It does NOT work with personal/individual Copilot plans, even if enabled in repository Rules settings. Do not attempt to set up `copilot-review.yml` workflows — they will not trigger.
 
+## Commit Policy
+
+### 只提交必要的文件
+
+每次提交前必须确认只包含**必要的源代码文件**。以下文件类型不得提交：
+
+| 类型 | 原因 | 示例 |
+|------|------|------|
+| **未完成的设计文档** | 草稿、计划、笔记等仅在本地保留 | `docs/performance_optimization_plan.md` |
+| **本地配置** | 含密码、token 等敏感信息 | `config/postgis_config.*` |
+| **字节码缓存** | `.gitignore` 已忽略 `__pycache__/` | `*.pyc` |
+| **地图输出 / 可视化数据** | 生成物，非源码 | `map_output/`, `visualization_output/` |
+
+**检查流程**：`git status` 确认只有预期的文件在变更列表中，再 `git add` 精确指定文件（不要用 `git add .` 或 `git add -A`）。
+
 ## Common Pitfalls
 
 ### GitHub Secrets Empty in Actions

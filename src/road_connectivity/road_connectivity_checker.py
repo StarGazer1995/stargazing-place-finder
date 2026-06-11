@@ -122,15 +122,19 @@ class RoadConnectivityChecker:
     Used to detect whether specified coordinates have road network connections
     """
     
-    def __init__(self, search_radius_km: float = 10.0):
+    def __init__(self, search_radius_km: float = 10.0, gis_service=None):
         """
     Initialize road connectivity checker
     
     Args:
         search_radius_km: Search radius (kilometers), default 10 kilometers
+        gis_service: GisQueryService instance for PostGIS-accelerated queries.
+                     When provided and PostGIS is enabled, road connectivity
+                     queries use millisecond-level kNN SQL instead of OSMnx HTTP.
     """
         self.search_radius_km = search_radius_km
         self.graph_cache = {}  # Cache downloaded road networks
+        self.gis_service = gis_service  # Optional GisQueryService for PostGIS fast path
         
         # Set OSMnx cache directory
         setup_osmnx_cache()
@@ -178,7 +182,12 @@ class RoadConnectivityChecker:
                     return cache.is_road_accessible
 
 
-            logger.info("Not found in cache, try to download")
+            logger.info("Not found in cache, try PostGIS fast path")
+            postgis_result = self._check_via_postgis(lat, lon, network_type)
+            if postgis_result is not None:
+                return postgis_result
+
+            logger.info("PostGIS not available or no result, try OSMnx download")
             graph = self._get_road_network(lat, lon, network_type)
             
             if graph is None or len(graph.nodes()) == 0:
@@ -210,7 +219,41 @@ class RoadConnectivityChecker:
         except Exception as e:
             logger.error(f"Error detecting accessibility for coordinates ({lat}, {lon}): {str(e)}")
             return False
-    
+
+    def _check_via_postgis(self, lat: float, lon: float,
+                            network_type: str = 'drive') -> Optional[bool]:
+        """
+        通过 PostGIS kNN 查询检查道路连通性（毫秒级）。
+
+        Returns:
+            True/False 如果查询成功，None 如果 PostGIS 不可用
+        """
+        if self.gis_service is None:
+            return None
+        if not getattr(self.gis_service, 'postgis_enabled', False):
+            return None
+
+        result = self.gis_service.query_road_connectivity(
+            lat, lon, self.search_radius_km, network_type
+        )
+        if result.get('fallback_needed'):
+            return None
+
+        accessible = result['accessible']
+        road_info = RoadAccessInfo(
+            latitude=lat, longitude=lon,
+            is_road_accessible=accessible,
+            distance_to_road_km=(
+                result['distance_meters'] / 1000.0
+                if result['distance_meters'] is not None else None
+            ),
+            nearest_road_type=result.get('road_type'),
+        )
+        self.location_cache.save_road_access_info_to_cache(
+            f"accessible_{network_type}", [road_info]
+        )
+        return accessible
+
     def _get_road_network(self, lat: float, lon: float, 
                          network_type: str) -> Optional[nx.MultiDiGraph]:
         """
@@ -332,6 +375,24 @@ class RoadConnectivityChecker:
                 return result
             else:
                 print("No road accessible info in cache")
+
+            # Try PostGIS fast path first
+            postgis_result = self._check_via_postgis(lat, lon, network_type)
+            if postgis_result is not None:
+                result['accessible'] = postgis_result
+                # Try to get more details from a separate query
+                if self.gis_service and getattr(self.gis_service, 'postgis_enabled', False):
+                    details = self.gis_service.query_road_connectivity(
+                        lat, lon, self.search_radius_km, network_type
+                    )
+                    if not details.get('fallback_needed'):
+                        result['distance_to_road_km'] = (
+                            details['distance_meters'] / 1000.0
+                            if details['distance_meters'] is not None else None
+                        )
+                        result['nearest_road_type'] = details.get('road_type')
+                        result['error'] = None
+                return result
             
             graph = self._get_road_network(lat, lon, network_type)
             

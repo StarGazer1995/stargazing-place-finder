@@ -66,6 +66,11 @@ where = ["src"]
 
 [dependency-groups]
 dev = [
+    "freezegun>=1.5.5",
+    "pytest>=8.4.1",
+    "pytest-cov>=7.0.0",
+    "requests-mock>=1.12.1",
+    "responses>=0.25.8",
     "setuptools>=80.9.0",
     "wheel>=0.45.1",
 ]
