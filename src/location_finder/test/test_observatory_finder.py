@@ -113,9 +113,10 @@ class TestObservatoryFinder(unittest.TestCase):
     
     @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
     @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_towns_from_overpass')
+    @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.batch_get_elevation')
     @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_elevation_from_api')
     @patch('light_pollution.light_pollution_analyzer.LightPollutionAnalyzer.batch_analyze_coordinates')
-    def test_find_observatories_in_area(self, mock_light_pollution, mock_elevation, mock_towns, mock_observatories):
+    def test_find_observatories_in_area(self, mock_light_pollution, mock_elevation_api, mock_batch_elevation, mock_towns, mock_observatories):
         """
         测试在指定区域查找天文台
         """
@@ -143,8 +144,9 @@ class TestObservatoryFinder(unittest.TestCase):
             }
         ]
         
-        # 模拟海拔数据
-        mock_elevation.return_value = 100.0
+        # 模拟海拔数据（batch_get_elevation 返回 {(lat,lon): elevation} 字典）
+        mock_batch_elevation.return_value = {(39.9042, 116.4074): 100.0}
+        mock_elevation_api.return_value = 100.0
         
         # 模拟光污染数据
         mock_light_pollution.return_value = [
@@ -169,10 +171,8 @@ class TestObservatoryFinder(unittest.TestCase):
         # 验证方法调用
         mock_observatories.assert_called_once_with(self.test_bbox)
         mock_towns.assert_called_once_with(self.test_bbox)
-        # 海拔API可能被调用多次（天文台和城镇都需要海拔信息）
-        self.assertTrue(mock_elevation.called)
-        # 验证至少调用了天文台的海拔查询
-        mock_elevation.assert_any_call(39.9042, 116.4074)
+        # 批量海拔 API 应被调用（包含天文台坐标）
+        mock_batch_elevation.assert_called_once_with([(39.9042, 116.4074)])
     
     @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
     def test_find_observatories_empty_result(self, mock_observatories):

@@ -206,6 +206,19 @@ class StargazingLocationAnalyzer:
         except Exception:
             pass  # Town density is optional
         
+        # 2a. Batch light pollution analysis (one GeoTIFF batch read instead of N per-point reads)
+        light_pollution_batch: Dict[Tuple[float, float], Any] = {}
+        if include_light_pollution and self.light_pollution_analyzer:
+            try:
+                coords = [(loc.latitude, loc.longitude) for loc in all_locations]
+                batch_results = self.light_pollution_analyzer.batch_analyze_coordinates(coords)
+                for r in batch_results:
+                    lat, lon = r['coordinates']
+                    light_pollution_batch[(lat, lon)] = r.get('pollution_info')
+                print(f"  Batch light pollution: {len(batch_results)} locations")
+            except Exception as e:
+                print(f"  Batch light pollution failed: {e}")
+
         # 2. Perform comprehensive analysis for each location
         stargazing_locations = []
         for i, location in enumerate(all_locations, 1):
@@ -231,24 +244,16 @@ class StargazingLocationAnalyzer:
                     location.latitude, location.longitude, towns_data, radius_km=20.0
                 )
             
-            # 3. Light pollution analysis
-            if include_light_pollution:
-                if self.light_pollution_analyzer:
-                    try:
-                        light_info = self.light_pollution_analyzer.get_light_pollution_color(
-                            location.latitude, location.longitude
-                        )
-                        if light_info:
-                            stargazing_location.light_pollution_rgb = light_info.rgb
-                            stargazing_location.light_pollution_hex = light_info.hex
-                            stargazing_location.light_pollution_brightness = light_info.brightness
-                            stargazing_location.light_pollution_level = light_info.pollution_level
-                            stargazing_location.light_pollution_bortle = light_info.bortle
-                            stargazing_location.light_pollution_overlay = light_info.overlay_name
-                    except Exception as e:
-                        print(f"  Light pollution analysis failed: {e}")
-                else:
-                    print(f"  ⚠️  Warning: Cannot get light pollution data for {location.name} - no light pollution data file provided")
+            # 3. Light pollution analysis (from pre-batched results)
+            if include_light_pollution and light_pollution_batch:
+                light_info = light_pollution_batch.get((location.latitude, location.longitude))
+                if light_info:
+                    stargazing_location.light_pollution_rgb = light_info.rgb
+                    stargazing_location.light_pollution_hex = light_info.hex
+                    stargazing_location.light_pollution_brightness = light_info.brightness
+                    stargazing_location.light_pollution_level = light_info.pollution_level
+                    stargazing_location.light_pollution_bortle = light_info.bortle
+                    stargazing_location.light_pollution_overlay = light_info.overlay_name
             
             # 4. Road connectivity analysis
             if include_road_connectivity:

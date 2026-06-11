@@ -207,18 +207,23 @@ class LocationCache:
         self.expiry_hours = cache_expiry_hours * 3600
         self.cache_mem_data = {}
     
-    def _generate_cache_key(self, location_type: str) -> str:
+    def _generate_cache_key(self, location_type: str, bbox: Optional[Tuple[float, float, float, float]] = None) -> str:
         """
         Generate cache key
         
         Args:
             location_type: Location type
+            bbox: Optional bounding box (south, west, north, east) to distinguish
+                  different area queries. Previously omitted, causing cache
+                  collisions between different bbox queries of the same type.
             
         Returns:
             Cache key string
         """
-        # Only use location type to generate cache key
-        return hashlib.md5(location_type.encode('utf-8')).hexdigest()
+        key_str = location_type
+        if bbox:
+            key_str += f"_{bbox[0]:.4f}_{bbox[1]:.4f}_{bbox[2]:.4f}_{bbox[3]:.4f}"
+        return hashlib.md5(key_str.encode('utf-8')).hexdigest()
     
     def _get_cache_file_path(self, cache_key: str) -> Path:
         """
@@ -251,20 +256,21 @@ class LocationCache:
         
         return (current_time - file_mtime) < self.expiry_hours
     
-    def get_cached_result(self, location_type: str) -> Optional[List[Location]]:
+    def get_cached_result(self, location_type: str, bbox: Optional[Tuple[float, float, float, float]] = None) -> Optional[List[Location]]:
         """
         Get query results from cache
         
         Args:
             location_type: Location type
+            bbox: Optional bounding box to distinguish between area queries
             
         Returns:
             Cached query results, returns None if no valid cache exists
         """
-        if location_type in self.cache_mem_data:
+        if location_type in self.cache_mem_data and bbox is None:
             return self.cache_mem_data[location_type]
         
-        cache_key = self._generate_cache_key(location_type)
+        cache_key = self._generate_cache_key(location_type, bbox)
         cache_file = self._get_cache_file_path(cache_key)
         
         if self._is_cache_valid(cache_file):
@@ -283,18 +289,19 @@ class LocationCache:
         
         return None
     
-    def save_to_cache(self, location_type: str, data: List[Location]):
+    def save_to_cache(self, location_type: str, data: List[Location], bbox: Optional[Tuple[float, float, float, float]] = None):
         """
         Save query results to cache
         
         Args:
             location_type: Location type
             data: Query result data
+            bbox: Optional bounding box to distinguish between area queries
         """
         
-        cache_key = self._generate_cache_key(location_type)
+        cache_key = self._generate_cache_key(location_type, bbox)
         cache_file = self._get_cache_file_path(cache_key)
-        cached_data = self.get_cached_result(location_type)
+        cached_data = self.get_cached_result(location_type, bbox)
         if cached_data is None:
             cached_data = data
         else:
@@ -309,18 +316,20 @@ class LocationCache:
         except Exception as e:
             print(f"⚠️ Failed to save cache: {e}")
     
-    def check_data_in_cache(self, location_type: str, data: List[Location]) -> bool:
+    def check_data_in_cache(self, location_type: str, data: List[Location],
+                             bbox: Optional[Tuple[float, float, float, float]] = None) -> bool:
         """
         Check if data is already in cache
         
         Args:
             location_type: Location type
             data: Data to check
+            bbox: Optional bounding box to distinguish between area queries
             
         Returns:
             Whether already in cache
         """
-        cached_data = self.get_cached_result(location_type)
+        cached_data = self.get_cached_result(location_type, bbox)
         if cached_data is None:
             return False
         
@@ -907,6 +916,36 @@ class StarGazingPlaceFinder:
             print(f"Error getting elevation data ({lat}, {lon}): {e}")
         
         return None
+
+    def batch_get_elevation(self, coordinates: List[Tuple[float, float]]) -> Dict[Tuple[float, float], float]:
+        """
+        Batch get elevations from Open-Elevation API.
+        
+        Uses the pipe-delimited format to query multiple locations in one HTTP request,
+        eliminating per-point sleep overhead.
+        
+        Args:
+            coordinates: List of (lat, lon) tuples
+            
+        Returns:
+            Dict mapping (lat, lon) -> elevation (meters)
+        """
+        if not coordinates:
+            return {}
+        try:
+            locations_str = "|".join(f"{lat},{lon}" for lat, lon in coordinates)
+            url = f"https://api.open-elevation.com/api/v1/lookup?locations={locations_str}"
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            results: Dict[Tuple[float, float], float] = {}
+            for r in data.get('results', []):
+                results[(r['latitude'], r['longitude'])] = r['elevation']
+            print(f"  Batch elevation API: {len(results)} points")
+            return results
+        except Exception as e:
+            print(f"Error batch getting elevation data ({len(coordinates)} points): {e}")
+            return {}
     
     def find_nearest_town(self, peak_lat: float, peak_lon: float, towns: List[Dict]) -> Tuple[Optional[str], float, Optional[float]]:
         """
@@ -945,9 +984,8 @@ class StarGazingPlaceFinder:
             if distance < min_distance:
                 min_distance = distance
                 nearest_town = town.get('tags', {}).get('name', 'Unknown town')
-                # Get town elevation
+                # Get town elevation (no per-point sleep — batched elsewhere if needed)
                 nearest_town_elevation = self.get_elevation_from_api(town_lat, town_lon)
-                time.sleep(0.1)  # Avoid API requests too frequently
         
         return nearest_town, min_distance, nearest_town_elevation
 
@@ -1089,7 +1127,7 @@ class StarGazingPlaceFinder:
 
         res = []
         if self.cache is not None:
-            cached_data = self.cache.get_cached_result(location_type)
+            cached_data = self.cache.get_cached_result(location_type, bbox)
             for location in locations_data:
                 lat, lon = self._extract_coordinates(location)
                 if (lat is not None) and (lon is not None) and (cached_data is not None):
@@ -1113,6 +1151,7 @@ class StarGazingPlaceFinder:
         locations = []
         locations_data = locations_data[len(res):]
         remaining_locations = max_locations - len(res)
+        api_pending: List[Tuple[float, float, int]] = []  # (lat, lon, list_index)
         for i, location_data in enumerate(locations_data[:remaining_locations]):
             if i % 5 == 0:
                 print(f"Processing progress: {i+1}/{min(len(locations_data), remaining_locations)}")
@@ -1127,7 +1166,7 @@ class StarGazingPlaceFinder:
             tags = location_data.get('tags', {})
             name = tags.get('name', f'{location_type}_{i+1}')
             
-            # Get elevation
+            # Get elevation (fast sources first: tags → PostGIS)
             elevation = None
             if 'ele' in tags:
                 try:
@@ -1137,17 +1176,12 @@ class StarGazingPlaceFinder:
             
             if elevation is None:
                 elevation = self._find_elevation_at_point_postgis(lat, lon)
-                if elevation is None:
-                    print(f"Warning: {location_type} data missing elevation information, skipping: {location_data.get('id', 'unknown')}")
             
-            if elevation is None:
-                elevation = self.get_elevation_from_api(lat, lon)
-                time.sleep(0.1)  # Avoid API requests being too frequent
-                if elevation is None:
-                    print(f"Warning: {location_type} data missing elevation information, skipping: {location_data.get('id', 'unknown')}")
-            
-            if elevation is None:
-                elevation = 0.0  # Default elevation
+            # If still None, mark for batch API call (avoids per-point HTTP + 0.1s sleep)
+            needs_api = elevation is None
+            if needs_api:
+                api_pending.append((lat, lon, len(res)))
+                elevation = 0.0  # temporary default, will be overwritten by batch
             
             # Find nearest town
             nearest_town = "Unknown"
@@ -1174,11 +1208,19 @@ class StarGazingPlaceFinder:
             if location:
                 res.append(location)
         
-        print(f"\nTotal found {len(locations)} {location_type}")
+        # Batch API elevation for points not found in tags or PostGIS
+        if api_pending:
+            pending_coords = [(lat, lon) for lat, lon, _ in api_pending]
+            api_results = self.batch_get_elevation(pending_coords)
+            for lat, lon, idx in api_pending:
+                if (lat, lon) in api_results:
+                    res[idx].elevation = api_results[(lat, lon)]
         
-        # Save results to cache
+        print(f"\nTotal found {len(res)} {location_type}")
+        
+        # Save results to cache (with bbox to distinguish area queries)
         if self.cache:
-            self.cache.save_to_cache(location_type, res)
+            self.cache.save_to_cache(location_type, res, bbox)
             
         return res
     
