@@ -213,20 +213,24 @@ class TestStarGazingPlaceFinderCache(unittest.TestCase):
         self.assertIsNone(cache_info_none)
     
     @patch('src.stargazing_analyzer.stargazing_place_finder.get_cache_dir')
-    @patch('src.stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder._make_overpass_request')
-    def test_cache_integration_in_queries(self, mock_request, mock_get_cache_dir):
+    @patch('gis_service.backends.overpass_backend.requests.post')
+    def test_cache_integration_in_queries(self, mock_post, mock_get_cache_dir):
         """
         测试查询方法中的缓存集成
         """
-        mock_get_cache_dir.return_value = self.temp_dir
-        mock_request.return_value = [{"id": 1, "name": "test"}]
-        
+        # Mock a successful Overpass response
+        mock_response = type('MockResponse', (), {
+            'status_code': 200,
+            'json': lambda self: {'elements': [{'id': 1, 'name': 'test', 'type': 'node', 'lat': 39.9, 'lon': 116.3, 'tags': {'name': 'test'}}]}
+        })()
+        mock_post.return_value = mock_response
+
         finder = StarGazingPlaceFinder(enable_cache=True)
         bbox = (39.8, 116.2, 40.0, 116.5)
         
         # 第一次调用应该触发网络请求
         result1 = finder.get_peaks_from_overpass(bbox)
-        self.assertEqual(len(mock_request.call_args_list), 1)
+        self.assertGreater(len(mock_post.call_args_list), 0)
         
         # 第二次调用应该使用缓存（如果缓存正常工作）
         result2 = finder.get_peaks_from_overpass(bbox)

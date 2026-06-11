@@ -6,7 +6,7 @@ Used to find peaks with sufficient height difference from surrounding towns with
 
 import requests
 import json
-from typing import List, Dict, Tuple, Optional
+from typing import Any, List, Dict, Tuple, Optional
 import math
 import time
 import random
@@ -586,7 +586,7 @@ class StarGazingPlaceFinder:
     Used to find suitable stargazing locations within specified ranges
     """
     
-    def __init__(self, min_height_difference: float = 100.0, light_pollution_analyzer: Optional[LightPollutionAnalyzer] = None, enable_cache: bool = True, cache_expiry_hours: int = 24*365, db_client: Optional[PostGISClient] = None):
+    def __init__(self, min_height_difference: float = 100.0, light_pollution_analyzer: Optional[LightPollutionAnalyzer] = None, enable_cache: bool = True, cache_expiry_hours: int = 24*365, db_client: Optional[PostGISClient] = None, gis_service: Optional[Any] = None):
         """
         Initialize stargazing place finder
         
@@ -595,6 +595,8 @@ class StarGazingPlaceFinder:
             light_pollution_analyzer: Light pollution analyzer instance
             enable_cache: Whether to enable cache, default True
             cache_expiry_hours: Cache expiry time (hours), default 24 hours
+            db_client: PostGISClient instance (deprecated, prefer gis_service)
+            gis_service: GisQueryService instance for unified GIS queries
         """
         self.min_height_difference = min_height_difference
         self.overpass_url = "https://overpass-api.de/api/interpreter"
@@ -603,6 +605,7 @@ class StarGazingPlaceFinder:
         self.cache = LocationCache(cache_expiry_hours) if enable_cache else None
         self.db_client = db_client
         self.postgis_enabled = self.db_client is not None
+        self.gis_service = gis_service
         
     def calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """
@@ -641,6 +644,10 @@ class StarGazingPlaceFinder:
             List of peak data
         """
         
+        # Use GisQueryService if available
+        if self.gis_service is not None:
+            return self.gis_service.query_locations(bbox, 'peak')
+        
         south, west, north, east = bbox
         if self.postgis_enabled:
             print(f"Query peaks in PostGIS: {west}, {south}, {east}, {north}")
@@ -668,6 +675,11 @@ class StarGazingPlaceFinder:
         Returns:
             List of town data
         """
+        
+        # Use GisQueryService if available
+        if self.gis_service is not None:
+            return self.gis_service.query_locations(bbox, 'town')
+        
         south, west, north, east = bbox
         if self.postgis_enabled:
             print(f"Query towns in PostGIS: {west}, {south}, {east}, {north}")
@@ -696,6 +708,11 @@ class StarGazingPlaceFinder:
         Returns:
             List of observatory data
         """
+        
+        # Use GisQueryService if available
+        if self.gis_service is not None:
+            return self.gis_service.query_locations(bbox, 'observatory')
+        
         south, west, north, east = bbox
         if self.postgis_enabled:
             print(f"Query observatories in PostGIS: {west}, {south}, {east}, {north}")
@@ -728,6 +745,11 @@ class StarGazingPlaceFinder:
         Returns:
             List of viewpoint data
         """
+        
+        # Use GisQueryService if available
+        if self.gis_service is not None:
+            return self.gis_service.query_locations(bbox, 'viewpoint')
+        
         south, west, north, east = bbox
         
         # Overpass QL query statement - get viewpoints, scenic spots, etc.
