@@ -29,6 +29,10 @@ class TestObservatoryFinder(unittest.TestCase):
     
     def setUp(self):
         self.finder = StarGazingPlaceFinder(enable_cache=False)
+        # Attach a mock gis_service to route queries through the new backend
+        from unittest.mock import MagicMock
+        self.finder.gis_service = MagicMock()
+        self.finder.gis_service.postgis_enabled = False
         self.test_bbox = (39.5, 115.5, 40.5, 117.5)  # 北京周边区域
     
     def test_observatory_data_class(self):
@@ -76,29 +80,24 @@ class TestObservatoryFinder(unittest.TestCase):
         self.assertEqual(observatory.nearest_town_name, "北京市")
         self.assertEqual(observatory.light_pollution_level, "中等")
     
-    @patch('stargazing_analyzer.stargazing_place_finder.requests.post')
-    def test_get_observatories_from_overpass(self, mock_post):
+    def test_get_observatories_from_overpass(self):
         """
-        测试从Overpass API获取天文台数据
+        测试从GisQueryService获取天文台数据
         """
-        # 模拟API响应
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'elements': [
-                {
-                    'type': 'node',
-                    'id': 1,
-                    'lat': 39.9042,
-                    'lon': 116.4074,
-                    'tags': {
-                        'name': '测试天文台',
-                        'man_made': 'observatory'
-                    }
+        # 模拟GisQueryService响应
+        expected_result = [
+            {
+                'type': 'node',
+                'id': 1,
+                'lat': 39.9042,
+                'lon': 116.4074,
+                'tags': {
+                    'name': '测试天文台',
+                    'man_made': 'observatory'
                 }
-            ]
-        }
-        mock_post.return_value = mock_response
+            }
+        ]
+        self.finder.gis_service.query_locations.return_value = expected_result
         
         # 调用方法
         result = self.finder.get_observatories_from_overpass(self.test_bbox)
@@ -109,8 +108,8 @@ class TestObservatoryFinder(unittest.TestCase):
         self.assertEqual(result[0]['lon'], 116.4074)
         self.assertEqual(result[0]['tags']['name'], '测试天文台')
         
-        # 验证API调用
-        mock_post.assert_called_once()
+        # 验证委托调用
+        self.finder.gis_service.query_locations.assert_called_once_with(self.test_bbox, 'observatory')
     
     @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_observatories_from_overpass')
     @patch('stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.get_towns_from_overpass')
