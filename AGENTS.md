@@ -171,7 +171,7 @@ GitHub Copilot automatic PR code review **requires a Business or Enterprise subs
 
 | 类型 | 原因 | 示例 |
 |------|------|------|
-| **文档 / Markdown** | `.gitignore` 已忽略 `docs/*.md`，仅保留在本地 | `docs/*.md` |
+| **未完成的设计文档** | 草稿、计划、笔记等仅在本地保留 | `docs/performance_optimization_plan.md` |
 | **本地配置** | 含密码、token 等敏感信息 | `config/postgis_config.*` |
 | **字节码缓存** | `.gitignore` 已忽略 `__pycache__/` | `*.pyc` |
 | **地图输出 / 可视化数据** | 生成物，非源码 | `map_output/`, `visualization_output/` |
