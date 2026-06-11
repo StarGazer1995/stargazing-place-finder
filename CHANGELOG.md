@@ -2,6 +2,7 @@
 
 ## 0.5.1 (2026-06-11)
 
+- Bug 修复: 添加缺失的 `scikit-learn` 依赖。`osmnx 2.x` 的 `nearest_nodes()` 对未投影的经纬度图使用 `BallTree`（Haversine），不装 `scikit-learn` 会报错导致 `road_accessible` 检测全部返回 `false`
 - 文档修复: 修正 AGENTS.md 中错误的发布流程（移除被 branch protection 拦截的 `git push origin main`）
 - 文档新增: AGENTS.md 新增 "Tag Push Triggers Duplicate PyPI Publish" 常见陷阱说明
 - 版本升级: `pyproject.toml` 版本号更新为 `0.5.1`
