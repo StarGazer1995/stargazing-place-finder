@@ -221,4 +221,6 @@ cache/VNL_npp_*.tif.gz/
 maps*
 *.json
 config/postgis_config.toml
+# 不要提交文档文件到代码库（仅保留在本地或上游仓库）
+docs/*.md
 .trae/
