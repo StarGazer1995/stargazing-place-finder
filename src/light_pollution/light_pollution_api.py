@@ -437,72 +437,57 @@ def get_light_pollution_data():
             print(f"⚠️ Too many grid points, adjusted to {grid_rows}x{grid_cols} = {grid_rows * grid_cols} points")
         
         print(f"🔢 Generating grid: {grid_rows}x{grid_cols} = {grid_rows * grid_cols} points")
-        
-        data = []
-        point_index = 0
-        
-        # 生成网格点并获取光污染数据
+
+        # 批量构建坐标列表，一次性查询
+        coordinates_list = []
+        grid_info = []  # (lat, lng) per point
         for row in range(grid_rows):
             for col in range(grid_cols):
-                # 计算网格点坐标
                 lat = south + (row + 0.5) * (lat_range / grid_rows)
                 lng = west + (col + 0.5) * (lng_range / grid_cols)
-                
-                try:
-                    # 从光污染分析器获取真实数据
-                    pollution_info = analyzer.get_light_pollution_color(lat, lng)
-                    
-                    if pollution_info:
-                        # 从真实数据中提取信息
-                        brightness = pollution_info.brightness
-                        bortle = brightness_to_bortle(brightness)
-                        sqm = bortle_to_sqm(bortle)
-                        intensity = brightness / 255.0
-                        
-                        data.append({
-                            'name': f'数据点 {point_index + 1}',
-                            'lat': lat,
-                            'lng': lng,
-                            'bortle': bortle,
-                            'sqm': f'{sqm:.1f}',
-                            'intensity': intensity,
-                            'brightness': brightness,
-                            'rgb': pollution_info.rgb,
-                            'hex': pollution_info.hex,
-                            'overlay_name': pollution_info.overlay_name
-                        })
-                    else:
-                        # 如果没有找到数据，使用默认值
-                        data.append({
-                            'name': f'数据点 {point_index + 1}',
-                            'lat': lat,
-                            'lng': lng,
-                            'bortle': 5,  # 默认中等光污染
-                            'sqm': '20.0',
-                            'intensity': 0.5,
-                            'brightness': 128,
-                            'rgb': [128, 128, 128],
-                            'hex': '#808080',
-                            'overlay_name': '默认数据'
-                        })
-                        
-                except Exception as e:
-                    print(f"⚠️ Error getting data for coordinates ({lat:.4f}, {lng:.4f}): {e}")
-                    # 使用默认值
-                    data.append({
-                        'name': f'数据点 {point_index + 1}',
-                        'lat': lat,
-                        'lng': lng,
-                        'bortle': 5,
-                        'sqm': '20.0',
-                        'intensity': 0.5,
-                        'brightness': 128,
-                        'rgb': [128, 128, 128],
-                        'hex': '#808080',
-                        'overlay_name': '默认数据'
-                    })
-                
-                point_index += 1
+                coordinates_list.append((lat, lng))
+                grid_info.append((lat, lng))
+
+        # 一次性批量查询（按行读取 GeoTIFF，效率远高于逐点读取）
+        batch_results = analyzer.batch_analyze_coordinates(coordinates_list)
+
+        data = []
+        for idx, result in enumerate(batch_results):
+            lat, lng = grid_info[idx]
+            pollution_info = result.get('pollution_info')
+
+            if pollution_info:
+                # 从批量查询结果中提取信息
+                brightness = pollution_info.brightness
+                bortle = brightness_to_bortle(brightness)
+                sqm = bortle_to_sqm(bortle)
+                intensity = brightness / 255.0
+
+                data.append({
+                    'name': f'数据点 {idx + 1}',
+                    'lat': lat,
+                    'lng': lng,
+                    'bortle': bortle,
+                    'sqm': f'{sqm:.1f}',
+                    'intensity': intensity,
+                    'brightness': brightness,
+                    'rgb': pollution_info.rgb,
+                    'hex': pollution_info.hex,
+                    'overlay_name': pollution_info.overlay_name,
+                })
+            else:
+                data.append({
+                    'name': f'数据点 {idx + 1}',
+                    'lat': lat,
+                    'lng': lng,
+                    'bortle': 5,
+                    'sqm': '20.0',
+                    'intensity': 0.5,
+                    'brightness': 128,
+                    'rgb': [128, 128, 128],
+                    'hex': '#808080',
+                    'overlay_name': '默认数据',
+                })
         
         print(f"✅ Successfully retrieved {len(data)} light pollution data points")
         
