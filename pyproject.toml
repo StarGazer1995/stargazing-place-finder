@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stargazing-place-finder"
-version = "0.5.1"
+version = "0.5.2"
 description = "Stargazing place finder: light pollution analysis and stargazing area analytics"
 readme = "README.md"
 license = {text = "MIT"}
