@@ -9,6 +9,7 @@ providing users with one-stop stargazing location assessment services.
 
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Tuple, Optional, Any
 import time
 from datetime import datetime
@@ -219,72 +220,94 @@ class StargazingLocationAnalyzer:
             except Exception as e:
                 print(f"  Batch light pollution failed: {e}")
 
-        # 2. Perform comprehensive analysis for each location
-        stargazing_locations = []
-        for i, location in enumerate(all_locations, 1):
-            print(f"Analyzing location {i}/{len(all_locations)}: {location.name} ({location.location_type})")
-            
-            # Create stargazing location object, adapted to unified Location class
-            stargazing_location = StargazingLocation(
-                name=location.name,
-                latitude=location.latitude,
-                longitude=location.longitude,
-                elevation=location.elevation,
-                prominence=location.prominence or 0.0,
-                distance_to_nearest_town=location.distance_to_nearest_town,
-                nearest_town_name=location.nearest_town_name,
-                height_difference=location.height_difference or 0.0,
-                location_type=location.location_type,
-                description=location.description
-            )
-            
-            # Compute nearby town density
-            if towns_data:
-                stargazing_location.nearby_town_count = self._count_nearby_towns(
-                    location.latitude, location.longitude, towns_data, radius_km=20.0
-                )
-            
-            # 3. Light pollution analysis (from pre-batched results)
-            if include_light_pollution and light_pollution_batch:
-                light_info = light_pollution_batch.get((location.latitude, location.longitude))
-                if light_info:
-                    stargazing_location.light_pollution_rgb = light_info.rgb
-                    stargazing_location.light_pollution_hex = light_info.hex
-                    stargazing_location.light_pollution_brightness = light_info.brightness
-                    stargazing_location.light_pollution_level = light_info.pollution_level
-                    stargazing_location.light_pollution_bortle = light_info.bortle
-                    stargazing_location.light_pollution_overlay = light_info.overlay_name
-            
-            # 4. Road connectivity analysis
-            if include_road_connectivity:
+        # 2. Perform comprehensive analysis for each location (parallel with max_workers=4)
+        total = len(all_locations)
+        stargazing_locations: List[StargazingLocation] = [None] * total
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(
+                    self._process_one_location, location, towns_data,
+                    light_pollution_batch, include_road_connectivity,
+                    network_type, i, total,
+                ): i
+                for i, location in enumerate(all_locations, 1)
+            }
+            for future in as_completed(futures):
+                idx = futures[future] - 1  # 1-based → 0-based
                 try:
-                    road_info = self.road_checker.get_accessibility_info(
-                        location.latitude, location.longitude, network_type=network_type
-                    )
-                    stargazing_location.road_accessible = road_info['accessible']
-                    stargazing_location.distance_to_road_km = road_info['distance_to_road_km']
-                    stargazing_location.road_network_type = network_type
-                    stargazing_location.road_check_error = road_info.get('error')
+                    stargazing_locations[idx] = future.result()
                 except Exception as e:
-                    print(f"  Road connectivity analysis failed: {e}")
-                    stargazing_location.road_check_error = str(e)
-            
-            # 5. Calculate comprehensive score
-            stargazing_location.stargazing_score = self._calculate_stargazing_score(stargazing_location)
-            stargazing_location.recommendation_level = self._get_recommendation_level_with_warning(stargazing_location)
-            stargazing_location.analysis_notes = self._generate_analysis_notes(stargazing_location)
-            
-            stargazing_locations.append(stargazing_location)
-            
-            if os.environ.get('FAST_TESTS') != '1':
-                time.sleep(0.5)
+                    print(f"  Location {idx + 1} analysis failed: {e}")
+        stargazing_locations = [loc for loc in stargazing_locations if loc is not None]
         
         # Sort by score
         stargazing_locations.sort(key=lambda x: x.stargazing_score or 0, reverse=True)
         
         print(f"Analysis completed, total {len(stargazing_locations)} stargazing locations")
         return stargazing_locations
-    
+
+    def _process_one_location(
+        self, location, towns_data, light_pollution_batch,
+        include_road_connectivity, network_type, index, total,
+    ) -> Optional[StargazingLocation]:
+        """
+        Process a single location for comprehensive analysis.
+        Designed for parallel execution via ThreadPoolExecutor.
+        """
+        print(f"Analyzing location {index}/{total}: {location.name} ({location.location_type})")
+
+        # Create stargazing location object
+        stargazing_location = StargazingLocation(
+            name=location.name,
+            latitude=location.latitude,
+            longitude=location.longitude,
+            elevation=location.elevation,
+            prominence=location.prominence or 0.0,
+            distance_to_nearest_town=location.distance_to_nearest_town,
+            nearest_town_name=location.nearest_town_name,
+            height_difference=location.height_difference or 0.0,
+            location_type=location.location_type,
+            description=location.description,
+        )
+
+        # Compute nearby town density
+        if towns_data:
+            stargazing_location.nearby_town_count = self._count_nearby_towns(
+                location.latitude, location.longitude, towns_data, radius_km=20.0
+            )
+
+        # Light pollution analysis (from pre-batched results)
+        if light_pollution_batch:
+            light_info = light_pollution_batch.get((location.latitude, location.longitude))
+            if light_info:
+                stargazing_location.light_pollution_rgb = light_info.rgb
+                stargazing_location.light_pollution_hex = light_info.hex
+                stargazing_location.light_pollution_brightness = light_info.brightness
+                stargazing_location.light_pollution_level = light_info.pollution_level
+                stargazing_location.light_pollution_bortle = light_info.bortle
+                stargazing_location.light_pollution_overlay = light_info.overlay_name
+
+        # Road connectivity analysis
+        if include_road_connectivity:
+            try:
+                road_info = self.road_checker.get_accessibility_info(
+                    location.latitude, location.longitude, network_type=network_type
+                )
+                stargazing_location.road_accessible = road_info['accessible']
+                stargazing_location.distance_to_road_km = road_info['distance_to_road_km']
+                stargazing_location.road_network_type = network_type
+                stargazing_location.road_check_error = road_info.get('error')
+            except Exception as e:
+                print(f"  Road connectivity analysis failed: {e}")
+                stargazing_location.road_check_error = str(e)
+
+        # Calculate comprehensive score
+        stargazing_location.stargazing_score = self._calculate_stargazing_score(stargazing_location)
+        stargazing_location.recommendation_level = self._get_recommendation_level_with_warning(stargazing_location)
+        stargazing_location.analysis_notes = self._generate_analysis_notes(stargazing_location)
+
+        return stargazing_location
+
     def _count_nearby_towns(self, lat: float, lon: float, 
                             towns: List[Dict], radius_km: float = 20.0) -> int:
         """Count additional towns within a given radius (excluding the nearest).
