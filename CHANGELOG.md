@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 (2026-06-11)
+
+- 架构重构: 新增 `src/gis_service/` 统一 GIS 查询服务模块，集中管理 PostGIS、Overpass API 和海拔查询
+- 新模块: `GisQueryService` 统一入口，支持 `query_locations()`、`find_elevation()`、`batch_find_elevations()`
+- 海拔查询: 4 级降级链（OSM 标签 → PostGIS → Open-Elevation API → 0.0）
+- 缓存重构: 统一内存 + 磁盘缓存，替换旧的 LocationCache / OverpassCache
+- 向后兼容: `StarGazingPlaceFinder` 新增 `gis_service` 参数，未提供时自动降级到旧路径
+- 版本升级: `pyproject.toml` 版本号更新为 `0.5.0`
+
 ## 0.4.2 (2026-06-06)
 
 - Bug 修复: GeoTIFF 后端初始化时缺少 `self.mountain_finder`，导致 `analyze_area()` 报 `AttributeError`
