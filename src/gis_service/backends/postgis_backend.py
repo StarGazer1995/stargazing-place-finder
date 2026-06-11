@@ -244,6 +244,124 @@ class PostgisBackend:
             except Exception:
                 pass
 
+    # ── 道路连通性查询 ────────────────────────────────────────
+
+    # network_type → highway 类型映射
+    _HIGHWAY_FILTERS: Dict[str, str] = {
+        'drive': (
+            "highway IN ('motorway','trunk','primary','secondary','tertiary',"
+            "'unclassified','residential','motorway_link','trunk_link',"
+            "'primary_link','secondary_link','tertiary_link','living_street','service')"
+        ),
+        'walk': (
+            "highway IN ('footway','path','steps','pedestrian','living_street','track')"
+        ),
+        'bike': (
+            "highway IN ('cycleway','path','track','living_street','bridleway')"
+        ),
+        'all': "highway IS NOT NULL",
+    }
+
+    def query_road_connectivity(
+        self,
+        lat: float, lon: float,
+        radius_km: float = 10.0,
+        network_type: str = 'drive',
+    ) -> Dict[str, Any]:
+        """
+        使用 PostGIS kNN 算子查询最近道路，替代 OSMnx HTTP 下载。
+
+        查询 planet_osm_line 表，用 <-> 算子利用 GiST 空间索引
+        找到最近的道路，返回距离、类型等信息，毫秒级完成。
+
+        Args:
+            lat: 纬度 (WGS84)
+            lon: 经度 (WGS84)
+            radius_km: 搜索半径（千米），用于判断是否可达
+            network_type: 道路类型 ('drive', 'walk', 'bike', 'all')
+
+        Returns:
+            Dict with:
+                - accessible: bool 是否可达（距离不超过 radius_km/2 且不超过 5km）
+                - distance_meters: float 到最近道路的距离（米）
+                - road_type: str 最近道路的 highway 类型
+                - road_name: Optional[str] 道路名称
+                - nearest_lat: Optional[float] 最近点纬度
+                - nearest_lon: Optional[float] 最近点经度
+        """
+        import psycopg2
+
+        highway_filter = self._HIGHWAY_FILTERS.get(network_type, 'highway IS NOT NULL')
+
+        try:
+            conn = psycopg2.connect(**self.config)
+            cursor = conn.cursor()
+
+            # 使用 <-> kNN 算子找最近道路
+            # - kNN 在 native SRID(3857) 上利用 GiST 索引
+            # - 距离用 geography 类型算精确米数
+            cursor.execute(f"""
+                SELECT
+                    highway,
+                    name,
+                    ST_Distance(
+                        ST_Transform(way, 4326)::geography,
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
+                    ) as distance_meters,
+                    ST_Y(ST_ClosestPoint(
+                        ST_Transform(way, 4326),
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)
+                    )) as nearest_lat,
+                    ST_X(ST_ClosestPoint(
+                        ST_Transform(way, 4326),
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)
+                    )) as nearest_lon
+                FROM planet_osm_line
+                WHERE {highway_filter}
+                ORDER BY way <-> ST_Transform(
+                    ST_SetSRID(ST_MakePoint(%s, %s), 4326), 3857
+                )
+                LIMIT 1;
+            """, (lon, lat, lon, lat, lon, lat, lon, lat))
+
+            row = cursor.fetchone()
+            cursor.close()
+            conn.close()
+
+            if row is None:
+                return {
+                    'accessible': False,
+                    'distance_meters': None,
+                    'road_type': None,
+                    'road_name': None,
+                    'nearest_lat': None,
+                    'nearest_lon': None,
+                }
+
+            highway, name, distance_meters, nearest_lat, nearest_lon = row
+            max_distance_meters = min(radius_km * 1000 / 2, 5000.0)
+
+            return {
+                'accessible': distance_meters <= max_distance_meters,
+                'distance_meters': distance_meters,
+                'road_type': highway,
+                'road_name': name,
+                'nearest_lat': nearest_lat,
+                'nearest_lon': nearest_lon,
+            }
+
+        except Exception as e:
+            logger.error("Road connectivity query failed for (%s, %s): %s", lat, lon, e)
+            return {
+                'accessible': False,
+                'distance_meters': None,
+                'road_type': None,
+                'road_name': None,
+                'nearest_lat': None,
+                'nearest_lon': None,
+                'error': str(e),
+            }
+
     # ── 统计信息 ──────────────────────────────────────────────
 
     def get_elevation_statistics(self) -> Dict[str, Any]:
