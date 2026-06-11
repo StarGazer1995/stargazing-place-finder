@@ -18,6 +18,7 @@ try:
     from .stargazing_place_finder import StarGazingPlaceFinder, Peak, PostGISClient
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
     from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+    from gis_service.query_service import GisQueryService
     from src.models import StargazingLocation
 except ImportError:
     import sys
@@ -26,6 +27,7 @@ except ImportError:
     from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Peak, PostGISClient
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
     from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+    from gis_service.query_service import GisQueryService
     from models import StargazingLocation
 
 
@@ -57,17 +59,20 @@ class StargazingLocationAnalyzer:
             road_search_radius_km: Search radius for road connectivity detection (kilometers)
             db_config_path: Optional path to database config file (JSON or TOML)
         """
-        # Initialize peak finder
+        # Initialize database & GIS service
         db_client = None
+        gis_service = None
         cfg_path = db_config_path or os.environ.get('DB_CONFIG_PATH')
         if cfg_path and os.path.exists(cfg_path):
             try:
                 db_cfg = self._load_db_config(cfg_path)
                 db_client = PostGISClient(db_cfg)
-                print("PostGIS client initialized successfully")
+                gis_service = GisQueryService(db_config=db_cfg)
+                print("PostGIS client & GIS query service initialized")
             except Exception as e:
-                print(f"PostGIS client initialization failed: {e}")
+                print(f"PostGIS initialization failed: {e}")
                 db_client = None
+                gis_service = None
         
         # Initialize light pollution analyzer (GeoTIFF backend only)
         self.light_pollution_analyzer = None
@@ -84,6 +89,7 @@ class StargazingLocationAnalyzer:
                 min_height_difference=min_height_difference,
                 light_pollution_analyzer=self.light_pollution_analyzer,
                 db_client=db_client,
+                gis_service=gis_service,
             )
         else:
             if geotiff_path:
@@ -95,10 +101,14 @@ class StargazingLocationAnalyzer:
             self.mountain_finder = StarGazingPlaceFinder(
                 min_height_difference=min_height_difference,
                 db_client=db_client,
+                gis_service=gis_service,
             )
         
-        # Initialize road connectivity checker
-        self.road_checker = RoadConnectivityChecker(search_radius_km=road_search_radius_km)
+        # Initialize road connectivity checker with GIS service for PostGIS fast path
+        self.road_checker = RoadConnectivityChecker(
+            search_radius_km=road_search_radius_km,
+            gis_service=gis_service,
+        )
         
         print("Stargazing location analyzer initialization completed")
 
