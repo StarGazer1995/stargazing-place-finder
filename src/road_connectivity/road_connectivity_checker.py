@@ -18,6 +18,7 @@ import osmnx as ox
 from geopy.distance import geodesic
 
 from cache.cache_config import get_cache_dir, setup_osmnx_cache
+from config import StargazingConfig
 from models import DataError, GeoCoordinate, NetworkError, NoDataError, RoadAccessInfo
 
 # 配置日志
@@ -135,7 +136,13 @@ class RoadConnectivityChecker:
     Used to detect whether specified coordinates have road network connections
     """
 
-    def __init__(self, search_radius_km: float = 10.0, max_distance_to_road_km: float = 0.2, gis_service=None):
+    def __init__(
+        self,
+        search_radius_km: float = 10.0,
+        max_distance_to_road_km: float = 0.2,
+        gis_service=None,
+        config: Optional[StargazingConfig] = None,
+    ):
         """
         Initialize road connectivity checker
 
@@ -146,7 +153,12 @@ class RoadConnectivityChecker:
             gis_service: GisQueryService instance for PostGIS-accelerated queries.
                          When provided and PostGIS is enabled, road connectivity
                          queries use millisecond-level kNN SQL instead of OSMnx HTTP.
+            config: Optional StargazingConfig instance. When provided, overrides
+                    search_radius_km and max_distance_to_road_km with config values.
         """
+        if config is not None:
+            search_radius_km = config.road_search_radius_km
+            max_distance_to_road_km = config.max_distance_to_road_km
         self.search_radius_km = search_radius_km
         self.max_distance_to_road_km = max_distance_to_road_km
         self.graph_cache = {}  # Cache downloaded road networks

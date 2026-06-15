@@ -14,6 +14,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from config import StargazingConfig
+
 # Import related modules
 from gis_service.query_service import GisQueryService
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
@@ -51,6 +53,7 @@ class StargazingLocationAnalyzer:
         road_search_radius_km: float = 10.0,
         max_distance_to_road_km: float = 0.2,
         db_config_path: Optional[str] = None,
+        config: Optional[StargazingConfig] = None,
     ):
         """
         Initialize stargazing location analyzer
@@ -65,7 +68,14 @@ class StargazingLocationAnalyzer:
             road_search_radius_km: Search radius for road connectivity detection (kilometers)
             max_distance_to_road_km: Maximum acceptable distance to road (km), default 0.2 (200m walk)
             db_config_path: Optional path to database config file (JSON or TOML)
+            config: Centralised StargazingConfig instance. When provided, its
+                values override the individual keyword defaults above.
         """
+        if config is not None:
+            min_height_difference = config.min_height_difference
+            road_search_radius_km = config.road_search_radius_km
+            max_distance_to_road_km = config.max_distance_to_road_km
+
         # Initialize GIS service
         gis_service = None
         cfg_path = db_config_path or os.environ.get("DB_CONFIG_PATH")
@@ -268,7 +278,9 @@ class StargazingLocationAnalyzer:
             stargazing_locations = filtered
             after_count = len(stargazing_locations)
             if after_count < before_count:
-                logger.info("Road distance filter: removed %s locations (%s remaining)", before_count - after_count, after_count)
+                logger.info(
+                    "Road distance filter: removed %s locations (%s remaining)", before_count - after_count, after_count
+                )
 
         # Sort by score
         stargazing_locations.sort(key=lambda x: x.stargazing_score or 0, reverse=True)
@@ -720,6 +732,7 @@ def analyze_stargazing_area(
     db_config_path: Optional[str] = None,
     min_distance_to_road_km: Optional[float] = None,
     max_distance_to_road_km: Optional[float] = None,
+    config: Optional[StargazingConfig] = None,
 ) -> List[StargazingLocation]:
     """
     Convenience function: Analyze stargazing locations in specified area
@@ -737,16 +750,27 @@ def analyze_stargazing_area(
         db_config_path: Optional path to database config file
         min_distance_to_road_km: Minimum distance to road in km (filter out places too close)
         max_distance_to_road_km: Maximum distance to road in km (filter out places too far)
+        config: Centralised StargazingConfig instance. When provided, its
+            values override the individual keyword defaults above.
 
     Returns:
         List of stargazing locations
     """
+    if config is not None:
+        min_height_diff = config.min_height_difference
+        road_radius_km = config.road_search_radius_km
+        if max_distance_to_road_km is None:
+            max_distance_to_road_km = config.max_distance_to_road_km
+        if min_distance_to_road_km is None:
+            min_distance_to_road_km = config.min_distance_to_road_km
     analyzer = StargazingLocationAnalyzer(
         geotiff_path=geotiff_path,
         kml_file_path=kml_file_path,
         min_height_difference=min_height_diff,
         road_search_radius_km=road_radius_km,
+        max_distance_to_road_km=max_distance_to_road_km,
         db_config_path=db_config_path,
+        config=config,
     )
 
     bbox = (south, west, north, east)

@@ -11,6 +11,7 @@ import json
 import logging
 from typing import Dict, List, Optional
 
+from config import StargazingConfig
 from gis_service.parsers import (
     extract_coordinates,
     find_nearest_town,
@@ -38,6 +39,7 @@ class StarGazingPlaceFinder:
         min_height_difference: float = 100.0,
         light_pollution_analyzer: Optional[LightPollutionAnalyzer] = None,
         gis_service: Optional[GisQueryService] = None,
+        config: Optional[StargazingConfig] = None,
     ):
         """
         Initialize stargazing place finder.
@@ -48,7 +50,11 @@ class StarGazingPlaceFinder:
             light_pollution_analyzer: Light pollution analyzer instance.
             gis_service: GisQueryService instance for unified GIS queries.
                          If None, a default instance is created.
+            config: Centralised StargazingConfig instance. When provided, its
+                values override the individual keyword defaults above.
         """
+        if config is not None:
+            min_height_difference = config.min_height_difference
         self.min_height_difference = min_height_difference
         self.light_pollution_analyzer = light_pollution_analyzer
         self.gis_service = gis_service or GisQueryService()
@@ -103,7 +109,7 @@ class StarGazingPlaceFinder:
                 logger.warning(
                     "%s data missing coordinate information, skipping: %s",
                     location_type,
-                    location_data.get('id', 'unknown'),
+                    location_data.get("id", "unknown"),
                 )
                 continue
 

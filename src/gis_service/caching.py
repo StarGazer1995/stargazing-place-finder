@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from cache.cache_config import get_cache_dir
+from config import StargazingConfig
 from models import DataError
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,14 @@ class GisQueryCache:
     自动过期清理。
     """
 
-    def __init__(self, cache_expiry_hours: int = 24, cache_type: str = "location_results"):
+    def __init__(
+        self,
+        cache_expiry_hours: int = 24,
+        cache_type: str = "location_results",
+        config: Optional[StargazingConfig] = None,
+    ):
+        if config is not None:
+            cache_expiry_hours = config.cache_expiry_hours
         self.cache_expiry_seconds = cache_expiry_hours * 3600
         self.cache_dir = get_cache_dir(cache_type)
 

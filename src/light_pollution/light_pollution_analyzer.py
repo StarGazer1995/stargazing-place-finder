@@ -17,6 +17,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
+from config import StargazingConfig
 from models import GeoError, LightPollutionInfo
 
 try:
@@ -133,6 +134,7 @@ class LightPollutionAnalyzer:
         geotiff_path: Optional[Union[str, Path]] = None,
         skyglow_sigma_km: float = 15.0,
         skyglow_weight: float = 0.4,
+        config: Optional[StargazingConfig] = None,
     ):
         """Initialize the analyzer.
 
@@ -142,11 +144,17 @@ class LightPollutionAnalyzer:
             skyglow_sigma_km: Gaussian sigma (km) for skyglow diffusion.
                 0 disables skyglow correction.
             skyglow_weight: How much of the skyglow to add back (0-1).
+            config: Centralised StargazingConfig instance. When provided, its
+                values override the individual keyword defaults above.
 
         Raises:
             ImportError: When rasterio is not installed.
             FileNotFoundError: When the GeoTIFF file does not exist.
         """
+        if config is not None:
+            skyglow_sigma_km = config.skyglow_sigma_km
+            skyglow_weight = config.skyglow_weight
+
         if rasterio is None:
             raise ImportError("rasterio is required. Install with: uv add rasterio")
 
@@ -223,7 +231,9 @@ class LightPollutionAnalyzer:
         self._skyglow_ds = ds
         self._skyglow_shape = self._skyglow_grid.shape
 
-        logger.info("  Skyglow grid: %s×%s at ~%.1f km/px", self._skyglow_shape[1], self._skyglow_shape[0], _GEOTIFF_RES_KM * ds)
+        logger.info(
+            "  Skyglow grid: %s×%s at ~%.1f km/px", self._skyglow_shape[1], self._skyglow_shape[0], _GEOTIFF_RES_KM * ds
+        )
 
     def _get_skyglow(self, latitude: float, longitude: float) -> float:
         """Get the skyglow contribution (nW/cm²/sr) at a point via interpolation.

@@ -7,10 +7,12 @@ Specialized for quickly determining whether destinations have road connectivity
 
 import logging
 import os
+from typing import Optional
 
 import osmnx as ox
 
 from cache.cache_config import setup_osmnx_cache
+from config import StargazingConfig
 from models import NetworkError, NoDataError
 
 # Configure logging
@@ -26,14 +28,24 @@ class SimpleRoadChecker:
     Focused on quickly determining whether specified coordinates have road accessibility
     """
 
-    def __init__(self, search_radius_km: float = 5.0, max_distance_to_road_km: float = 2.0):
+    def __init__(
+        self,
+        search_radius_km: float = 5.0,
+        max_distance_to_road_km: float = 2.0,
+        config: Optional[StargazingConfig] = None,
+    ):
         """
         Initialize road connectivity checker
 
         Args:
             search_radius_km: Search radius (kilometers)
             max_distance_to_road_km: Maximum acceptable distance to road (kilometers)
+            config: Optional StargazingConfig instance. When provided, overrides
+                    search_radius_km and max_distance_to_road_km with config values.
         """
+        if config is not None:
+            search_radius_km = config.road_search_radius_km
+            max_distance_to_road_km = config.max_distance_to_road_km
         self.search_radius_km = search_radius_km
         self.max_distance_to_road_km = max_distance_to_road_km
 

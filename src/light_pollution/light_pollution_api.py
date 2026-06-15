@@ -53,8 +53,8 @@ def init_analyzer():
 
         # 显示统计信息
         stats = analyzer.get_statistics()
-        logger.info("Dataset dimensions: %sx%s", stats.get('width'), stats.get('height'))
-        logger.info("Data path: %s", stats.get('data_path'))
+        logger.info("Dataset dimensions: %sx%s", stats.get("width"), stats.get("height"))
+        logger.info("Data path: %s", stats.get("data_path"))
 
     except (ConfigError, FileNotFoundError) as e:
         logger.error("❌ Light pollution analyzer initialization failed: %s", e)
@@ -399,7 +399,9 @@ def get_light_pollution_data():
         west = float(request.args.get("west", 0))
         zoom = int(request.args.get("zoom", 10))
 
-        logger.info("🌍 Getting light pollution data: bounds=(%s, %s) to (%s, %s), zoom=%s", south, west, north, east, zoom)
+        logger.info(
+            "🌍 Getting light pollution data: bounds=(%s, %s) to (%s, %s), zoom=%s", south, west, north, east, zoom
+        )
 
         # 根据缩放级别确定网格分辨率
         if zoom <= 8:
@@ -426,7 +428,9 @@ def get_light_pollution_data():
             scale_factor = math.sqrt(max_points / total_points)
             grid_rows = max(1, int(grid_rows * scale_factor))
             grid_cols = max(1, int(grid_cols * scale_factor))
-            logger.warning("⚠️ Too many grid points, adjusted to %sx%s = %s points", grid_rows, grid_cols, grid_rows * grid_cols)
+            logger.warning(
+                "⚠️ Too many grid points, adjusted to %sx%s = %s points", grid_rows, grid_cols, grid_rows * grid_cols
+            )
 
         logger.info("🔢 Generating grid: %sx%s = %s points", grid_rows, grid_cols, grid_rows * grid_cols)
 

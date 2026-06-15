@@ -9,6 +9,7 @@ GisQueryService — 统一的 GIS 查询服务入口。
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+from config import StargazingConfig
 from models import LatLonBox
 
 from .backends.elevation_backend import ElevationBackend
@@ -41,6 +42,7 @@ class GisQueryService:
         db_config_path: Optional[str] = None,
         enable_cache: bool = True,
         cache_expiry_hours: int = 24,
+        config: Optional[StargazingConfig] = None,
     ):
         """
         Args:
@@ -48,7 +50,10 @@ class GisQueryService:
             db_config_path: 数据库配置文件的路径（JSON 或 TOML）
             enable_cache: 是否启用查询结果缓存
             cache_expiry_hours: 缓存过期时间（小时）
+            config: 集中式配置对象（优先级高于单独参数）
         """
+        if config is not None:
+            cache_expiry_hours = config.cache_expiry_hours
         # 加载数据库配置
         resolved_config = db_config or load_db_config(db_config_path)
         self.postgis_enabled = resolved_config is not None

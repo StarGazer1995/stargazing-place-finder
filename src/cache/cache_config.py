@@ -160,9 +160,9 @@ if __name__ == "__main__":
     logger.info("Cache Configuration Information:")
     logger.info("=" * 50)
     info = get_cache_info()
-    logger.info("Cache root directory: %s", info['cache_root'])
-    logger.info("Total size: %s", info['total_size'])
+    logger.info("Cache root directory: %s", info["cache_root"])
+    logger.info("Total size: %s", info["total_size"])
     logger.info("Subdirectories:")
     for cache_type, details in info["subdirs"].items():
         status = "✅" if details["exists"] else "❌"
-        logger.info("  %s %s: %s (%s)", status, cache_type, details['path'], details['size'])
+        logger.info("  %s %s: %s (%s)", status, cache_type, details["path"], details["size"])
