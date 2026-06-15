@@ -16,6 +16,7 @@
 - 基础设施: 引入 ruff 作为格式化/静态检查工具，配置写入 `pyproject.toml` `[tool.ruff]`
 - 基础设施: CI 新增 `lint` job，在 PR 时自动检查 `ruff format` 和 `ruff check`
 - 代码清理: 修复多处 bare `except`、未使用的 import/变量，添加 `__all__` 导出声明
+- 基础设施: GeoTIFF 数据从 Git LFS 迁移至 GitHub Release 托管，消除 LFS 配额限制对 CI/CD 的影响
 
 ## 0.5.2 (2026-06-11)
 
