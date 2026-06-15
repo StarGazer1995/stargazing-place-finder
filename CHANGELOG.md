@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.0 (2026-06-11)
+## 0.6.0 (2026-06-15)
 
 - 性能优化: Phase 1 完成 — 50 点 analysis_area 从 200-500s 降至 ~3-5s
   - **PostGIS 道路连通性**: 新增 `PostgisBackend.query_road_connectivity()`，kNN 查询 ~30ms/点（vs OSMnx 1-5s）
@@ -10,8 +10,12 @@
   - **光污染网格批量**: `/api/light_pollution` 改用 `batch_analyze_coordinates()`，~3-10×
   - **analyze_area 光污染批量**: 提前 `batch_analyze_coordinates()` 一次，循环内查表
   - **逐点并行处理**: `ThreadPoolExecutor(max_workers=4)` 并行处理 50 点分析
-- 依赖补充: `pytest`, `pytest-cov`, `responses`, `freezegun`, `requests-mock` 加入 dev 依赖
-- 新增提交策略到 AGENTS.md（不提交未完成的设计文档、本地配置等）
+- 新功能: 道路距离过滤 — 命令行 `--min-road-distance` / `--max-road-distance`，API `min_distance_to_road_km` / `max_distance_to_road_km`
+- 变更: 道路连通性判定阈值从 5km 缩小到 200m（`max_distance_to_road_km=0.2`），更符合实际携带装备步行的场景
+- 变更: 道路评分档次调整，反映新的 200m 阈值（50–200m 为理想区间）
+- 基础设施: 引入 ruff 作为格式化/静态检查工具，配置写入 `pyproject.toml` `[tool.ruff]`
+- 基础设施: CI 新增 `lint` job，在 PR 时自动检查 `ruff format` 和 `ruff check`
+- 代码清理: 修复多处 bare `except`、未使用的 import/变量，添加 `__all__` 导出声明
 
 ## 0.5.2 (2026-06-11)
 

@@ -9,61 +9,68 @@ providing users with one-stop stargazing location assessment services.
 
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Tuple, Optional, Any
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 # Import related modules
 try:
-    from .stargazing_place_finder import StarGazingPlaceFinder, Peak, PostGISClient
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
     from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
     from gis_service.query_service import GisQueryService
     from src.models import StargazingLocation
+
+    from .stargazing_place_finder import PostGISClient, StarGazingPlaceFinder
 except ImportError:
-    import sys
     import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
-    from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder, Peak, PostGISClient
+    import sys
+
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+from gis_service.query_service import GisQueryService
+from models import StargazingLocation
     from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
-    from gis_service.query_service import GisQueryService
-    from models import StargazingLocation
+    from stargazing_analyzer.stargazing_place_finder import PostGISClient, StarGazingPlaceFinder
 
 
 class StargazingLocationAnalyzer:
     """
     Stargazing Location Comprehensive Analyzer
-    
+
     Integrates peak finding, light pollution analysis, and road connectivity detection,
     providing comprehensive stargazing suitability analysis for peaks within specified coordinate ranges.
     """
-    
-    def __init__(self, 
-                 kml_file_path: Optional[str] = None,
-                 images_base_path: Optional[str] = None,
-                 geotiff_path: Optional[str] = None,
-                 min_height_difference: float = 100.0,
-                 road_search_radius_km: float = 10.0,
-                 db_config_path: Optional[str] = None):
+
+    def __init__(
+        self,
+        kml_file_path: Optional[str] = None,
+        images_base_path: Optional[str] = None,
+        geotiff_path: Optional[str] = None,
+        min_height_difference: float = 100.0,
+        road_search_radius_km: float = 10.0,
+        max_distance_to_road_km: float = 0.2,
+        db_config_path: Optional[str] = None,
+    ):
         """
         Initialize stargazing location analyzer
-        
+
         Args:
-            kml_file_path: Light pollution KML file path (legacy backend). 
+            kml_file_path: Light pollution KML file path (legacy backend).
                 If None and geotiff_path is also None, light pollution analysis is skipped.
             images_base_path: Light pollution image file base path (legacy backend).
-            geotiff_path: VIIRS GeoTIFF file path (recommended). 
+            geotiff_path: VIIRS GeoTIFF file path (recommended).
                 If provided, uses the GeoTIFF backend instead of KML.
             min_height_difference: Minimum height difference between peaks and surrounding towns (meters)
             road_search_radius_km: Search radius for road connectivity detection (kilometers)
+            max_distance_to_road_km: Maximum acceptable distance to road (km), default 0.2 (200m walk)
             db_config_path: Optional path to database config file (JSON or TOML)
         """
         # Initialize database & GIS service
         db_client = None
         gis_service = None
-        cfg_path = db_config_path or os.environ.get('DB_CONFIG_PATH')
+        cfg_path = db_config_path or os.environ.get("DB_CONFIG_PATH")
         if cfg_path and os.path.exists(cfg_path):
             try:
                 db_cfg = self._load_db_config(cfg_path)
@@ -74,7 +81,7 @@ class StargazingLocationAnalyzer:
                 print(f"PostGIS initialization failed: {e}")
                 db_client = None
                 gis_service = None
-        
+
         # Initialize light pollution analyzer (GeoTIFF backend only)
         self.light_pollution_analyzer = None
         if geotiff_path and os.path.exists(geotiff_path):
@@ -104,49 +111,53 @@ class StargazingLocationAnalyzer:
                 db_client=db_client,
                 gis_service=gis_service,
             )
-        
         # Initialize road connectivity checker with GIS service for PostGIS fast path
         self.road_checker = RoadConnectivityChecker(
             search_radius_km=road_search_radius_km,
+            max_distance_to_road_km=max_distance_to_road_km,
             gis_service=gis_service,
         )
-        
         print("Stargazing location analyzer initialization completed")
 
     def _load_db_config(self, path: str) -> Dict[str, Any]:
         """
         Load database configuration from a file path (JSON or TOML).
-        
+
         Args:
             path: File path to configuration
-        
+
         Returns:
             Parsed configuration dictionary
         """
         ext = os.path.splitext(path)[1].lower()
-        if ext in ('.json', ''):
-            with open(path, 'r', encoding='utf-8') as f:
+        if ext in (".json", ""):
+            with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        elif ext == '.toml':
+        elif ext == ".toml":
             try:
                 import tomllib  # Python 3.11+
-                with open(path, 'rb') as f:
+
+                with open(path, "rb") as f:
                     return tomllib.load(f)
             except Exception as e:
                 raise RuntimeError(f"Failed to parse TOML config: {e}")
         else:
             raise ValueError(f"Unsupported config format: {ext}")
-    
-    def analyze_area(self, 
-                    bbox: Tuple[float, float, float, float],
-                    max_locations: int = 50,
-                    location_types: List[str] = None,
-                    network_type: str = 'drive',
-                    include_light_pollution: bool = True,
-                    include_road_connectivity: bool = True) -> List[StargazingLocation]:
+
+    def analyze_area(
+        self,
+        bbox: Tuple[float, float, float, float],
+        max_locations: int = 50,
+        location_types: List[str] = None,
+        network_type: str = "drive",
+        include_light_pollution: bool = True,
+        include_road_connectivity: bool = True,
+        min_distance_to_road_km: Optional[float] = None,
+        max_distance_to_road_km: Optional[float] = None,
+    ) -> List[StargazingLocation]:
         """
         Analyze stargazing locations within specified area (supports multiple types like peaks, observatories, viewpoints)
-        
+
         Args:
             bbox: Bounding box (south, west, north, east)
             max_locations: Maximum number of locations
@@ -155,58 +166,60 @@ class StargazingLocationAnalyzer:
             network_type: Road network type ('drive', 'walk', 'bike', 'all')
             include_light_pollution: Whether to include light pollution analysis
             include_road_connectivity: Whether to include road connectivity analysis
-            
+            min_distance_to_road_km: Minimum distance to road in km (filter out places too close to road)
+            max_distance_to_road_km: Maximum distance to road in km (filter out places too far from road)
+
         Returns:
             List of stargazing locations
         """
         print(f"Starting area analysis: {bbox}")
-        
+
         # Default to searching all types of locations
         if location_types is None:
-            location_types = ['mountain_peak', 'observatory', 'viewpoint']
-        
+            location_types = ["mountain_peak", "observatory", "viewpoint"]
+
         all_locations = []
-        
+
         # 1. Search for locations based on specified types
         for location_type in location_types:
             print(f"Searching for {location_type}...")
-            
-            if location_type == 'mountain_peak':
+
+            if location_type == "mountain_peak":
                 locations = self.mountain_finder.find_peaks_in_area(bbox, max_locations=max_locations)
-            elif location_type == 'observatory':
+            elif location_type == "observatory":
                 locations = self.mountain_finder.find_observatories_in_area(bbox, max_observatories=max_locations)
-            elif location_type == 'viewpoint':
+            elif location_type == "viewpoint":
                 locations = self.mountain_finder.find_viewpoints_in_area(bbox, max_viewpoints=max_locations)
             else:
                 print(f"  Warning: Unsupported location type {location_type}")
                 continue
-            
+
             if locations:
                 print(f"Found {len(locations)} {location_type}")
                 all_locations.extend(locations)
             else:
                 print(f"No qualifying {location_type} found")
-        
+
         if not all_locations:
             print("No qualifying stargazing locations found")
             return []
-        
+
         # Limit total number
         if len(all_locations) > max_locations:
             all_locations = all_locations[:max_locations]
-        
+
         print(f"Total {len(all_locations)} locations found, starting detailed analysis...")
-        
-        if os.environ.get('FAST_TESTS') == '1':
+
+        if os.environ.get("FAST_TESTS") == "1":
             include_road_connectivity = False
-        
+
         # Fetch towns data once for town density computation
         towns_data = []
         try:
             towns_data = self.mountain_finder.get_towns_from_overpass(bbox)
         except Exception:
             pass  # Town density is optional
-        
+
         # 2a. Batch light pollution analysis (one GeoTIFF batch read instead of N per-point reads)
         light_pollution_batch: Dict[Tuple[float, float], Any] = {}
         if include_light_pollution and self.light_pollution_analyzer:
@@ -239,10 +252,28 @@ class StargazingLocationAnalyzer:
                 except Exception as e:
                     print(f"  Location {idx + 1} analysis failed: {e}")
         stargazing_locations = [loc for loc in stargazing_locations if loc is not None]
-        
+
+        # 3. Filter by road distance if specified
+        if min_distance_to_road_km is not None or max_distance_to_road_km is not None:
+            before_count = len(stargazing_locations)
+            filtered = []
+            for loc in stargazing_locations:
+                d = loc.distance_to_road_km
+                if d is None:
+                    continue
+                if min_distance_to_road_km is not None and d < min_distance_to_road_km:
+                    continue
+                if max_distance_to_road_km is not None and d > max_distance_to_road_km:
+                    continue
+                filtered.append(loc)
+            stargazing_locations = filtered
+            after_count = len(stargazing_locations)
+            if after_count < before_count:
+                print(f"Road distance filter: removed {before_count - after_count} locations ({after_count} remaining)")
+
         # Sort by score
         stargazing_locations.sort(key=lambda x: x.stargazing_score or 0, reverse=True)
-        
+
         print(f"Analysis completed, total {len(stargazing_locations)} stargazing locations")
         return stargazing_locations
 
@@ -308,62 +339,61 @@ class StargazingLocationAnalyzer:
 
         return stargazing_location
 
-    def _count_nearby_towns(self, lat: float, lon: float, 
-                            towns: List[Dict], radius_km: float = 20.0) -> int:
+    def _count_nearby_towns(self, lat: float, lon: float, towns: List[Dict], radius_km: float = 20.0) -> int:
         """Count additional towns within a given radius (excluding the nearest).
-        
+
         Args:
             lat, lon: Location coordinates
             towns: List of town data dicts
             radius_km: Search radius in km
-            
+
         Returns:
             Number of additional towns within radius (0 = only nearest town or none)
         """
         if not towns:
             return 0
-        
+
         distances = []
         for town in towns:
             try:
-                if town.get('type') == 'node':
-                    t_lat, t_lon = town['lat'], town['lon']
-                elif 'center' in town:
-                    t_lat, t_lon = town['center']['lat'], town['center']['lon']
+                if town.get("type") == "node":
+                    t_lat, t_lon = town["lat"], town["lon"]
+                elif "center" in town:
+                    t_lat, t_lon = town["center"]["lat"], town["center"]["lon"]
                 else:
                     continue
             except (KeyError, TypeError):
                 continue
-            
+
             distance = self.mountain_finder.calculate_distance(lat, lon, t_lat, t_lon)
             if distance <= radius_km:
                 distances.append(distance)
-        
+
         # Exclude the nearest town (count additional towns only)
         return max(0, len(distances) - 1)
-    
+
     # Bortle → score mapping (0–35 points)
     _BORTLE_SCORES = {1: 35, 2: 31, 3: 26, 4: 20, 5: 14, 6: 8, 7: 3, 8: 1, 9: 0}
-    
+
     def _calculate_stargazing_score(self, location: StargazingLocation) -> float:
         """
         Calculate comprehensive score for stargazing location.
-        
+
         Scoring weights (total 100 points):
         - Light pollution  (0-35): Bortle scale — the most critical factor
         - Town isolation   (0-20): Distance to nearest town + density penalty
         - Road access      (0-20): Practical usability
         - Elevation+terrain(0-15): Altitude + height above surrounding towns
         - Location type    (0-10): Mountain prominence, observatory, viewpoint
-        
+
         Args:
             location: Stargazing location object
-            
+
         Returns:
             Comprehensive score (0-100 points)
         """
         score = 0.0
-        
+
         # ================================================================
         # 1. Light Pollution (0-35 points) — Bortle-based
         # ================================================================
@@ -373,34 +403,39 @@ class StargazingLocationAnalyzer:
             # Fallback: approximate Bortle from brightness, then score
             b = location.light_pollution_brightness
             if b < 30:
-                score += 35      # ~Bortle 1
+                score += 35  # ~Bortle 1
             elif b < 60:
-                score += 31      # ~Bortle 2
+                score += 31  # ~Bortle 2
             elif b < 90:
-                score += 26      # ~Bortle 3
+                score += 26  # ~Bortle 3
             elif b < 120:
-                score += 20      # ~Bortle 4
+                score += 20  # ~Bortle 4
             elif b < 150:
-                score += 14      # ~Bortle 5
+                score += 14  # ~Bortle 5
             elif b < 180:
-                score += 8       # ~Bortle 6
+                score += 8  # ~Bortle 6
             elif b < 210:
-                score += 3       # ~Bortle 7
+                score += 3  # ~Bortle 7
             elif b < 240:
-                score += 1       # ~Bortle 8
+                score += 1  # ~Bortle 8
             else:
-                score += 0       # ~Bortle 9
+                score += 0  # ~Bortle 9
         elif location.light_pollution_level:
             # Legacy string matching for old KML data
             legacy = {
-                'Extremely Low': 35, 'Very Low': 31, 'Low': 26, 'Medium': 20,
-                'High': 14, 'Very High': 8, 'Extremely High': 3
+                "Extremely Low": 35,
+                "Very Low": 31,
+                "Low": 26,
+                "Medium": 20,
+                "High": 14,
+                "Very High": 8,
+                "Extremely High": 3,
             }
             score += legacy.get(location.light_pollution_level, 18)
         else:
             print(f"⚠️  Warning: {location.name} lacks light pollution data, scoring accuracy affected")
             score += 18  # Conservative middle
-        
+
         # ================================================================
         # 2. Town Isolation (0-20 points) — Distance + density
         # ================================================================
@@ -418,37 +453,34 @@ class StargazingLocationAnalyzer:
                 dist_score = 3
             else:
                 dist_score = 0
-            
+
             # Density penalty: -2 per additional town within 20km (max -8)
             density_penalty = min(location.nearby_town_count * 2, 8)
             score += max(0, dist_score - density_penalty)
         else:
             score += 8  # Unknown town distance → medium
-        
+
         # ================================================================
         # 3. Road Accessibility (0-20 points)
+        #    Threshold: ≤200m from road = accessible (can park + walk)
         # ================================================================
         if location.road_accessible is not None:
             if location.road_accessible:
                 if location.distance_to_road_km is not None:
                     d = location.distance_to_road_km
-                    if d < 0.5:
-                        score += 14   # Very close — convenient but potential light/noise
-                    elif d <= 5:
-                        score += 20   # Ideal: remote enough yet accessible
-                    elif d <= 10:
-                        score += 16   # Acceptable distance
-                    elif d <= 20:
-                        score += 10   # Far, but reachable
+                    if d <= 0.05:
+                        score += 14  # ≤50m — convenient but potential road noise/light
+                    elif d <= 0.2:
+                        score += 20  # 50-200m — ideal: drive close, walk to dark spot
                     else:
-                        score += 4    # Very far — poor accessibility
+                        score += 10  # Beyond threshold, should not happen by logic
                 else:
-                    score += 12       # Accessible but distance unknown
+                    score += 12  # Accessible but distance unknown
             else:
-                score += 0            # Not accessible at all
+                score += 0  # Not accessible (>200m from road)
         else:
-            score += 10               # Unknown status
-        
+            score += 10  # Unknown status
+
         # ================================================================
         # 4. Elevation + Terrain (0-15 points)
         #    Combines absolute altitude and height above nearest town
@@ -456,15 +488,15 @@ class StargazingLocationAnalyzer:
         if location.elevation:
             # Base elevation: 1pt per 200m, capped at 8 (1600m)
             elevation_score = min(location.elevation / 200.0, 8.0)
-            
+
             # Height-difference bonus: the higher above nearest town, the better
             # (above the light/haze layer)
             height_bonus = 0.0
             if location.height_difference:
                 height_bonus = min(location.height_difference / 200.0, 7.0)
-            
+
             score += elevation_score + height_bonus
-        
+
         # ================================================================
         # 5. Location Type (0-10 points)
         # ================================================================
@@ -473,46 +505,46 @@ class StargazingLocationAnalyzer:
                 # 1pt per 200m prominence, capped at 10 (2000m)
                 score += min(location.prominence / 200.0, 10.0)
         elif location.is_observatory():
-            score += 6   # Observatory base (city observatories exist)
+            score += 6  # Observatory base (city observatories exist)
         elif location.is_viewpoint():
             if location.height_difference:
                 score += min(location.height_difference / 150.0, 10.0)
             else:
                 score += 5
-        
+
         return round(score, 1)
-    
+
     def _get_recommendation_level_with_warning(self, location: StargazingLocation) -> str:
         """
         Get recommendation level based on score, add warning when light pollution data is missing
-        
+
         Args:
             location: Stargazing location object
-            
+
         Returns:
             Recommendation level description (including warning information)
         """
         base_level = self._get_recommendation_level(location.stargazing_score)
-        
+
         # Check if light pollution data is missing
         if location.light_pollution_brightness is None:
             return base_level + " (⚠️Missing light pollution data)"
-        
+
         return base_level
-    
+
     def _get_recommendation_level(self, score: Optional[float]) -> str:
         """
         Get recommendation level based on score
-        
+
         Args:
             score: Comprehensive score
-            
+
         Returns:
             Recommendation level description
         """
         if score is None:
             return "Unrated"
-        
+
         if score >= 80:
             return "Highly Recommended ⭐⭐⭐⭐⭐"
         elif score >= 70:
@@ -523,25 +555,29 @@ class StargazingLocationAnalyzer:
             return "Consider ⭐⭐"
         else:
             return "Not Recommended ⭐"
-    
+
     def _generate_analysis_notes(self, location: StargazingLocation) -> str:
         """
         Generate analysis notes
-        
+
         Args:
             location: Stargazing location object
-            
+
         Returns:
             Analysis notes string
         """
         notes = []
-        
+
         # Altitude advantage
         if location.height_difference > 300:
-            notes.append(f"Significant altitude advantage, {location.height_difference:.0f}m higher than {location.nearest_town_name}")
+            notes.append(
+                f"Significant altitude advantage, {location.height_difference:.0f}m higher than {location.nearest_town_name}"
+            )
         elif location.height_difference > 150:
-            notes.append(f"Some altitude advantage, {location.height_difference:.0f}m higher than {location.nearest_town_name}")
-        
+            notes.append(
+                f"Some altitude advantage, {location.height_difference:.0f}m higher than {location.nearest_town_name}"
+            )
+
         # Light pollution status
         if location.light_pollution_brightness is not None:
             if location.light_pollution_brightness < 64:
@@ -552,7 +588,7 @@ class StargazingLocationAnalyzer:
                 notes.append("Serious light pollution, may affect stargazing")
         else:
             notes.append("⚠️ Missing light pollution data, cannot accurately assess stargazing conditions")
-        
+
         # Road accessibility
         if location.road_accessible is True:
             if location.distance_to_road_km and location.distance_to_road_km < 1:
@@ -561,19 +597,19 @@ class StargazingLocationAnalyzer:
                 notes.append("Road accessible")
         elif location.road_accessible is False:
             notes.append("Road not accessible, hiking required")
-        
+
         # Distance to town
         if location.distance_to_nearest_town > 50:
             notes.append("Far from town, quiet environment")
         elif location.distance_to_nearest_town < 10:
             notes.append("Close to town, may have light pollution impact")
-        
+
         return "; ".join(notes) if notes else "No special notes"
-    
+
     def save_results_to_json(self, locations: List[StargazingLocation], filename: str) -> None:
         """
         Save analysis results to JSON file
-        
+
         Args:
             locations: List of stargazing locations
             filename: Output filename
@@ -585,65 +621,65 @@ class StargazingLocationAnalyzer:
             "analysis_parameters": {
                 "min_height_difference": self.mountain_finder.min_height_difference,
                 "road_search_radius_km": self.road_checker.search_radius_km,
-                "has_light_pollution_analyzer": self.light_pollution_analyzer is not None
+                "has_light_pollution_analyzer": self.light_pollution_analyzer is not None,
             },
-            "locations": [location.model_dump(mode='json', exclude_none=True) for location in locations]
+            "locations": [location.model_dump(mode="json", exclude_none=True) for location in locations],
         }
-        
-        with open(filename, 'w', encoding='utf-8') as f:
+
+        with open(filename, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
-        
+
         print(f"Analysis results saved to: {filename}")
-    
+
     def get_top_recommendations(self, locations: List[StargazingLocation], top_n: int = 5) -> List[StargazingLocation]:
         """
         Get top-rated recommended locations
-        
+
         Args:
             locations: List of stargazing locations
             top_n: Number of recommendations to return
-            
+
         Returns:
             List of highest-rated stargazing locations
         """
         # Sort by score and return top N
         sorted_locations = sorted(locations, key=lambda x: x.stargazing_score or 0, reverse=True)
         return sorted_locations[:top_n]
-    
+
     def print_analysis_summary(self, locations: List[StargazingLocation]) -> None:
         """
         Print analysis results summary
-        
+
         Args:
             locations: List of stargazing locations
         """
         if not locations:
             print("No stargazing locations found")
             return
-        
+
         print("\n=== Stargazing Location Analysis Summary ===")
         print(f"Total {len(locations)} stargazing locations found")
-        
+
         # Check light pollution data completeness
         locations_with_light_data = sum(1 for loc in locations if loc.light_pollution_brightness is not None)
         locations_without_light_data = len(locations) - locations_with_light_data
-        
+
         if locations_without_light_data > 0:
-            print(f"\n⚠️  Data Completeness Reminder:")
+            print("\n⚠️  Data Completeness Reminder:")
             print(f"   - {locations_with_light_data} locations have complete light pollution data")
             print(f"   - {locations_without_light_data} locations lack light pollution data")
-            print(f"   - Recommend providing light pollution KML file for more accurate assessment")
-        
+            print("   - Recommend providing light pollution KML file for more accurate assessment")
+
         # Statistics of recommendation level distribution
         recommendation_counts = {}
         for location in locations:
             level = location.recommendation_level
             recommendation_counts[level] = recommendation_counts.get(level, 0) + 1
-        
+
         print("\nRecommendation Level Distribution:")
         for level, count in recommendation_counts.items():
             print(f"  {level}: {count} locations")
-        
+
         # Display top 5 recommended locations
         top_locations = self.get_top_recommendations(locations, 5)
         print("\n=== Top 5 Recommended Locations ===")
@@ -656,22 +692,29 @@ class StargazingLocationAnalyzer:
             if location.light_pollution_brightness is not None:
                 print(f"   Light Pollution: {location.light_pollution_level}")
             else:
-                print(f"   Light Pollution: ⚠️ Data Missing")
+                print("   Light Pollution: ⚠️ Data Missing")
             if location.road_accessible is not None:
                 accessibility = "Accessible" if location.road_accessible else "Not Accessible"
                 print(f"   Road: {accessibility}")
             print(f"   Notes: {location.analysis_notes}")
 
 
-def analyze_stargazing_area(south: float, west: float, north: float, east: float,
-                           kml_file_path: Optional[str] = None,
-                           geotiff_path: Optional[str] = None,
-                           max_locations: int = 30,
-                           location_types: List[str] = None,
-                           min_height_diff: float = 100.0,
-                           road_radius_km: float = 10.0,
-                           network_type: str = 'drive',
-                           db_config_path: Optional[str] = None) -> List[StargazingLocation]:
+def analyze_stargazing_area(
+    south: float,
+    west: float,
+    north: float,
+    east: float,
+    kml_file_path: Optional[str] = None,
+    geotiff_path: Optional[str] = None,
+    max_locations: int = 30,
+    location_types: List[str] = None,
+    min_height_diff: float = 100.0,
+    road_radius_km: float = 10.0,
+    network_type: str = "drive",
+    db_config_path: Optional[str] = None,
+    min_distance_to_road_km: Optional[float] = None,
+    max_distance_to_road_km: Optional[float] = None,
+) -> List[StargazingLocation]:
     """
     Convenience function: Analyze stargazing locations in specified area
 
@@ -686,6 +729,8 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
         road_radius_km: Road search radius
         network_type: Network type
         db_config_path: Optional path to database config file
+        min_distance_to_road_km: Minimum distance to road in km (filter out places too close)
+        max_distance_to_road_km: Maximum distance to road in km (filter out places too far)
 
     Returns:
         List of stargazing locations
@@ -695,7 +740,7 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
         kml_file_path=kml_file_path,
         min_height_difference=min_height_diff,
         road_search_radius_km=road_radius_km,
-        db_config_path=db_config_path
+        db_config_path=db_config_path,
     )
 
     bbox = (south, west, north, east)
@@ -705,43 +750,45 @@ def analyze_stargazing_area(south: float, west: float, north: float, east: float
         location_types=location_types,
         network_type=network_type,
         include_light_pollution=True,
-        include_road_connectivity=True
+        include_road_connectivity=True,
+        min_distance_to_road_km=min_distance_to_road_km,
+        max_distance_to_road_km=max_distance_to_road_km,
     )
-    
+
     # Print summary
     analyzer.print_analysis_summary(locations)
-    
+
     return locations
 
 
 if __name__ == "__main__":
     # Example: Analyze stargazing locations around Beijing
     print("=== Stargazing Location Comprehensive Analyzer Example ===")
-    
+
     # Define analysis area (around Beijing)
     bbox = (39.5, 115.5, 40.5, 117.5)  # (south, west, north, east)
-    
+
     # Create analyzer (no KML file provided here, so skip light pollution analysis)
     analyzer = StargazingLocationAnalyzer(
         kml_file_path=None,  # If you have light pollution KML file, provide path here
         min_height_difference=100.0,
-        road_search_radius_km=10.0
+        road_search_radius_km=10.0,
     )
-    
+
     # Analyze area
     locations = analyzer.analyze_area(
         bbox=bbox,
         max_locations=20,
-        location_types=['mountain_peak', 'observatory', 'viewpoint'],
-        network_type='drive',
+        location_types=["mountain_peak", "observatory", "viewpoint"],
+        network_type="drive",
         include_light_pollution=False,  # Set to False when no KML file
-        include_road_connectivity=True
+        include_road_connectivity=True,
     )
-    
+
     # Save results
     if locations:
         analyzer.save_results_to_json(locations, "stargazing_analysis_results.json")
-        
+
         # Print summary
         analyzer.print_analysis_summary(locations)
     else:

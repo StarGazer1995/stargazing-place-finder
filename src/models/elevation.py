@@ -1,7 +1,9 @@
 """Elevation query result model."""
 
 from typing import Optional
+
 from pydantic import Field
+
 from .geo import GeoCoordinate
 
 

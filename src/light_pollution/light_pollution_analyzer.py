@@ -11,17 +11,18 @@ Data source: EOG VIIRS VNL v2.2 (https://eogdata.mines.edu/products/vnl/)
 
 import math
 import os
-from typing import Optional, Tuple, Dict, Any, Union
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
 try:
     from src.models import LightPollutionInfo
 except ImportError:
-    import sys
     import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    import sys
+
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     from models import LightPollutionInfo
 
 try:
@@ -44,6 +45,7 @@ _GEOTIFF_RES_KM = _GEOTIFF_RES_DEG * _KM_PER_DEG  # ~0.463 km/px
 # Radiance conversion utilities
 # ---------------------------------------------------------------------------
 
+
 def radiance_to_bortle(radiance: float) -> int:
     """Convert VIIRS DNB radiance (nW/cm²/sr) to Bortle class (1-9).
 
@@ -51,22 +53,22 @@ def radiance_to_bortle(radiance: float) -> int:
     radiance with Sky Quality Meter (SQM) measurements.
     """
     if radiance <= 0.0:
-        return 1   # Excellent dark sky
+        return 1  # Excellent dark sky
     if radiance <= 0.5:
-        return 2   # Typical dark sky
+        return 2  # Typical dark sky
     if radiance <= 1.5:
-        return 3   # Rural sky
+        return 3  # Rural sky
     if radiance <= 4.0:
-        return 4   # Rural/suburban transition
+        return 4  # Rural/suburban transition
     if radiance <= 10.0:
-        return 5   # Suburban sky
+        return 5  # Suburban sky
     if radiance <= 25.0:
-        return 6   # Bright suburban
+        return 6  # Bright suburban
     if radiance <= 60.0:
-        return 7   # Suburban/urban transition
+        return 7  # Suburban/urban transition
     if radiance <= 150.0:
-        return 8   # City sky
-    return 9       # Inner city sky
+        return 8  # City sky
+    return 9  # Inner city sky
 
 
 def radiance_to_brightness(radiance: float) -> int:
@@ -104,6 +106,7 @@ def radiance_to_false_color(radiance: float) -> Tuple[int, int, int]:
     if radiance <= 0:
         return (10, 10, 40)
     import math as _m
+
     v = _m.log10(max(radiance, 0.01) + 1) / _m.log10(1001)
     v = min(1.0, v)
     if v < 0.33:
@@ -149,9 +152,7 @@ class LightPollutionAnalyzer:
             FileNotFoundError: When the GeoTIFF file does not exist.
         """
         if rasterio is None:
-            raise ImportError(
-                "rasterio is required. Install with: uv add rasterio"
-            )
+            raise ImportError("rasterio is required. Install with: uv add rasterio")
 
         if geotiff_path is None:
             self._geotiff_path = None
@@ -172,7 +173,7 @@ class LightPollutionAnalyzer:
         self._skyglow_transform = None
         self._skyglow_ds = 1
 
-        print(f"Light pollution analyzer initialized")
+        print("Light pollution analyzer initialized")
         print(f"  Data: {geotiff_path}")
         print(f"  Skyglow model: sigma={skyglow_sigma_km}km, weight={skyglow_weight}")
         if skyglow_sigma_km > 0:
@@ -201,7 +202,7 @@ class LightPollutionAnalyzer:
         ds = 16
         h, w = full.shape
         dh, dw = h // ds, w // ds
-        trimmed = full[:dh * ds, :dw * ds]
+        trimmed = full[: dh * ds, : dw * ds]
 
         # Block average — mean of each ds × ds block
         downsampled = trimmed.reshape(dh, ds, dw, ds).mean(axis=(1, 3))
@@ -210,24 +211,23 @@ class LightPollutionAnalyzer:
         sigma_px = self._skyglow_sigma_km / (_GEOTIFF_RES_KM * ds)
 
         # Apply Gaussian blur — this is the skyglow model
-        self._skyglow_grid = gaussian_filter(
-            downsampled.astype(np.float64), sigma=max(sigma_px, 0.5)
-        ).astype(np.float32)
+        self._skyglow_grid = gaussian_filter(downsampled.astype(np.float64), sigma=max(sigma_px, 0.5)).astype(
+            np.float32
+        )
 
         # Geo-transform for the downsampled grid
         self._skyglow_transform = (
-            float(self._src.bounds.left),        # west (x origin)
-            float(self._src.res[0] * ds),        # pixel width (degrees)
-            0.0,                                  # x rotation
-            float(self._src.bounds.top),          # north (y origin)
-            0.0,                                  # y rotation
-            -float(self._src.res[1] * ds),        # pixel height (degrees, negative)
+            float(self._src.bounds.left),  # west (x origin)
+            float(self._src.res[0] * ds),  # pixel width (degrees)
+            0.0,  # x rotation
+            float(self._src.bounds.top),  # north (y origin)
+            0.0,  # y rotation
+            -float(self._src.res[1] * ds),  # pixel height (degrees, negative)
         )
         self._skyglow_ds = ds
         self._skyglow_shape = self._skyglow_grid.shape
 
-        print(f"  Skyglow grid: {self._skyglow_shape[1]}×{self._skyglow_shape[0]} "
-              f"at ~{_GEOTIFF_RES_KM * ds:.1f} km/px")
+        print(f"  Skyglow grid: {self._skyglow_shape[1]}×{self._skyglow_shape[0]} at ~{_GEOTIFF_RES_KM * ds:.1f} km/px")
 
     def _get_skyglow(self, latitude: float, longitude: float) -> float:
         """Get the skyglow contribution (nW/cm²/sr) at a point via interpolation.
@@ -269,8 +269,10 @@ class LightPollutionAnalyzer:
 
     def get_skyglow_for_window(
         self,
-        west: float, east: float,
-        south: float, north: float,
+        west: float,
+        east: float,
+        south: float,
+        north: float,
         out_shape: Tuple[int, int],
     ) -> np.ndarray:
         """Sample the skyglow grid over a geographic window, returned at out_shape.
@@ -302,7 +304,7 @@ class LightPollutionAnalyzer:
         # Build sampling coordinates
         rows = np.linspace(r0, r1, h_out)
         cols = np.linspace(c0, c1, w_out)
-        rr, cc = np.meshgrid(rows, cols, indexing='ij')
+        rr, cc = np.meshgrid(rows, cols, indexing="ij")
 
         # Bilinear interpolation on the grid
         r0_i = np.floor(rr).astype(np.int32)
@@ -406,8 +408,9 @@ class LightPollutionAnalyzer:
                 brightness=brightness,
                 bortle=bortle,
                 pollution_level=radiance_to_pollution_level(radiance),
-                overlay_name='VIIRS-DNB-2025',
-                latitude=latitude, longitude=longitude,
+                overlay_name="VIIRS-DNB-2025",
+                latitude=latitude,
+                longitude=longitude,
             )
         except Exception:
             return None
@@ -423,8 +426,13 @@ class LightPollutionAnalyzer:
         """
         if self._src is None:
             return [
-                {'index': i, 'coordinates': c, 'pollution_info': None, 'success': False,
-                 'error': 'GeoTIFF not initialised'}
+                {
+                    "index": i,
+                    "coordinates": c,
+                    "pollution_info": None,
+                    "success": False,
+                    "error": "GeoTIFF not initialised",
+                }
                 for i, c in enumerate(coordinates_list)
             ]
 
@@ -450,51 +458,52 @@ class LightPollutionAnalyzer:
                 bortle = radiance_to_bortle(radiance)
                 r, g, b = radiance_to_false_color(radiance)
                 results[idx] = {
-                    'index': idx,
-                    'coordinates': (lat, lon),
-                    'pollution_info': LightPollutionInfo(
+                    "index": idx,
+                    "coordinates": (lat, lon),
+                    "pollution_info": LightPollutionInfo(
                         radiance=radiance,
                         rgb=(r, g, b),
                         hex=f"#{r:02x}{g:02x}{b:02x}",
                         brightness=radiance_to_brightness(radiance),
                         pollution_level=radiance_to_pollution_level(radiance),
                         bortle=bortle,
-                        overlay_name='VIIRS-DNB-2025',
-                        latitude=lat, longitude=lon,
+                        overlay_name="VIIRS-DNB-2025",
+                        latitude=lat,
+                        longitude=lon,
                     ),
-                    'success': True,
+                    "success": True,
                 }
 
         # Fill missing entries
         for i, r in enumerate(results):
             if r is None:
                 results[i] = {
-                    'index': i,
-                    'coordinates': coordinates_list[i],
-                    'pollution_info': None,
-                    'success': False,
-                    'error': 'Outside data coverage',
+                    "index": i,
+                    "coordinates": coordinates_list[i],
+                    "pollution_info": None,
+                    "success": False,
+                    "error": "Outside data coverage",
                 }
         return results
 
     def get_statistics(self) -> Dict[str, Any]:
         """Return metadata about the loaded GeoTIFF."""
         if self._src is None:
-            return {'backend': 'geotiff', 'error': 'not initialised'}
+            return {"backend": "geotiff", "error": "not initialised"}
         return {
-            'backend': 'geotiff',
-            'data_path': self._geotiff_path,
-            'width': self._src.width,
-            'height': self._src.height,
-            'crs': str(self._src.crs),
-            'bounds': {
-                'north': self._src.bounds.top,
-                'south': self._src.bounds.bottom,
-                'east': self._src.bounds.right,
-                'west': self._src.bounds.left,
+            "backend": "geotiff",
+            "data_path": self._geotiff_path,
+            "width": self._src.width,
+            "height": self._src.height,
+            "crs": str(self._src.crs),
+            "bounds": {
+                "north": self._src.bounds.top,
+                "south": self._src.bounds.bottom,
+                "east": self._src.bounds.right,
+                "west": self._src.bounds.left,
             },
-            'count': self._src.count,
-            'dtype': self._src.dtypes[0],
+            "count": self._src.count,
+            "dtype": self._src.dtypes[0],
         }
 
     def close(self) -> None:

@@ -1,7 +1,9 @@
 """Location model — unified intermediate representation from finder layer."""
 
-from typing import Optional, Literal
+from typing import Literal, Optional
+
 from pydantic import Field
+
 from .geo import GeoCoordinate
 
 LocationType = Literal["mountain_peak", "observatory", "viewpoint"]

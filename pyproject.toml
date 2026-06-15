@@ -56,6 +56,7 @@ dev = [
   "freezegun>=1.2.0",
   "build>=0.10.0",
   "twine>=4.0.0",
+  "ruff>=0.9.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -74,3 +75,21 @@ dev = [
     "setuptools>=80.9.0",
     "wheel>=0.45.1",
 ]
+
+[tool.ruff]
+# Target Python version for lint/format
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+# E=pycodestyle, F=pyflakes(bug catcher), I=isort(import ordering)
+select = ["E", "F", "I"]
+
+# Allow long lines on specific patterns
+ignore = ["E501"]
+
+[tool.ruff.format]
+# Use default ruff formatter settings
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

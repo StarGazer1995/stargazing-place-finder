@@ -1,7 +1,9 @@
 """Road connectivity model."""
 
 from typing import Optional
+
 from pydantic import Field
+
 from .geo import GeoCoordinate
 
 

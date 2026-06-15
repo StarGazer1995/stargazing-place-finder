@@ -8,11 +8,10 @@ GIS 查询缓存模块。
 
 import hashlib
 import logging
-import os
 import pickle
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from cache.cache_config import get_cache_dir
 
@@ -37,7 +36,7 @@ class GisQueryCache:
     def _make_key(self, *args, **kwargs) -> str:
         """从参数生成唯一缓存键。"""
         raw = str(args) + str(sorted(kwargs.items()))
-        return hashlib.md5(raw.encode('utf-8')).hexdigest()
+        return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
     def get(self, key: str) -> Optional[Any]:
         """获取缓存。检查内存和磁盘，过期自动丢弃。"""
@@ -54,7 +53,7 @@ class GisQueryCache:
         cache_path = self._disk_path(key)
         if cache_path.exists():
             try:
-                with open(cache_path, 'rb') as f:
+                with open(cache_path, "rb") as f:
                     ts, data = pickle.load(f)
                 if now - ts < self.cache_expiry_seconds:
                     self._memory[key] = (ts, data)
@@ -72,7 +71,7 @@ class GisQueryCache:
         self._memory[key] = (now, data)
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
-            with open(self._disk_path(key), 'wb') as f:
+            with open(self._disk_path(key), "wb") as f:
                 pickle.dump((now, data), f)
         except Exception as e:
             logger.debug("Cache write failed for %s: %s", key, e)
@@ -85,5 +84,6 @@ class GisQueryCache:
         self._memory.clear()
         if self.cache_dir.exists():
             import shutil
+
             shutil.rmtree(self.cache_dir)
             self.cache_dir.mkdir(parents=True, exist_ok=True)

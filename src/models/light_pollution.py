@@ -1,6 +1,7 @@
 """Light pollution info model — structured output from LightPollutionAnalyzer."""
 
 from pydantic import Field
+
 from .geo import GeoCoordinate
 
 

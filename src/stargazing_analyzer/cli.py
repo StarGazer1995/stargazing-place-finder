@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Tuple
 
-from .public_api import analyze_area, analyze_area_simple, init_stargazing_analyzer
+from .public_api import analyze_area, init_stargazing_analyzer
 
 
 def _deg_per_km(lat: float) -> Tuple[float, float]:
@@ -18,7 +18,7 @@ def _deg_per_km(lat: float) -> Tuple[float, float]:
         (lat_deg_per_km, lon_deg_per_km) 的近似值
     """
     lat_deg_per_km = 1.0 / 111.0
-    lon_deg_per_km = 1.0 / (111.0 * max(0.1, abs(__import__('math').cos(__import__('math').radians(lat)))) )
+    lon_deg_per_km = 1.0 / (111.0 * max(0.1, abs(__import__("math").cos(__import__("math").radians(lat)))))
     return lat_deg_per_km, lon_deg_per_km
 
 
@@ -34,7 +34,7 @@ def _bbox_from_center(lat: float, lon: float, radius_km: float) -> Tuple[float, 
     Returns:
         (south, west, north, east) 边界框
     """
-    import math
+
     lat_km, lon_km = _deg_per_km(lat)
     dlat = radius_km * lat_km
     dlon = radius_km * lon_km
@@ -49,20 +49,38 @@ def create_parser() -> argparse.ArgumentParser:
         已配置的 ArgumentParser 对象
     """
     parser = argparse.ArgumentParser(
-        prog="stargazing-finder",
-        description="Stargazing Place Finder - 综合观星地点分析 CLI"
+        prog="stargazing-finder", description="Stargazing Place Finder - 综合观星地点分析 CLI"
     )
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--center", nargs=3, type=float, metavar=("LAT", "LON", "RADIUS_KM"),
-                       help="使用中心点 (lat, lon) 及半径（公里）指定搜索区域")
-    group.add_argument("--bbox", nargs=4, type=float, metavar=("SOUTH", "WEST", "NORTH", "EAST"),
-                       help="直接提供边界框坐标 (south, west, north, east)")
+    group.add_argument(
+        "--center",
+        nargs=3,
+        type=float,
+        metavar=("LAT", "LON", "RADIUS_KM"),
+        help="使用中心点 (lat, lon) 及半径（公里）指定搜索区域",
+    )
+    group.add_argument(
+        "--bbox",
+        nargs=4,
+        type=float,
+        metavar=("SOUTH", "WEST", "NORTH", "EAST"),
+        help="直接提供边界框坐标 (south, west, north, east)",
+    )
 
     parser.add_argument("--max-locations", type=int, default=30, help="最大位置数量，默认 30")
     parser.add_argument("--network-type", type=str, default="drive", help="道路网络类型，默认 drive")
     parser.add_argument("--no-light-pollution", action="store_true", help="不计算光污染")
     parser.add_argument("--no-road-connectivity", action="store_true", help="不计算道路连通性")
+    parser.add_argument(
+        "--min-road-distance", type=float, default=None, help="最小离路距离（公里），过滤掉距路太近的地点"
+    )
+    parser.add_argument(
+        "--max-road-distance",
+        type=float,
+        default=None,
+        help="最大离路距离（公里），过滤掉距路太远的地点（默认 0.2km 为连通性判定阈值）",
+    )
     parser.add_argument("--db-config", type=str, help="数据库配置文件路径 (JSON/TOML)")
 
     parser.add_argument("--output", type=str, help="输出文件路径 (JSON)")
@@ -80,11 +98,11 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.center:
-      lat, lon, radius = args.center
-      bbox = _bbox_from_center(lat, lon, radius)
+        lat, lon, radius = args.center
+        bbox = _bbox_from_center(lat, lon, radius)
     else:
-      south, west, north, east = args.bbox
-      bbox = (south, west, north, east)
+        south, west, north, east = args.bbox
+        bbox = (south, west, north, east)
 
     include_lp = not args.no_light_pollution
     include_road = not args.no_road_connectivity
@@ -106,10 +124,12 @@ def main() -> None:
         network_type=args.network_type,
         include_light_pollution=include_lp,
         include_road_connectivity=include_road,
+        min_distance_to_road_km=args.min_road_distance,
+        max_distance_to_road_km=args.max_road_distance,
     )
 
     if args.top_n and args.top_n > 0:
-        results = results[:args.top_n]
+        results = results[: args.top_n]
 
     output_text = json.dumps(results, ensure_ascii=False, indent=2)
     if args.output:

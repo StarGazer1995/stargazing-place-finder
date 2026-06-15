@@ -1,7 +1,9 @@
 """StargazingLocation — the final enriched output model."""
 
 from typing import Optional, Tuple
+
 from pydantic import Field
+
 from .geo import GeoCoordinate
 from .location import LocationType
 

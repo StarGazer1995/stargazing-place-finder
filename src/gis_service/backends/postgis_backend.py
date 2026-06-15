@@ -31,7 +31,10 @@ class PostgisBackend:
 
     def query_locations_in_bbox(
         self,
-        lon_min: float, lat_min: float, lon_max: float, lat_max: float,
+        lon_min: float,
+        lat_min: float,
+        lon_max: float,
+        lat_max: float,
         location_type: Optional[str] = None,
         filters: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
@@ -64,25 +67,23 @@ class PostgisBackend:
         """
 
         type_conditions = []
-        if location_type == 'town':
-            type_conditions.append(
-                "place IN ('city', 'town', 'village', 'hamlet') AND name IS NOT NULL"
-            )
-        elif location_type == 'observatory':
+        if location_type == "town":
+            type_conditions.append("place IN ('city', 'town', 'village', 'hamlet') AND name IS NOT NULL")
+        elif location_type == "observatory":
             type_conditions.append(
                 "(amenity = 'observatory' OR man_made = 'telescope' "
                 "OR (man_made = 'tower' AND \"tower:type\" = 'astronomical') "
                 "OR amenity = 'planetarium')"
             )
-        elif location_type == 'viewpoint':
+        elif location_type == "viewpoint":
             type_conditions.append(
                 "(tourism = 'viewpoint' "
                 "OR (man_made = 'tower' AND \"tower:type\" = 'observation') "
                 "OR amenity = 'observation_deck' "
                 "OR leisure = 'viewing_platform')"
             )
-        elif location_type == 'peak':
-            type_conditions.append('("natural" IN (\'peak\',\'volcano\'))')
+        elif location_type == "peak":
+            type_conditions.append("(\"natural\" IN ('peak','volcano'))")
 
         conditions = list(type_conditions)
         if filters:
@@ -98,15 +99,22 @@ class PostgisBackend:
 
         formatted: List[Dict[str, Any]] = []
         for row in results:
-            elem: Dict[str, Any] = {'type': 'node', 'id': row[0], 'lat': row[3], 'lon': row[2], 'tags': {}}
+            elem: Dict[str, Any] = {"type": "node", "id": row[0], "lat": row[3], "lon": row[2], "tags": {}}
             tag_keys = [
-                ('name', 1), ('amenity', 4), ('tourism', 5), ('shop', 6),
-                ('highway', 7), ('place', 8), ('man_made', 9),
-                ('tower:type', 10), ('leisure', 11), ('natural', 12),
+                ("name", 1),
+                ("amenity", 4),
+                ("tourism", 5),
+                ("shop", 6),
+                ("highway", 7),
+                ("place", 8),
+                ("man_made", 9),
+                ("tower:type", 10),
+                ("leisure", 11),
+                ("natural", 12),
             ]
             for key, idx in tag_keys:
                 if row[idx]:
-                    elem['tags'][key] = row[idx]
+                    elem["tags"][key] = row[idx]
             formatted.append(elem)
 
         cursor.close()
@@ -116,7 +124,8 @@ class PostgisBackend:
     # ── 批量高程查询 ──────────────────────────────────────────
 
     def batch_query_elevations(
-        self, coordinates: List[Tuple[float, float]],
+        self,
+        coordinates: List[Tuple[float, float]],
         names: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
@@ -135,9 +144,9 @@ class PostgisBackend:
         import psycopg2
 
         if names is None:
-            names = [f"Point_{i+1}" for i in range(len(coordinates))]
+            names = [f"Point_{i + 1}" for i in range(len(coordinates))]
         elif len(names) < len(coordinates):
-            names.extend([f"Point_{i+1}" for i in range(len(names), len(coordinates))])
+            names.extend([f"Point_{i + 1}" for i in range(len(names), len(coordinates))])
 
         conn = psycopg2.connect(**self.config)
         cursor = conn.cursor()
@@ -187,21 +196,24 @@ class PostgisBackend:
         results = []
         for row in cursor.fetchall():
             _id, lat, lon, name, elev, source, dist, ftype = row
-            results.append({
-                'lat': lat,
-                'lon': lon,
-                'name': name,
-                'elevation': elev,
-                'source_name': source or 'unknown',
-                'distance_meters': dist,
-                'feature_type': ftype,
-            })
+            results.append(
+                {
+                    "lat": lat,
+                    "lon": lon,
+                    "name": name,
+                    "elevation": elev,
+                    "source_name": source or "unknown",
+                    "distance_meters": dist,
+                    "feature_type": ftype,
+                }
+            )
 
         cursor.close()
         conn.close()
         logger.info(
             "Elevation batch query: %d points, %d found",
-            len(coordinates), sum(1 for r in results if r['elevation'] is not None),
+            len(coordinates),
+            sum(1 for r in results if r["elevation"] is not None),
         )
         return results
 
@@ -383,16 +395,16 @@ class PostgisBackend:
             row = cursor.fetchone()
             if row:
                 return {
-                    'total_points': row[0],
-                    'min_elevation': float(row[1]) if row[1] else None,
-                    'max_elevation': float(row[2]) if row[2] else None,
-                    'avg_elevation': float(row[3]) if row[3] else None,
-                    'median_elevation': float(row[4]) if row[4] else None,
+                    "total_points": row[0],
+                    "min_elevation": float(row[1]) if row[1] else None,
+                    "max_elevation": float(row[2]) if row[2] else None,
+                    "avg_elevation": float(row[3]) if row[3] else None,
+                    "median_elevation": float(row[4]) if row[4] else None,
                 }
             return {}
         except Exception as e:
             logger.error("Elevation stats query failed: %s", e)
-            return {'error': str(e)}
+            return {"error": str(e)}
         finally:
             try:
                 cursor.close()
