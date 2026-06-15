@@ -11,7 +11,7 @@ import math
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from models import Observatory, Peak, Viewpoint
+from models import GeoCoordinate, Observatory, Peak, Viewpoint
 
 
 def extract_coordinates(data: Dict) -> Tuple[Optional[float], Optional[float]]:
@@ -35,18 +35,20 @@ def extract_coordinates(data: Dict) -> Tuple[Optional[float], Optional[float]]:
         return None, None
 
 
-def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+def calculate_distance(p1: GeoCoordinate, p2: GeoCoordinate) -> float:
     """
     Calculate distance between two geographic coordinates using Haversine formula.
 
     Args:
-        lat1, lon1: Latitude and longitude of first point.
-        lat2, lon2: Latitude and longitude of second point.
+        p1: First point coordinate.
+        p2: Second point coordinate.
 
     Returns:
         Distance in kilometers.
     """
     R = 6371  # Earth radius (kilometers)
+    lat1, lon1 = p1.latitude, p1.longitude
+    lat2, lon2 = p2.latitude, p2.longitude
 
     lat1_rad = math.radians(lat1)
     lat2_rad = math.radians(lat2)
@@ -62,8 +64,7 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 
 
 def find_nearest_town(
-    lat: float,
-    lon: float,
+    point: GeoCoordinate,
     towns: List[Dict],
     elevation_func: Optional[Callable[[float, float], Optional[float]]] = None,
 ) -> Tuple[Optional[str], float, Optional[float]]:
@@ -71,8 +72,7 @@ def find_nearest_town(
     Find the nearest town to a given coordinate.
 
     Args:
-        lat: Latitude of the point.
-        lon: Longitude of the point.
+        point: The geographic point to search from.
         towns: List of town data dicts (Overpass API format).
         elevation_func: Optional callable (lat, lon) -> elevation_m for
                         looking up town elevation.
@@ -80,6 +80,7 @@ def find_nearest_town(
     Returns:
         (nearest_town_name, distance_km, town_elevation_m).
     """
+    lat, lon = point.latitude, point.longitude
     min_distance = float("inf")
     nearest_town = None
     nearest_town_elevation = None
@@ -97,7 +98,7 @@ def find_nearest_town(
         except KeyError:
             continue
 
-        distance = calculate_distance(lat, lon, town_lat, town_lon)
+        distance = calculate_distance(point, GeoCoordinate(latitude=town_lat, longitude=town_lon))
 
         if distance < min_distance:
             min_distance = distance
@@ -165,8 +166,7 @@ def sort_places_by_lightpollution(
 
 def process_peak_data(
     name: str,
-    lat: float,
-    lon: float,
+    point: GeoCoordinate,
     elevation: float,
     tags: Dict,
     nearest_town: str,
@@ -183,6 +183,7 @@ def process_peak_data(
         min_height_difference: Minimum height difference (m) from nearest
                                town; peaks below this threshold are skipped.
     """
+    lat, lon = point.latitude, point.longitude
     height_difference = None
     if town_elevation is not None:
         height_difference = elevation - town_elevation
@@ -204,8 +205,7 @@ def process_peak_data(
 
 def process_observatory_data(
     name: str,
-    lat: float,
-    lon: float,
+    point: GeoCoordinate,
     elevation: float,
     tags: Dict,
     nearest_town: str,
@@ -215,6 +215,7 @@ def process_observatory_data(
     index: int,
 ) -> Observatory:
     """Build an Observatory object from raw data."""
+    lat, lon = point.latitude, point.longitude
     observatory_type = "Unknown type"
     if tags.get("man_made") == "observatory":
         observatory_type = "Astronomical observatory"
@@ -243,8 +244,7 @@ def process_observatory_data(
 
 def process_viewpoint_data(
     name: str,
-    lat: float,
-    lon: float,
+    point: GeoCoordinate,
     elevation: float,
     tags: Dict,
     nearest_town: str,
@@ -254,6 +254,7 @@ def process_viewpoint_data(
     index: int,
 ) -> Viewpoint:
     """Build a Viewpoint object from raw data."""
+    lat, lon = point.latitude, point.longitude
     viewpoint_type = "Viewpoint"
     if tags.get("tourism") == "viewpoint":
         viewpoint_type = "Viewpoint"

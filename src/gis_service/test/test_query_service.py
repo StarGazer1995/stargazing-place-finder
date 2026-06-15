@@ -10,6 +10,8 @@ import unittest
 from typing import Any, Dict
 from unittest.mock import patch
 
+from models import LatLonBox
+
 
 class TestGisQueryService(unittest.TestCase):
     """Test GisQueryService with mocked PostGIS backend."""
@@ -111,7 +113,7 @@ class TestGisQueryService(unittest.TestCase):
         self.mock_postgis.query_locations_in_bbox.return_value = mock_elements
 
         service = self._make_service(db_config={"host": "localhost"})
-        bbox = (39.5, 115.5, 40.5, 117.5)
+        bbox = LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5)
         results = service.query_locations(bbox, "peak")
 
         self.assertEqual(len(results), 2)
@@ -127,7 +129,7 @@ class TestGisQueryService(unittest.TestCase):
         self.mock_overpass.query_locations_in_bbox.return_value = mock_elements
 
         service = self._make_service(db_config=None)
-        bbox = (39.5, 115.5, 40.5, 117.5)
+        bbox = LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5)
         results = service.query_locations(bbox, "town")
 
         self.assertEqual(len(results), 1)
@@ -141,14 +143,14 @@ class TestGisQueryService(unittest.TestCase):
 
         service = self._make_service(db_config={"host": "localhost"})
         with self.assertRaises(Exception):
-            service.query_locations((39.5, 115.5, 40.5, 117.5))
+            service.query_locations(LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5))
 
     # ── helper query methods ────────────────────────────────
 
     def test_query_towns_delegates(self):
         self.mock_postgis.query_locations_in_bbox.return_value = []
         service = self._make_service(db_config={"host": "localhost"})
-        service.query_towns((39, 115, 41, 117))
+        service.query_towns(LatLonBox(south=39, west=115, north=41, east=117))
         # Should have called with 'town' type
         call_kwargs = self.mock_postgis.query_locations_in_bbox.call_args
         self.assertIsNotNone(call_kwargs)
@@ -156,19 +158,19 @@ class TestGisQueryService(unittest.TestCase):
     def test_query_peaks_delegates(self):
         self.mock_postgis.query_locations_in_bbox.return_value = []
         service = self._make_service(db_config={"host": "localhost"})
-        service.query_peaks((39, 115, 41, 117))
+        service.query_peaks(LatLonBox(south=39, west=115, north=41, east=117))
         self.assertTrue(self.mock_postgis.query_locations_in_bbox.called)
 
     def test_query_observatories_delegates(self):
         self.mock_postgis.query_locations_in_bbox.return_value = []
         service = self._make_service(db_config={"host": "localhost"})
-        service.query_observatories((39, 115, 41, 117))
+        service.query_observatories(LatLonBox(south=39, west=115, north=41, east=117))
         self.assertTrue(self.mock_postgis.query_locations_in_bbox.called)
 
     def test_query_viewpoints_delegates(self):
         self.mock_postgis.query_locations_in_bbox.return_value = []
         service = self._make_service(db_config={"host": "localhost"})
-        service.query_viewpoints((39, 115, 41, 117))
+        service.query_viewpoints(LatLonBox(south=39, west=115, north=41, east=117))
         self.assertTrue(self.mock_postgis.query_locations_in_bbox.called)
 
     # ── elevation ──────────────────────────────────────────

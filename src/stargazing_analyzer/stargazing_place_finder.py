@@ -21,7 +21,7 @@ from gis_service.parsers import (
 )
 from gis_service.query_service import GisQueryService
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-from models import Location, Observatory, Peak, Viewpoint
+from models import GeoCoordinate, LatLonBox, Location, Observatory, Peak, Viewpoint
 
 
 class StarGazingPlaceFinder:
@@ -55,7 +55,7 @@ class StarGazingPlaceFinder:
 
     def _find_locations_in_area(
         self,
-        bbox: Tuple[float, float, float, float],
+        bbox: LatLonBox,
         location_type: str,
         max_locations: int,
         location_processor_func,
@@ -64,7 +64,7 @@ class StarGazingPlaceFinder:
         Generic location finding function to reduce code duplication.
 
         Args:
-            bbox: Bounding box (south, west, north, east).
+            bbox: Bounding box (LatLonBox with south/west/north/east).
             location_type: Location type ('mountain_peak', 'observatory', 'viewpoint').
             max_locations: Maximum number of locations to return.
             location_processor_func: Callable to build a Location object from raw data.
@@ -72,7 +72,8 @@ class StarGazingPlaceFinder:
         Returns:
             List of location objects.
         """
-        print(f"Searching {location_type} area: {bbox}")
+        bbox_tuple = (bbox.south, bbox.west, bbox.north, bbox.east)
+        print(f"Searching {location_type} area: {bbox_tuple}")
         print(f"Getting {location_type} data...")
 
         locations_data = self.gis_service.query_locations(bbox, location_type)
@@ -122,10 +123,10 @@ class StarGazingPlaceFinder:
             nearest_town = "Unknown"
             distance_to_town = 0.0
             town_elevation = None
+            point = GeoCoordinate(latitude=lat, longitude=lon)
             if towns_data:
                 nearest_town, distance_to_town, town_elevation = find_nearest_town(
-                    lat,
-                    lon,
+                    point,
                     towns_data,
                     elevation_func=self.gis_service.find_elevation
                     if hasattr(self.gis_service, "find_elevation")
@@ -141,8 +142,7 @@ class StarGazingPlaceFinder:
 
             location = location_processor_func(
                 name,
-                lat,
-                lon,
+                point,
                 elevation,
                 tags,
                 nearest_town,
@@ -160,7 +160,7 @@ class StarGazingPlaceFinder:
 
     # ── Public entry points ─────────────────────────────────────────
 
-    def find_peaks_in_area(self, bbox: Tuple[float, float, float, float], max_locations: int = 50) -> List[Peak]:
+    def find_peaks_in_area(self, bbox: LatLonBox, max_locations: int = 50) -> List[Peak]:
         """Find qualified peaks in specified area."""
         return self._find_locations_in_area(
             bbox=bbox,
@@ -170,7 +170,7 @@ class StarGazingPlaceFinder:
         )
 
     def find_observatories_in_area(
-        self, bbox: Tuple[float, float, float, float], max_observatories: int = 50
+        self, bbox: LatLonBox, max_observatories: int = 50
     ) -> List[Observatory]:
         """Find observatories in specified area."""
         return self._find_locations_in_area(
@@ -181,7 +181,7 @@ class StarGazingPlaceFinder:
         )
 
     def find_viewpoints_in_area(
-        self, bbox: Tuple[float, float, float, float], max_viewpoints: int = 50
+        self, bbox: LatLonBox, max_viewpoints: int = 50
     ) -> List[Viewpoint]:
         """Find viewpoints in specified area."""
         return self._find_locations_in_area(
@@ -229,11 +229,11 @@ class StarGazingPlaceFinder:
             return {"elevation_statistics": stats, "note": "Cache is managed internally by GisQueryService"}
         return None
 
-    def calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    def calculate_distance(self, p1: GeoCoordinate, p2: GeoCoordinate) -> float:
         """Calculate Haversine distance (km). Delegates to parsers."""
         from gis_service.parsers import calculate_distance as _calc_dist
 
-        return _calc_dist(lat1, lon1, lat2, lon2)
+        return _calc_dist(p1, p2)
 
 
 # ── Convenience functions ──────────────────────────────────────────
@@ -258,7 +258,7 @@ def find_peaks_with_height_difference(
         min_height_difference=min_height_diff,
         light_pollution_analyzer=LightPollutionAnalyzer(geotiff_path=geotiff_path),
     )
-    return finder.find_peaks_in_area((south, west, north, east), max_locations)
+    return finder.find_peaks_in_area(LatLonBox(south=south, west=west, north=north, east=east), max_locations)
 
 
 def find_viewpoints(south: float, west: float, north: float, east: float, max_viewpoints: int = 50) -> List[Viewpoint]:
@@ -276,14 +276,14 @@ def find_viewpoints(south: float, west: float, north: float, east: float, max_vi
     finder = StarGazingPlaceFinder(
         min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer(geotiff_path=geotiff_path)
     )
-    return finder.find_viewpoints_in_area((south, west, north, east), max_viewpoints)
+    return finder.find_viewpoints_in_area(LatLonBox(south=south, west=west, north=north, east=east), max_viewpoints)
 
 
 if __name__ == "__main__":
     # Example: Search for peaks around Beijing
     print("=== Peak Finder Example ===")
 
-    bbox = (39.5, 115.5, 40.5, 117.5)  # (south, west, north, east)
+    bbox = LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5)
 
     geotiff_path = str(res.files("light_pollution").joinpath("resources", "viirs_china_2025.tif"))
     finder = StarGazingPlaceFinder(

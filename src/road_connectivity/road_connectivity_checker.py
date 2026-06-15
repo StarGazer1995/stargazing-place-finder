@@ -18,13 +18,13 @@ import osmnx as ox
 from geopy.distance import geodesic
 
 try:
-    from src.models import RoadAccessInfo
+    from src.models import GeoCoordinate, RoadAccessInfo
 except ImportError:
     import os
     import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from models import RoadAccessInfo
+    from models import GeoCoordinate, RoadAccessInfo
 
 try:
     from cache.cache_config import get_cache_dir, setup_osmnx_cache
@@ -173,18 +173,18 @@ class RoadConnectivityChecker:
         self._road_cache_dir = get_cache_dir("road_networks")
         self.location_cache = RoadAccessInfoCache()
 
-    def is_road_accessible(self, lat: float, lon: float, network_type: str = "drive") -> bool:
+    def is_road_accessible(self, point: GeoCoordinate, network_type: str = "drive") -> bool:
         """
         Detect whether specified coordinates can be reached by road
 
         Args:
-            lat: Latitude
-            lon: Longitude
+            point: Geographic coordinate.
             network_type: Network type ('drive', 'walk', 'bike', 'all')
 
         Returns:
             bool: True means accessible, False means inaccessible
         """
+        lat, lon = point.latitude, point.longitude
 
         def process_and_return(res):
             # No longer use Location object to save road connectivity info, as RoadAccessInfo is more suitable
@@ -213,12 +213,12 @@ class RoadConnectivityChecker:
                     return cache.is_road_accessible
 
             logger.info("Not found in cache, try PostGIS fast path")
-            postgis_result = self._check_via_postgis(lat, lon, network_type)
+            postgis_result = self._check_via_postgis(point, network_type)
             if postgis_result is not None:
                 return postgis_result
 
             logger.info("PostGIS not available or no result, try OSMnx download")
-            graph = self._get_road_network(lat, lon, network_type)
+            graph = self._get_road_network(point, network_type)
 
             if graph is None or len(graph.nodes()) == 0:
                 logger.warning(f"No road network found around coordinates ({lat}, {lon})")
@@ -252,7 +252,7 @@ class RoadConnectivityChecker:
             logger.error(f"Error detecting accessibility for coordinates ({lat}, {lon}): {str(e)}")
             return False
 
-    def _check_via_postgis(self, lat: float, lon: float, network_type: str = "drive") -> Optional[bool]:
+    def _check_via_postgis(self, point: GeoCoordinate, network_type: str = "drive") -> Optional[bool]:
         """
         通过 PostGIS kNN 查询检查道路连通性（毫秒级）。
 
@@ -264,6 +264,7 @@ class RoadConnectivityChecker:
         if not getattr(self.gis_service, "postgis_enabled", False):
             return None
 
+        lat, lon = point.latitude, point.longitude
         result = self.gis_service.query_road_connectivity(lat, lon, self.search_radius_km, network_type)
         if result.get("fallback_needed"):
             return None
@@ -279,18 +280,18 @@ class RoadConnectivityChecker:
         self.location_cache.save_road_access_info_to_cache(f"accessible_{network_type}", [road_info])
         return accessible
 
-    def _get_road_network(self, lat: float, lon: float, network_type: str) -> Optional[nx.MultiDiGraph]:
+    def _get_road_network(self, point: GeoCoordinate, network_type: str) -> Optional[nx.MultiDiGraph]:
         """
         Get road network around specified coordinates
 
         Args:
-            lat: Latitude
-            lon: Longitude
+            point: Geographic coordinate.
             network_type: Network type
 
         Returns:
             Road network graph, returns None if failed to get
         """
+        lat, lon = point.latitude, point.longitude
         cache_key = f"{lat:.4f}_{lon:.4f}_{network_type}_{self.search_radius_km}"
 
         # Check cache
@@ -319,12 +320,12 @@ class RoadConnectivityChecker:
             logger.error(f"Failed to download road network: {str(e)}")
             return None
 
-    def batch_check_accessibility(self, coordinates: list, network_type: str = "drive") -> list:
+    def batch_check_accessibility(self, coordinates: List[GeoCoordinate], network_type: str = "drive") -> list:
         """
         Batch check road accessibility for multiple coordinates
 
         Args:
-            coordinates: List of coordinates in format [(lat1, lon1), (lat2, lon2), ...]
+            coordinates: List of GeoCoordinate objects.
             network_type: Network type
 
         Returns:
@@ -332,9 +333,10 @@ class RoadConnectivityChecker:
         """
         results = []
 
-        for i, (lat, lon) in enumerate(coordinates):
+        for i, point in enumerate(coordinates):
+            lat, lon = point.latitude, point.longitude
             logger.info(f"Checking coordinate {i + 1}/{len(coordinates)}: ({lat}, {lon})")
-            accessible = self.is_road_accessible(lat, lon, network_type)
+            accessible = self.is_road_accessible(point, network_type)
             results.append(accessible)
 
         accessible_count = sum(results)
@@ -342,18 +344,18 @@ class RoadConnectivityChecker:
 
         return results
 
-    def get_accessibility_info(self, lat: float, lon: float, network_type: str = "drive") -> dict:
+    def get_accessibility_info(self, point: GeoCoordinate, network_type: str = "drive") -> dict:
         """
         Get detailed accessibility information
 
         Args:
-            lat: Latitude
-            lon: Longitude
+            point: Geographic coordinate.
             network_type: Network type
 
         Returns:
             dict: Dictionary containing accessibility and detailed information
         """
+        lat, lon = point.latitude, point.longitude
         result = {
             "accessible": False,
             "distance_to_road_km": None,
@@ -401,7 +403,7 @@ class RoadConnectivityChecker:
                 print("No road accessible info in cache")
 
             # Try PostGIS fast path first
-            postgis_result = self._check_via_postgis(lat, lon, network_type)
+            postgis_result = self._check_via_postgis(point, network_type)
             if postgis_result is not None:
                 result["accessible"] = postgis_result
                 # Try to get more details from a separate query
@@ -415,7 +417,7 @@ class RoadConnectivityChecker:
                         result["error"] = None
                 return result
 
-            graph = self._get_road_network(lat, lon, network_type)
+            graph = self._get_road_network(point, network_type)
 
             if graph is None or len(graph.nodes()) == 0:
                 result["error"] = "Unable to get road network data"
@@ -458,19 +460,18 @@ class RoadConnectivityChecker:
         return result
 
 
-def simple_road_check(lat: float, lon: float) -> bool:
+def simple_road_check(point: GeoCoordinate) -> bool:
     """
     Simple road connectivity detection function
 
     Args:
-        lat: Latitude
-        lon: Longitude
+        point: Geographic coordinate.
 
     Returns:
         bool: True means accessible, False means inaccessible
     """
     checker = RoadConnectivityChecker(search_radius_km=5.0)
-    return checker.is_road_accessible(lat, lon)
+    return checker.is_road_accessible(point)
 
 
 if __name__ == "__main__":
@@ -485,8 +486,9 @@ if __name__ == "__main__":
     ]
 
     for lat, lon in test_coordinates:
+        point = GeoCoordinate(latitude=lat, longitude=lon)
         print(f"\nDetecting coordinates ({lat}, {lon}):")
-        info = checker.get_accessibility_info(lat, lon)
+        info = checker.get_accessibility_info(point)
         print(f"Accessibility: {info['accessible']}")
         if info["distance_to_road_km"] is not None:
             print(f"Distance to nearest road: {info['distance_to_road_km']:.2f} km")

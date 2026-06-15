@@ -15,6 +15,7 @@ import time
 
 from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 from road_connectivity.simple_road_checker import batch_road_check, quick_road_check
+from models import GeoCoordinate
 
 
 def test_quick_check():
@@ -126,7 +127,8 @@ def test_detailed_checker():
     print(f"Detailed test: Beijing Huairou ({lat}, {lon})")
 
     # 获取详细信息
-    info = checker.get_accessibility_info(lat, lon)
+    point = GeoCoordinate(latitude=lat, longitude=lon)
+    info = checker.get_accessibility_info(point)
 
     print(f"Accessibility: {'✅ Accessible' if info['accessible'] else '❌ Not accessible'}")
     if info["accessible"]:

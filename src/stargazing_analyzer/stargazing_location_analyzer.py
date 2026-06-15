@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # Import related modules
 from gis_service.query_service import GisQueryService
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-from models import StargazingLocation
+from models import GeoCoordinate, LatLonBox, StargazingLocation
 from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
 from .stargazing_place_finder import StarGazingPlaceFinder
@@ -128,7 +128,7 @@ class StargazingLocationAnalyzer:
 
     def analyze_area(
         self,
-        bbox: Tuple[float, float, float, float],
+        bbox: LatLonBox,
         max_locations: int = 50,
         location_types: List[str] = None,
         network_type: str = "drive",
@@ -141,7 +141,7 @@ class StargazingLocationAnalyzer:
         Analyze stargazing locations within specified area (supports multiple types like peaks, observatories, viewpoints)
 
         Args:
-            bbox: Bounding box (south, west, north, east)
+            bbox: Bounding box (LatLonBox with south/west/north/east).
             max_locations: Maximum number of locations
             location_types: List of location types, options: ['mountain_peak', 'observatory', 'viewpoint']
                           If None, defaults to searching all types
@@ -154,7 +154,7 @@ class StargazingLocationAnalyzer:
         Returns:
             List of stargazing locations
         """
-        print(f"Starting area analysis: {bbox}")
+        print(f"Starting area analysis: ({bbox.south}, {bbox.west}, {bbox.north}, {bbox.east})")
 
         # Default to searching all types of locations
         if location_types is None:
@@ -297,7 +297,7 @@ class StargazingLocationAnalyzer:
         # Compute nearby town density
         if towns_data:
             stargazing_location.nearby_town_count = self._count_nearby_towns(
-                location.latitude, location.longitude, towns_data, radius_km=20.0
+                GeoCoordinate(latitude=location.latitude, longitude=location.longitude), towns_data, radius_km=20.0
             )
 
         # Light pollution analysis (from pre-batched results)
@@ -315,7 +315,7 @@ class StargazingLocationAnalyzer:
         if include_road_connectivity:
             try:
                 road_info = self.road_checker.get_accessibility_info(
-                    location.latitude, location.longitude, network_type=network_type
+                    GeoCoordinate(latitude=location.latitude, longitude=location.longitude), network_type=network_type
                 )
                 stargazing_location.road_accessible = road_info["accessible"]
                 stargazing_location.distance_to_road_km = road_info["distance_to_road_km"]
@@ -332,11 +332,11 @@ class StargazingLocationAnalyzer:
 
         return stargazing_location
 
-    def _count_nearby_towns(self, lat: float, lon: float, towns: List[Dict], radius_km: float = 20.0) -> int:
+    def _count_nearby_towns(self, point: GeoCoordinate, towns: List[Dict], radius_km: float = 20.0) -> int:
         """Count additional towns within a given radius (excluding the nearest).
 
         Args:
-            lat, lon: Location coordinates
+            point: Location coordinate.
             towns: List of town data dicts
             radius_km: Search radius in km
 
@@ -358,7 +358,8 @@ class StargazingLocationAnalyzer:
             except (KeyError, TypeError):
                 continue
 
-            distance = self.mountain_finder.calculate_distance(lat, lon, t_lat, t_lon)
+            town_point = GeoCoordinate(latitude=t_lat, longitude=t_lon)
+            distance = self.mountain_finder.calculate_distance(point, town_point)
             if distance <= radius_km:
                 distances.append(distance)
 
