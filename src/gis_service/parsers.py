@@ -80,7 +80,6 @@ def find_nearest_town(
     Returns:
         TownInfo with name, distance_km and elevation_m.
     """
-    lat, lon = point.latitude, point.longitude
     min_distance = float("inf")
     nearest_town = None
     nearest_town_elevation = None

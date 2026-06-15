@@ -13,9 +13,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
 import time
 
+from models import GeoCoordinate
 from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 from road_connectivity.simple_road_checker import batch_road_check, quick_road_check
-from models import GeoCoordinate
 
 
 def test_quick_check():

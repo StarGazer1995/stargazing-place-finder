@@ -9,7 +9,7 @@ GisQueryService — 统一的 GIS 查询服务入口。
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from models import GeoCoordinate, LatLonBox
+from models import LatLonBox
 
 from .backends.elevation_backend import ElevationBackend
 from .backends.overpass_backend import OverpassBackend

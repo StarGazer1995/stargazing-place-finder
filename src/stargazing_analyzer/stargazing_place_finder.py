@@ -8,8 +8,7 @@ GisQueryService for data retrieval and gis_service.parsers for data transformati
 
 import importlib.resources as res
 import json
-import time
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from gis_service.parsers import (
     extract_coordinates,
