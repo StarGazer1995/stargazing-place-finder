@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   lint:
-    name: Lint & Format
+    name: Lint & Format & Security
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -39,6 +39,9 @@ jobs:
 
       - name: Check linting (ruff check)
         run: uv run ruff check src/
+
+      - name: Static security scan (bandit)
+        run: uv run bandit -r src/ -c pyproject.toml --severity-level medium
 
   test:
     name: Test (Python ${{ matrix.python-version }})
