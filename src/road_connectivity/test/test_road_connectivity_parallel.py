@@ -7,8 +7,7 @@ All PostGIS and external API calls are mocked.
 
 import os
 import unittest
-from unittest.mock import patch, MagicMock, PropertyMock
-from typing import List, Tuple
+from unittest.mock import MagicMock, patch
 
 
 class TestBatchCheckAccessibilityParallel(unittest.TestCase):
@@ -16,27 +15,28 @@ class TestBatchCheckAccessibilityParallel(unittest.TestCase):
 
     def setUp(self):
         # FAST_TESTS shortcuts the logic — disable it for these unit tests
-        self._old_fast = os.environ.pop('FAST_TESTS', None)
+        self._old_fast = os.environ.pop("FAST_TESTS", None)
         # Mock is_road_accessible directly — it's what batch_check_accessibility calls.
         # This avoids complexity from cache, FAST_TESTS, and OSMnx fallback.
-        self.patcher = patch(
-            'road_connectivity.road_connectivity_checker.RoadConnectivityChecker.is_road_accessible'
-        )
+        self.patcher = patch("road_connectivity.road_connectivity_checker.RoadConnectivityChecker.is_road_accessible")
         self.mock_road = self.patcher.start()
         self.addCleanup(self.patcher.stop)
 
     def tearDown(self):
         if self._old_fast is not None:
-            os.environ['FAST_TESTS'] = self._old_fast
+            os.environ["FAST_TESTS"] = self._old_fast
 
     def _make_checker(self):
         from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+
         return RoadConnectivityChecker(search_radius_km=10.0)
 
     def _make_coord_mock(self, result_map):
         """Create a deterministic mock based on coordinate -> result mapping."""
+
         def side_effect(lat, lon, *args):
             return result_map.get((lat, lon), False)
+
         self.mock_road.side_effect = side_effect
 
     def test_batch_check_parallel_all_accessible(self):
@@ -49,8 +49,7 @@ class TestBatchCheckAccessibilityParallel(unittest.TestCase):
 
     def test_batch_check_parallel_mixed(self):
         """Mixed accessible/inaccessible results."""
-        self._make_coord_mock({(39.9, 116.4): True, (0.0, 160.0): False,
-                               (40.0, 116.5): True, (0.0, 180.0): False})
+        self._make_coord_mock({(39.9, 116.4): True, (0.0, 160.0): False, (40.0, 116.5): True, (0.0, 180.0): False})
         checker = self._make_checker()
         coords = [(39.9, 116.4), (0.0, 160.0), (40.0, 116.5), (0.0, 180.0)]
         results = checker.batch_check_accessibility(coords)
@@ -105,9 +104,9 @@ class TestCheckViaPostgis(unittest.TestCase):
         gis = MagicMock()
         gis.postgis_enabled = True
         gis.query_road_connectivity.return_value = {
-            'accessible': True,
-            'distance_meters': 50.0,
-            'road_type': 'residential',
+            "accessible": True,
+            "distance_meters": 50.0,
+            "road_type": "residential",
         }
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
         result = checker._check_via_postgis(39.9, 116.4)
@@ -120,9 +119,9 @@ class TestCheckViaPostgis(unittest.TestCase):
         gis = MagicMock()
         gis.postgis_enabled = True
         gis.query_road_connectivity.return_value = {
-            'accessible': False,
-            'distance_meters': 100000.0,
-            'road_type': None,
+            "accessible": False,
+            "distance_meters": 100000.0,
+            "road_type": None,
         }
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
         result = checker._check_via_postgis(0.0, 160.0)
@@ -152,11 +151,11 @@ class TestCheckViaPostgis(unittest.TestCase):
 
         gis = MagicMock()
         gis.postgis_enabled = True
-        gis.query_road_connectivity.return_value = {'fallback_needed': True}
+        gis.query_road_connectivity.return_value = {"fallback_needed": True}
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
         result = checker._check_via_postgis(39.9, 116.4)
         self.assertIsNone(result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

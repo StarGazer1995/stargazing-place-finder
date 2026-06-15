@@ -1,7 +1,6 @@
-import os
 import math
-from typing import Any, Dict, List, Optional, Tuple, Union
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 try:
     import importlib.resources as res
@@ -11,18 +10,26 @@ except ImportError:
 
 from .light_pollution_analyzer import (
     LightPollutionAnalyzer,
+)
+from .light_pollution_analyzer import (
     radiance_to_bortle as _radiance_to_bortle,
+)
+from .light_pollution_analyzer import (
     radiance_to_brightness as _radiance_to_brightness,
+)
+from .light_pollution_analyzer import (
     radiance_to_pollution_level as _radiance_to_pollution_level,
 )
 
 _lp_analyzer: Optional[LightPollutionAnalyzer] = None
 
+
 def _default_geotiff_path() -> Path:
     """
     返回包内默认的 VIIRS 中国区域 GeoTIFF 路径
     """
-    return Path(res.files(__package__).joinpath('resources', 'viirs_china_2025.tif'))
+    return Path(res.files(__package__).joinpath("resources", "viirs_china_2025.tif"))
+
 
 def init_light_pollution_analyzer(
     kml_file_path: Optional[Path] = None,
@@ -54,6 +61,7 @@ def init_light_pollution_analyzer(
     )
     return _lp_analyzer
 
+
 def _require_analyzer() -> LightPollutionAnalyzer:
     """
     确保分析器已初始化，未初始化则使用默认路径进行初始化。
@@ -66,9 +74,11 @@ def _require_analyzer() -> LightPollutionAnalyzer:
         init_light_pollution_analyzer()
     return _lp_analyzer  # type: ignore
 
+
 # ---------------------------------------------------------------------------
 # Conversion utilities
 # ---------------------------------------------------------------------------
+
 
 def brightness_to_bortle(brightness: int) -> int:
     """
@@ -94,6 +104,7 @@ def brightness_to_bortle(brightness: int) -> int:
     else:
         return 9
 
+
 def bortle_to_sqm(bortle: int) -> float:
     """
     将波特尔等级转换为SQM（每平方角秒星等）
@@ -111,17 +122,21 @@ def bortle_to_sqm(bortle: int) -> float:
     }
     return float(sqm_values.get(bortle, 20.0))
 
+
 def radiance_to_bortle(radiance: float) -> int:
     """将 VIIRS DNB 辐射度 (nW/cm²/sr) 转换为波特尔等级。"""
     return _radiance_to_bortle(radiance)
+
 
 def radiance_to_brightness(radiance: float) -> int:
     """将辐射度转换为 0-255 亮度值（向后兼容）。"""
     return _radiance_to_brightness(radiance)
 
+
 def radiance_to_pollution_level(radiance: float) -> str:
     """将辐射度转换为可读的污染等级描述。"""
     return _radiance_to_pollution_level(radiance)
+
 
 def get_light_pollution_grid(north: float, south: float, east: float, west: float, zoom: int = 10) -> Dict[str, Any]:
     """
@@ -174,62 +189,67 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
                     brightness = pollution_info.brightness
                     intensity = brightness / 255.0
                     entry = {
-                        'name': f'数据点 {point_index + 1}',
-                        'lat': lat,
-                        'lng': lng,
-                        'bortle': bortle,
-                        'sqm': f'{sqm:.1f}',
-                        'intensity': intensity,
-                        'brightness': brightness,
-                        'rgb': pollution_info.rgb,
-                        'hex': pollution_info.hex,
-                        'overlay_name': pollution_info.overlay_name,
-                        'radiance': pollution_info.radiance,
+                        "name": f"数据点 {point_index + 1}",
+                        "lat": lat,
+                        "lng": lng,
+                        "bortle": bortle,
+                        "sqm": f"{sqm:.1f}",
+                        "intensity": intensity,
+                        "brightness": brightness,
+                        "rgb": pollution_info.rgb,
+                        "hex": pollution_info.hex,
+                        "overlay_name": pollution_info.overlay_name,
+                        "radiance": pollution_info.radiance,
                     }
                     data.append(entry)
                 else:
-                    data.append({
-                        'name': f'数据点 {point_index + 1}',
-                        'lat': lat,
-                        'lng': lng,
-                        'bortle': 5,
-                        'sqm': '20.0',
-                        'intensity': 0.5,
-                        'brightness': 128,
-                        'rgb': [128, 128, 128],
-                        'hex': '#808080',
-                        'overlay_name': '默认数据',
-                    })
+                    data.append(
+                        {
+                            "name": f"数据点 {point_index + 1}",
+                            "lat": lat,
+                            "lng": lng,
+                            "bortle": 5,
+                            "sqm": "20.0",
+                            "intensity": 0.5,
+                            "brightness": 128,
+                            "rgb": [128, 128, 128],
+                            "hex": "#808080",
+                            "overlay_name": "默认数据",
+                        }
+                    )
             except Exception:
-                data.append({
-                    'name': f'数据点 {point_index + 1}',
-                    'lat': lat,
-                    'lng': lng,
-                    'bortle': 5,
-                    'sqm': '20.0',
-                    'intensity': 0.5,
-                    'brightness': 128,
-                    'rgb': [128, 128, 128],
-                    'hex': '#808080',
-                    'overlay_name': '默认数据',
-                })
+                data.append(
+                    {
+                        "name": f"数据点 {point_index + 1}",
+                        "lat": lat,
+                        "lng": lng,
+                        "bortle": 5,
+                        "sqm": "20.0",
+                        "intensity": 0.5,
+                        "brightness": 128,
+                        "rgb": [128, 128, 128],
+                        "hex": "#808080",
+                        "overlay_name": "默认数据",
+                    }
+                )
             point_index += 1
 
     return {
-        'success': True,
-        'data': data,
-        'metadata': {
-            'bounds': {
-                'north': north,
-                'south': south,
-                'east': east,
-                'west': west,
+        "success": True,
+        "data": data,
+        "metadata": {
+            "bounds": {
+                "north": north,
+                "south": south,
+                "east": east,
+                "west": west,
             },
-            'zoom': zoom,
-            'grid_resolution': grid_resolution,
-            'total_points': len(data),
+            "zoom": zoom,
+            "grid_resolution": grid_resolution,
+            "total_points": len(data),
         },
     }
+
 
 def analyze_coordinate(lat: float, lng: float) -> Dict[str, Any]:
     """
@@ -260,49 +280,48 @@ def analyze_coordinate(lat: float, lng: float) -> Dict[str, Any]:
             9: "内城天空",
         }
         result = {
-            'success': True,
-            'data': {
-                'coordinates': {'lat': lat, 'lng': lng},
-                'light_pollution': {
-                    'bortle_class': bortle,
-                    'sqm_value': float(f"{sqm:.1f}"),
-                    'intensity': brightness / 255.0,
-                    'brightness': brightness,
-                    'description': description_map.get(bortle, '未知等级'),
-                    'radiance': pollution_info.radiance,
+            "success": True,
+            "data": {
+                "coordinates": {"lat": lat, "lng": lng},
+                "light_pollution": {
+                    "bortle_class": bortle,
+                    "sqm_value": float(f"{sqm:.1f}"),
+                    "intensity": brightness / 255.0,
+                    "brightness": brightness,
+                    "description": description_map.get(bortle, "未知等级"),
+                    "radiance": pollution_info.radiance,
                 },
-                'color_info': {
-                    'rgb': pollution_info.rgb,
-                    'hex': pollution_info.hex,
+                "color_info": {
+                    "rgb": pollution_info.rgb,
+                    "hex": pollution_info.hex,
                 },
-                'source': {
-                    'overlay_name': pollution_info.overlay_name,
-                    'data_type': 'real_data',
+                "source": {
+                    "overlay_name": pollution_info.overlay_name,
+                    "data_type": "real_data",
                 },
             },
         }
         return result
     else:
         return {
-            'success': True,
-            'warning': '未找到光污染数据，返回默认值',
-            'data': {
-                'coordinates': {'lat': lat, 'lng': lng},
-                'light_pollution': {
-                    'bortle_class': 5,
-                    'sqm_value': 20.0,
-                    'intensity': 0.5,
-                    'brightness': 128,
-                    'description': '郊区天空',
+            "success": True,
+            "warning": "未找到光污染数据，返回默认值",
+            "data": {
+                "coordinates": {"lat": lat, "lng": lng},
+                "light_pollution": {
+                    "bortle_class": 5,
+                    "sqm_value": 20.0,
+                    "intensity": 0.5,
+                    "brightness": 128,
+                    "description": "郊区天空",
                 },
-                'color_info': {
-                    'rgb': [128, 128, 128],
-                    'hex': '#808080',
+                "color_info": {
+                    "rgb": [128, 128, 128],
+                    "hex": "#808080",
                 },
-                'source': {
-                    'overlay_name': '默认数据',
-                    'data_type': 'default',
+                "source": {
+                    "overlay_name": "默认数据",
+                    "data_type": "default",
                 },
             },
         }
-

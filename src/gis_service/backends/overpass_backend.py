@@ -41,7 +41,10 @@ class OverpassBackend:
 
     def query_locations_in_bbox(
         self,
-        lon_min: float, lat_min: float, lon_max: float, lat_max: float,
+        lon_min: float,
+        lat_min: float,
+        lon_max: float,
+        lat_max: float,
         location_type: str,
         filters: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
@@ -54,11 +57,11 @@ class OverpassBackend:
         bbox = (lat_min, lon_min, lat_max, lon_max)
 
         method_map = {
-            'peak': self._query_peaks,
-            'town': self._query_towns,
-            'observatory': self._query_observatories,
-            'viewpoint': self._query_viewpoints,
-            'mountain_peak': self._query_peaks,
+            "peak": self._query_peaks,
+            "town": self._query_towns,
+            "observatory": self._query_observatories,
+            "viewpoint": self._query_viewpoints,
+            "mountain_peak": self._query_peaks,
         }
         query_fn = method_map.get(location_type)
         if query_fn is None:
@@ -71,8 +74,8 @@ class OverpassBackend:
     def _query_peaks(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
         q = (
             "[out:json][timeout:25];\n"
-            f"(node[\"natural\"=\"peak\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" node[\"natural\"=\"volcano\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}););\n"
+            f'(node["natural"="peak"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' node["natural"="volcano"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}););\n'
             "out geom;"
         )
         return self._request(q, "peaks")
@@ -80,9 +83,9 @@ class OverpassBackend:
     def _query_towns(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
         q = (
             "[out:json][timeout:25];\n"
-            f"(node[\"place\"~\"^(city|town|village|hamlet)$\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" way[\"place\"~\"^(city|town|village|hamlet)$\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" relation[\"place\"~\"^(city|town|village|hamlet)$\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}););\n"
+            f'(node["place"~"^(city|town|village|hamlet)$"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' way["place"~"^(city|town|village|hamlet)$"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' relation["place"~"^(city|town|village|hamlet)$"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}););\n'
             "out center geom;"
         )
         return self._request(q, "towns")
@@ -90,13 +93,13 @@ class OverpassBackend:
     def _query_observatories(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
         q = (
             "[out:json][timeout:25];\n"
-            f"(node[\"man_made\"=\"observatory\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" way[\"man_made\"=\"observatory\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" relation[\"man_made\"=\"observatory\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" node[\"amenity\"=\"planetarium\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" way[\"amenity\"=\"planetarium\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" node[\"building\"=\"observatory\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" way[\"building\"=\"observatory\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}););\n"
+            f'(node["man_made"="observatory"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' way["man_made"="observatory"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' relation["man_made"="observatory"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' node["amenity"="planetarium"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' way["amenity"="planetarium"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' node["building"="observatory"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' way["building"="observatory"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}););\n'
             "out center geom;"
         )
         return self._request(q, "observatories")
@@ -104,15 +107,15 @@ class OverpassBackend:
     def _query_viewpoints(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
         q = (
             "[out:json][timeout:25];\n"
-            f"(node[\"tourism\"=\"viewpoint\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" way[\"tourism\"=\"viewpoint\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" relation[\"tourism\"=\"viewpoint\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" node[\"man_made\"=\"tower\"][\"tower:type\"=\"observation\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" way[\"man_made\"=\"tower\"][\"tower:type\"=\"observation\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" node[\"amenity\"=\"observation_deck\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" way[\"amenity\"=\"observation_deck\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" node[\"leisure\"=\"viewing_platform\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n"
-            f" way[\"leisure\"=\"viewing_platform\"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}););\n"
+            f'(node["tourism"="viewpoint"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' way["tourism"="viewpoint"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' relation["tourism"="viewpoint"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' node["man_made"="tower"]["tower:type"="observation"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' way["man_made"="tower"]["tower:type"="observation"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' node["amenity"="observation_deck"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' way["amenity"="observation_deck"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' node["leisure"="viewing_platform"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
+            f' way["leisure"="viewing_platform"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}););\n'
             "out center geom;"
         )
         return self._request(q, "viewpoints")
@@ -130,7 +133,7 @@ class OverpassBackend:
                 logger.info("Querying Overpass for %s ...", data_type)
                 resp = requests.post(self.url, data=query, timeout=self.timeout)
                 resp.raise_for_status()
-                elements = resp.json().get('elements', [])
+                elements = resp.json().get("elements", [])
                 logger.info("Overpass %s: found %d", data_type, len(elements))
                 return elements
 

@@ -9,11 +9,11 @@ GisQueryService — 统一的 GIS 查询服务入口。
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from .config import load_db_config
-from .backends.postgis_backend import PostgisBackend
-from .backends.overpass_backend import OverpassBackend
 from .backends.elevation_backend import ElevationBackend
+from .backends.overpass_backend import OverpassBackend
+from .backends.postgis_backend import PostgisBackend
 from .caching import GisQueryCache
+from .config import load_db_config
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class GisQueryService:
     def query_locations(
         self,
         bbox: Tuple[float, float, float, float],
-        location_type: str = 'peak',
+        location_type: str = "peak",
         filters: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
@@ -87,9 +87,7 @@ class GisQueryService:
         """
         cache_key = None
         if self._cache:
-            cache_key = self._cache._make_key(
-                'query_locations', bbox, location_type, filters
-            )
+            cache_key = self._cache._make_key("query_locations", bbox, location_type, filters)
             cached = self._cache.get(cache_key)
             if cached is not None:
                 logger.debug("Cache hit for %s %s", location_type, bbox)
@@ -99,14 +97,10 @@ class GisQueryService:
 
         if self.postgis_enabled and self._postgis:
             logger.info("Querying %s via PostGIS: %s", location_type, bbox)
-            results = self._postgis.query_locations_in_bbox(
-                lon_min, lat_min, lon_max, lat_max, location_type, filters
-            )
+            results = self._postgis.query_locations_in_bbox(lon_min, lat_min, lon_max, lat_max, location_type, filters)
         else:
             logger.info("Querying %s via Overpass: %s", location_type, bbox)
-            results = self._overpass.query_locations_in_bbox(
-                lon_min, lat_min, lon_max, lat_max, location_type, filters
-            )
+            results = self._overpass.query_locations_in_bbox(lon_min, lat_min, lon_max, lat_max, location_type, filters)
 
         if cache_key and self._cache:
             self._cache.set(cache_key, results)
@@ -115,27 +109,28 @@ class GisQueryService:
 
     def query_towns(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
         """查询城镇。"""
-        return self.query_locations(bbox, 'town')
+        return self.query_locations(bbox, "town")
 
     def query_peaks(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
         """查询山峰。"""
-        return self.query_locations(bbox, 'peak')
+        return self.query_locations(bbox, "peak")
 
     def query_observatories(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
         """查询天文台。"""
-        return self.query_locations(bbox, 'observatory')
+        return self.query_locations(bbox, "observatory")
 
     def query_viewpoints(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
         """查询观景点。"""
-        return self.query_locations(bbox, 'viewpoint')
+        return self.query_locations(bbox, "viewpoint")
 
     # ── 道路连通性查询 ──────────────────────────────────────
 
     def query_road_connectivity(
         self,
-        lat: float, lon: float,
+        lat: float,
+        lon: float,
         radius_km: float = 10.0,
-        network_type: str = 'drive',
+        network_type: str = "drive",
     ) -> Dict[str, Any]:
         """
         查询坐标点的道路连通性。
@@ -155,28 +150,25 @@ class GisQueryService:
                 - road_type: str or None
         """
         if self.postgis_enabled and self._postgis:
-            return self._postgis.query_road_connectivity(
-                lat, lon, radius_km, network_type
-            )
+            return self._postgis.query_road_connectivity(lat, lon, radius_km, network_type)
         # Fallback: 通过 OSMnx 查询（由 RoadConnectivityChecker 处理）
-        logger.info(
-            "PostGIS not available, road connectivity must use OSMnx fallback: "
-            "(%.4f, %.4f)", lat, lon
-        )
+        logger.info("PostGIS not available, road connectivity must use OSMnx fallback: (%.4f, %.4f)", lat, lon)
         return {
-            'accessible': False,
-            'distance_meters': None,
-            'road_type': None,
-            'road_name': None,
-            'nearest_lat': None,
-            'nearest_lon': None,
-            'fallback_needed': True,
+            "accessible": False,
+            "distance_meters": None,
+            "road_type": None,
+            "road_name": None,
+            "nearest_lat": None,
+            "nearest_lon": None,
+            "fallback_needed": True,
         }
 
     # ── 高程查询 ─────────────────────────────────────────────
 
     def find_elevation(
-        self, lat: float, lon: float,
+        self,
+        lat: float,
+        lon: float,
         osm_tags: Optional[Dict[str, Any]] = None,
     ) -> float:
         """
@@ -209,4 +201,4 @@ class GisQueryService:
         """返回数据库海拔统计信息（仅 PostGIS 可用时）。"""
         if self._postgis:
             return self._postgis.get_elevation_statistics()
-        return {'error': 'PostGIS not enabled'}
+        return {"error": "PostGIS not enabled"}

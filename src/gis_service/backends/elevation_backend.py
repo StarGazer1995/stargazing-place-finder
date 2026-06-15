@@ -33,7 +33,9 @@ class ElevationBackend:
     # ── 单点高程（完整 fallback 链）────────────────────────────
 
     def find_elevation(
-        self, lat: float, lon: float,
+        self,
+        lat: float,
+        lon: float,
         osm_tags: Optional[Dict[str, Any]] = None,
     ) -> float:
         """
@@ -54,9 +56,9 @@ class ElevationBackend:
             海拔（米），始终返回 float
         """
         # Level 1: OSM tags
-        if osm_tags and 'ele' in osm_tags:
+        if osm_tags and "ele" in osm_tags:
             try:
-                val = float(osm_tags['ele'])
+                val = float(osm_tags["ele"])
                 if val is not None:
                     return val
             except (ValueError, TypeError):
@@ -85,7 +87,8 @@ class ElevationBackend:
     # ── 批量高程 ──────────────────────────────────────────────
 
     def batch_find_elevations(
-        self, coordinates: List[Tuple[float, float]],
+        self,
+        coordinates: List[Tuple[float, float]],
         osm_tags_list: Optional[List[Optional[Dict[str, Any]]]] = None,
     ) -> List[float]:
         """
@@ -104,9 +107,9 @@ class ElevationBackend:
         # Phase 1: OSM tags
         if osm_tags_list:
             for i, tags in enumerate(osm_tags_list):
-                if tags and 'ele' in tags:
+                if tags and "ele" in tags:
                     try:
-                        results[i] = float(tags['ele'])
+                        results[i] = float(tags["ele"])
                     except (ValueError, TypeError):
                         pass
 
@@ -118,8 +121,8 @@ class ElevationBackend:
                 batch_names = [f"pt_{i}" for i in remaining]
                 elev_data = self._postgis.batch_query_elevations(batch_coords, batch_names)
                 for idx, data in zip(remaining, elev_data):
-                    if data.get('elevation') is not None:
-                        results[idx] = data['elevation']
+                    if data.get("elevation") is not None:
+                        results[idx] = data["elevation"]
             except Exception as e:
                 logger.debug("PostGIS batch elevation failed: %s", e)
 
@@ -146,6 +149,6 @@ class ElevationBackend:
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         data = resp.json()
-        if data.get('results'):
-            return data['results'][0].get('elevation')
+        if data.get("results"):
+            return data["results"][0].get("elevation")
         return None

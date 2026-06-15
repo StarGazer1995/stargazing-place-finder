@@ -1,6 +1,5 @@
-import os
-from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import importlib.resources as res
@@ -10,21 +9,28 @@ except ImportError:
 
 from .stargazing_location_analyzer import (
     StargazingLocationAnalyzer,
+)
+from .stargazing_location_analyzer import (
     analyze_stargazing_area as _analyze_area_fn,
 )
 
 _sa_analyzer: Optional[StargazingLocationAnalyzer] = None
 
+
 def _default_geotiff_path() -> Path:
     """
     返回包内默认的 VIIRS 中国区域 GeoTIFF 路径
     """
-    return Path(res.files('light_pollution').joinpath('resources', 'viirs_china_2025.tif'))
+    return Path(res.files("light_pollution").joinpath("resources", "viirs_china_2025.tif"))
 
-def init_stargazing_analyzer(geotiff_path: Optional[Path] = None,
-                             min_height_difference: float = 100.0,
-                             road_search_radius_km: float = 10.0,
-                             db_config_path: Optional[Path] = None) -> StargazingLocationAnalyzer:
+
+def init_stargazing_analyzer(
+    geotiff_path: Optional[Path] = None,
+    min_height_difference: float = 100.0,
+    road_search_radius_km: float = 10.0,
+    max_distance_to_road_km: float = 0.2,
+    db_config_path: Optional[Path] = None,
+) -> StargazingLocationAnalyzer:
     """
     初始化并返回天文观测位置分析器实例，供直接导入调用。
 
@@ -32,6 +38,7 @@ def init_stargazing_analyzer(geotiff_path: Optional[Path] = None,
         geotiff_path: VIIRS GeoTIFF 文件路径，默认为包内裁剪中国区域数据
         min_height_difference: 最小高差阈值
         road_search_radius_km: 道路搜索半径（公里）
+        max_distance_to_road_km: 离路最大距离（公里），默认 0.2（200m 步行距离）
         db_config_path: 数据库配置文件路径
 
     Returns:
@@ -44,9 +51,11 @@ def init_stargazing_analyzer(geotiff_path: Optional[Path] = None,
         geotiff_path=str(geotiff_path),
         min_height_difference=min_height_difference,
         road_search_radius_km=road_search_radius_km,
+        max_distance_to_road_km=max_distance_to_road_km,
         db_config_path=str(db_config_path) if db_config_path else None,
     )
     return _sa_analyzer
+
 
 def _require_analyzer() -> StargazingLocationAnalyzer:
     """
@@ -60,11 +69,16 @@ def _require_analyzer() -> StargazingLocationAnalyzer:
         init_stargazing_analyzer()
     return _sa_analyzer  # type: ignore
 
-def analyze_area(bbox: Tuple[float, float, float, float],
-                 max_locations: int = 50,
-                 network_type: str = 'drive',
-                 include_light_pollution: bool = True,
-                 include_road_connectivity: bool = True) -> List[Dict[str, Any]]:
+
+def analyze_area(
+    bbox: Tuple[float, float, float, float],
+    max_locations: int = 50,
+    network_type: str = "drive",
+    include_light_pollution: bool = True,
+    include_road_connectivity: bool = True,
+    min_distance_to_road_km: Optional[float] = None,
+    max_distance_to_road_km: Optional[float] = None,
+) -> List[Dict[str, Any]]:
     """
     在给定边界内进行天文观测位置综合分析，返回列表结果。
 
@@ -74,6 +88,8 @@ def analyze_area(bbox: Tuple[float, float, float, float],
         network_type: 道路网络类型（如 'drive'）
         include_light_pollution: 是否计算光污染指标
         include_road_connectivity: 是否计算道路可达性
+        min_distance_to_road_km: 最小离路距离（公里），过滤掉距路太近的地点
+        max_distance_to_road_km: 最大离路距离（公里），过滤掉距路太远的地点
 
     Returns:
         位置字典列表，包含坐标、海拔、光污染与道路信息
@@ -86,17 +102,27 @@ def analyze_area(bbox: Tuple[float, float, float, float],
         network_type=network_type,
         include_light_pollution=include_light_pollution,
         include_road_connectivity=include_road_connectivity,
+        min_distance_to_road_km=min_distance_to_road_km,
+        max_distance_to_road_km=max_distance_to_road_km,
     )
     serialized: List[Dict[str, Any]] = []
     for r in results:
         serialized.append(r.model_dump(exclude_none=True))
     return serialized
 
-def analyze_area_simple(south: float, west: float, north: float, east: float,
-                        max_locations: int = 30,
-                        min_height_diff: float = 100.0,
-                        road_radius_km: float = 10.0,
-                        network_type: str = 'drive') -> List[Dict[str, Any]]:
+
+def analyze_area_simple(
+    south: float,
+    west: float,
+    north: float,
+    east: float,
+    max_locations: int = 30,
+    min_height_diff: float = 100.0,
+    road_radius_km: float = 10.0,
+    network_type: str = "drive",
+    min_distance_to_road_km: Optional[float] = None,
+    max_distance_to_road_km: Optional[float] = None,
+) -> List[Dict[str, Any]]:
     """
     便捷区域分析封装，调用底层函数并返回序列化列表。
 
@@ -109,6 +135,8 @@ def analyze_area_simple(south: float, west: float, north: float, east: float,
         min_height_diff: 最小高差
         road_radius_km: 道路半径
         network_type: 道路网络类型
+        min_distance_to_road_km: 最小离路距离（公里）
+        max_distance_to_road_km: 最大离路距离（公里）
 
     Returns:
         位置字典列表
@@ -124,6 +152,8 @@ def analyze_area_simple(south: float, west: float, north: float, east: float,
         min_height_diff=min_height_diff,
         road_radius_km=road_radius_km,
         network_type=network_type,
+        min_distance_to_road_km=min_distance_to_road_km,
+        max_distance_to_road_km=max_distance_to_road_km,
     )
     serialized: List[Dict[str, Any]] = []
     for r in results:

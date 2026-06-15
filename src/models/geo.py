@@ -17,6 +17,7 @@ class GeoCoordinate(BaseModel):
 
 class LatLonBox(BaseModel):
     """Bounding box from KML GroundOverlay."""
+
     north: float
     south: float
     east: float
@@ -26,11 +27,13 @@ class LatLonBox(BaseModel):
 
 class Icon(BaseModel):
     """Icon reference from KML GroundOverlay."""
+
     href: str
 
 
 class GroundOverlay(BaseModel):
     """KML GroundOverlay — maps a light-pollution tile to geographic coordinates."""
+
     name: str
     draw_order: int
     color: str
