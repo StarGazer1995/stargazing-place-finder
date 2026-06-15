@@ -52,6 +52,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Download GeoTIFF data from Release asset
+        run: |
+          mkdir -p src/light_pollution/resources
+          curl -fSL -o src/light_pollution/resources/viirs_china_2025.tif \
+            "https://github.com/StarGazer1995/stargazing-place-finder/releases/download/geotiff-data-v1/viirs_china_2025.tif"
+          ls -lh src/light_pollution/resources/viirs_china_2025.tif
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:

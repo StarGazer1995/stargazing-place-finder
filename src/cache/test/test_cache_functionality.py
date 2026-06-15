@@ -226,6 +226,7 @@ class TestStarGazingPlaceFinderCache(unittest.TestCase):
             (),
             {
                 "status_code": 200,
+                "raise_for_status": lambda self: None,
                 "json": lambda self: {
                     "elements": [
                         {"id": 1, "name": "test", "type": "node", "lat": 39.9, "lon": 116.3, "tags": {"name": "test"}}

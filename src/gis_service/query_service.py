@@ -127,9 +127,10 @@ class GisQueryService:
 
     def query_road_connectivity(
         self,
-        lat: float, lon: float,
+        lat: float,
+        lon: float,
         radius_km: float = 10.0,
-        network_type: str = 'drive',
+        network_type: str = "drive",
     ) -> Dict[str, Any]:
         """
         查询坐标点的道路连通性。
@@ -149,22 +150,17 @@ class GisQueryService:
                 - road_type: str or None
         """
         if self.postgis_enabled and self._postgis:
-            return self._postgis.query_road_connectivity(
-                lat, lon, radius_km, network_type
-            )
+            return self._postgis.query_road_connectivity(lat, lon, radius_km, network_type)
         # Fallback: 通过 OSMnx 查询（由 RoadConnectivityChecker 处理）
-        logger.info(
-            "PostGIS not available, road connectivity must use OSMnx fallback: "
-            "(%.4f, %.4f)", lat, lon
-        )
+        logger.info("PostGIS not available, road connectivity must use OSMnx fallback: (%.4f, %.4f)", lat, lon)
         return {
-            'accessible': False,
-            'distance_meters': None,
-            'road_type': None,
-            'road_name': None,
-            'nearest_lat': None,
-            'nearest_lon': None,
-            'fallback_needed': True,
+            "accessible": False,
+            "distance_meters": None,
+            "road_type": None,
+            "road_name": None,
+            "nearest_lat": None,
+            "nearest_lon": None,
+            "fallback_needed": True,
         }
 
     # ── 高程查询 ─────────────────────────────────────────────

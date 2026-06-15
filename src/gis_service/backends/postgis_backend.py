@@ -260,25 +260,22 @@ class PostgisBackend:
 
     # network_type → highway 类型映射
     _HIGHWAY_FILTERS: Dict[str, str] = {
-        'drive': (
+        "drive": (
             "highway IN ('motorway','trunk','primary','secondary','tertiary',"
             "'unclassified','residential','motorway_link','trunk_link',"
             "'primary_link','secondary_link','tertiary_link','living_street','service')"
         ),
-        'walk': (
-            "highway IN ('footway','path','steps','pedestrian','living_street','track')"
-        ),
-        'bike': (
-            "highway IN ('cycleway','path','track','living_street','bridleway')"
-        ),
-        'all': "highway IS NOT NULL",
+        "walk": ("highway IN ('footway','path','steps','pedestrian','living_street','track')"),
+        "bike": ("highway IN ('cycleway','path','track','living_street','bridleway')"),
+        "all": "highway IS NOT NULL",
     }
 
     def query_road_connectivity(
         self,
-        lat: float, lon: float,
+        lat: float,
+        lon: float,
         radius_km: float = 10.0,
-        network_type: str = 'drive',
+        network_type: str = "drive",
     ) -> Dict[str, Any]:
         """
         使用 PostGIS kNN 算子查询最近道路，替代 OSMnx HTTP 下载。
@@ -303,7 +300,7 @@ class PostgisBackend:
         """
         import psycopg2
 
-        highway_filter = self._HIGHWAY_FILTERS.get(network_type, 'highway IS NOT NULL')
+        highway_filter = self._HIGHWAY_FILTERS.get(network_type, "highway IS NOT NULL")
 
         try:
             conn = psycopg2.connect(**self.config)
@@ -312,7 +309,8 @@ class PostgisBackend:
             # 使用 <-> kNN 算子找最近道路
             # - kNN 在 native SRID(3857) 上利用 GiST 索引
             # - 距离用 geography 类型算精确米数
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT
                     highway,
                     name,
@@ -334,7 +332,9 @@ class PostgisBackend:
                     ST_SetSRID(ST_MakePoint(%s, %s), 4326), 3857
                 )
                 LIMIT 1;
-            """, (lon, lat, lon, lat, lon, lat, lon, lat))
+            """,
+                (lon, lat, lon, lat, lon, lat, lon, lat),
+            )
 
             row = cursor.fetchone()
             cursor.close()
@@ -342,36 +342,36 @@ class PostgisBackend:
 
             if row is None:
                 return {
-                    'accessible': False,
-                    'distance_meters': None,
-                    'road_type': None,
-                    'road_name': None,
-                    'nearest_lat': None,
-                    'nearest_lon': None,
+                    "accessible": False,
+                    "distance_meters": None,
+                    "road_type": None,
+                    "road_name": None,
+                    "nearest_lat": None,
+                    "nearest_lon": None,
                 }
 
             highway, name, distance_meters, nearest_lat, nearest_lon = row
             max_distance_meters = min(radius_km * 1000 / 2, 5000.0)
 
             return {
-                'accessible': distance_meters <= max_distance_meters,
-                'distance_meters': distance_meters,
-                'road_type': highway,
-                'road_name': name,
-                'nearest_lat': nearest_lat,
-                'nearest_lon': nearest_lon,
+                "accessible": distance_meters <= max_distance_meters,
+                "distance_meters": distance_meters,
+                "road_type": highway,
+                "road_name": name,
+                "nearest_lat": nearest_lat,
+                "nearest_lon": nearest_lon,
             }
 
         except Exception as e:
             logger.error("Road connectivity query failed for (%s, %s): %s", lat, lon, e)
             return {
-                'accessible': False,
-                'distance_meters': None,
-                'road_type': None,
-                'road_name': None,
-                'nearest_lat': None,
-                'nearest_lon': None,
-                'error': str(e),
+                "accessible": False,
+                "distance_meters": None,
+                "road_type": None,
+                "road_name": None,
+                "nearest_lat": None,
+                "nearest_lon": None,
+                "error": str(e),
             }
 
     # ── 统计信息 ──────────────────────────────────────────────

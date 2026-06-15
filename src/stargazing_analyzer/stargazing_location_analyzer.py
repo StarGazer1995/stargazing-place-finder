@@ -9,16 +9,15 @@ providing users with one-stop stargazing location assessment services.
 
 import json
 import os
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 # Import related modules
 try:
+    from gis_service.query_service import GisQueryService
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
     from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
-    from gis_service.query_service import GisQueryService
     from src.models import StargazingLocation
 
     from .stargazing_place_finder import PostGISClient, StarGazingPlaceFinder
@@ -27,10 +26,9 @@ except ImportError:
     import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
+    from gis_service.query_service import GisQueryService
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
-from gis_service.query_service import GisQueryService
-from models import StargazingLocation
+    from models import StargazingLocation
     from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
     from stargazing_analyzer.stargazing_place_finder import PostGISClient, StarGazingPlaceFinder
 
@@ -227,8 +225,8 @@ class StargazingLocationAnalyzer:
                 coords = [(loc.latitude, loc.longitude) for loc in all_locations]
                 batch_results = self.light_pollution_analyzer.batch_analyze_coordinates(coords)
                 for r in batch_results:
-                    lat, lon = r['coordinates']
-                    light_pollution_batch[(lat, lon)] = r.get('pollution_info')
+                    lat, lon = r["coordinates"]
+                    light_pollution_batch[(lat, lon)] = r.get("pollution_info")
                 print(f"  Batch light pollution: {len(batch_results)} locations")
             except Exception as e:
                 print(f"  Batch light pollution failed: {e}")
@@ -239,9 +237,14 @@ class StargazingLocationAnalyzer:
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {
                 executor.submit(
-                    self._process_one_location, location, towns_data,
-                    light_pollution_batch, include_road_connectivity,
-                    network_type, i, total,
+                    self._process_one_location,
+                    location,
+                    towns_data,
+                    light_pollution_batch,
+                    include_road_connectivity,
+                    network_type,
+                    i,
+                    total,
                 ): i
                 for i, location in enumerate(all_locations, 1)
             }
@@ -278,8 +281,14 @@ class StargazingLocationAnalyzer:
         return stargazing_locations
 
     def _process_one_location(
-        self, location, towns_data, light_pollution_batch,
-        include_road_connectivity, network_type, index, total,
+        self,
+        location,
+        towns_data,
+        light_pollution_batch,
+        include_road_connectivity,
+        network_type,
+        index,
+        total,
     ) -> Optional[StargazingLocation]:
         """
         Process a single location for comprehensive analysis.
@@ -324,10 +333,10 @@ class StargazingLocationAnalyzer:
                 road_info = self.road_checker.get_accessibility_info(
                     location.latitude, location.longitude, network_type=network_type
                 )
-                stargazing_location.road_accessible = road_info['accessible']
-                stargazing_location.distance_to_road_km = road_info['distance_to_road_km']
+                stargazing_location.road_accessible = road_info["accessible"]
+                stargazing_location.distance_to_road_km = road_info["distance_to_road_km"]
                 stargazing_location.road_network_type = network_type
-                stargazing_location.road_check_error = road_info.get('error')
+                stargazing_location.road_check_error = road_info.get("error")
             except Exception as e:
                 print(f"  Road connectivity analysis failed: {e}")
                 stargazing_location.road_check_error = str(e)

@@ -3485,6 +3485,11 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "freezegun" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "requests-mock" },
+    { name = "responses" },
     { name = "setuptools" },
     { name = "wheel" },
 ]
@@ -3519,6 +3524,11 @@ provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "freezegun", specifier = ">=1.5.5" },
+    { name = "pytest", specifier = ">=8.4.1" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "requests-mock", specifier = ">=1.12.1" },
+    { name = "responses", specifier = ">=0.25.8" },
     { name = "setuptools", specifier = ">=80.9.0" },
     { name = "wheel", specifier = ">=0.45.1" },
 ]
