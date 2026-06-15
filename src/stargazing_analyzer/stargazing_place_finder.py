@@ -8,6 +8,7 @@ GisQueryService for data retrieval and gis_service.parsers for data transformati
 
 import importlib.resources as res
 import json
+import logging
 from typing import Dict, List, Optional
 
 from gis_service.parsers import (
@@ -21,6 +22,8 @@ from gis_service.parsers import (
 from gis_service.query_service import GisQueryService
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 from models import GeoCoordinate, LatLonBox, Location, Observatory, Peak, Viewpoint
+
+logger = logging.getLogger(__name__)
 
 
 class StarGazingPlaceFinder:
@@ -72,34 +75,35 @@ class StarGazingPlaceFinder:
             List of location objects.
         """
         bbox_tuple = (bbox.south, bbox.west, bbox.north, bbox.east)
-        print(f"Searching {location_type} area: {bbox_tuple}")
-        print(f"Getting {location_type} data...")
+        logger.info("Searching %s area: %s", location_type, bbox_tuple)
+        logger.info("Getting %s data...", location_type)
 
         locations_data = self.gis_service.query_locations(bbox, location_type)
         locations_data = sort_places_by_lightpollution(locations_data, self.light_pollution_analyzer)
-        print(f"Found {len(locations_data)} {location_type}")
+        logger.info("Found %s %s", len(locations_data), location_type)
 
         if not locations_data:
-            print(f"No {location_type} data found")
+            logger.info("No %s data found", location_type)
             return []
 
         # Get town data
-        print("Getting town data...")
+        logger.info("Getting town data...")
         towns_data = self.gis_service.query_locations(bbox, "town")
-        print(f"Found {len(towns_data)} towns")
+        logger.info("Found %s towns", len(towns_data))
 
         res_list = []
         remaining = max_locations
 
         for i, location_data in enumerate(locations_data[:max_locations]):
             if i % 5 == 0:
-                print(f"Processing progress: {i + 1}/{min(len(locations_data), max_locations)}")
+                logger.info("Processing progress: %s/%s", i + 1, min(len(locations_data), max_locations))
 
             point = extract_coordinates(location_data)
             if point is None:
-                print(
-                    f"Warning: {location_type} data missing coordinate information, skipping: "
-                    f"{location_data.get('id', 'unknown')}"
+                logger.warning(
+                    "%s data missing coordinate information, skipping: %s",
+                    location_type,
+                    location_data.get('id', 'unknown'),
                 )
                 continue
 
@@ -156,7 +160,7 @@ class StarGazingPlaceFinder:
                 res_list.append(location)
                 remaining -= 1
 
-        print(f"\nTotal found {len(res_list)} {location_type}")
+        logger.info("\nTotal found %s %s", len(res_list), location_type)
         return res_list
 
     # ── Public entry points ─────────────────────────────────────────
@@ -210,14 +214,14 @@ class StarGazingPlaceFinder:
         }
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
-        print(f"Results saved to: {filename}")
+        logger.info("Results saved to: %s", filename)
 
     def clear_cache(self):
         """Clear GIS query cache."""
         if self.gis_service:
             self.gis_service.clear_cache()
         else:
-            print("Warning: No GIS service available to clear cache")
+            logger.warning("No GIS service available to clear cache")
 
     def get_cache_info(self) -> Optional[Dict]:
         """Get cache information (delegated to GisQueryService)."""
@@ -278,7 +282,7 @@ def find_viewpoints(south: float, west: float, north: float, east: float, max_vi
 
 if __name__ == "__main__":
     # Example: Search for peaks around Beijing
-    print("=== Peak Finder Example ===")
+    logger.info("=== Peak Finder Example ===")
 
     bbox = LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5)
 
@@ -290,15 +294,15 @@ if __name__ == "__main__":
     peaks = finder.find_peaks_in_area(bbox, max_locations=20)
 
     if peaks:
-        print("\n=== Qualified Peaks ===")
+        logger.info("\n=== Qualified Peaks ===")
         for i, peak in enumerate(peaks, 1):
-            print(f"{i}. {peak.name}")
-            print(f"   Coordinates: ({peak.latitude:.4f}, {peak.longitude:.4f})")
-            print(f"   Elevation: {peak.elevation:.1f}m")
-            print(f"   Height difference from {peak.nearest_town_name}: {peak.height_difference:.1f}m")
-            print(f"   Distance to nearest town: {peak.distance_to_nearest_town:.1f}km")
-            print()
+            logger.info("%s. %s", i, peak.name)
+            logger.info("   Coordinates: (%.4f, %.4f)", peak.latitude, peak.longitude)
+            logger.info("   Elevation: %.1fm", peak.elevation)
+            logger.info("   Height difference from %s: %.1fm", peak.nearest_town_name, peak.height_difference)
+            logger.info("   Distance to nearest town: %.1fkm", peak.distance_to_nearest_town)
+            logger.info("")
 
         finder.save_results_to_json(peaks, "mountain_peaks_results.json")
     else:
-        print("No qualified peaks found")
+        logger.info("No qualified peaks found")

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from cache.cache_config import get_cache_dir
+from models import DataError
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class GisQueryCache:
                     return data
                 # 过期删除
                 cache_path.unlink(missing_ok=True)
-            except Exception as e:
+            except (DataError, pickle.PickleError) as e:
                 logger.debug("Cache read failed for %s: %s", key, e)
 
         return None
@@ -73,7 +74,7 @@ class GisQueryCache:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             with open(self._disk_path(key), "wb") as f:
                 pickle.dump((now, data), f)
-        except Exception as e:
+        except DataError as e:
             logger.debug("Cache write failed for %s: %s", key, e)
 
     def _disk_path(self, key: str) -> Path:

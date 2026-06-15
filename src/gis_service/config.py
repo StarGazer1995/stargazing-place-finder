@@ -7,6 +7,8 @@ import json
 import os
 from typing import Any, Dict, Optional
 
+from models import ConfigError
+
 
 def load_db_config(path: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
@@ -32,7 +34,7 @@ def load_db_config(path: Optional[str] = None) -> Optional[Dict[str, Any]]:
 
             with open(cfg_path, "rb") as f:
                 return tomllib.load(f)
-        except Exception as e:
+        except ConfigError as e:
             raise RuntimeError(f"Failed to parse TOML config: {e}")
     else:
         raise ValueError(f"Unsupported config format: {ext}")

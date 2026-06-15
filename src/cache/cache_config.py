@@ -5,8 +5,11 @@ Cache Configuration Module
 Unified management of all cache storage locations in the project
 """
 
+import logging
 import tempfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Get project root directory (src/cache/cache_config.py → src/cache → src → root)
 PROJECT_ROOT = Path(__file__).parent.parent.parent.absolute()
@@ -59,9 +62,9 @@ def setup_osmnx_cache():
         # Set OSMnx cache directory
         ox.settings.cache_folder = str(OSMNX_CACHE_DIR)
         ox.settings.use_cache = True
-        print(f"✅ OSMnx cache directory set to: {OSMNX_CACHE_DIR}")
+        logger.info("OSMnx cache directory set to: %s", OSMNX_CACHE_DIR)
     except ImportError:
-        print("⚠️  OSMnx not installed, skipping cache configuration")
+        logger.warning("OSMnx not installed, skipping cache configuration")
 
 
 def get_temp_file(suffix: str = ".tmp", prefix: str = "stargazing_") -> str:
@@ -97,14 +100,14 @@ def clear_cache(cache_type: str = "all"):
             # Recreate subdirectories
             for cache_dir in [IMAGE_CACHE_DIR, ROAD_NETWORK_CACHE_DIR, OSMNX_CACHE_DIR, TEMP_CACHE_DIR]:
                 cache_dir.mkdir(exist_ok=True)
-            print(f"✅ All cache cleared: {CACHE_ROOT}")
+            logger.info("All cache cleared: %s", CACHE_ROOT)
     else:
         # Clear specified type cache
         cache_dir = get_cache_dir(cache_type)
         if cache_dir.exists():
             shutil.rmtree(cache_dir)
             cache_dir.mkdir(exist_ok=True)
-            print(f"✅ {cache_type} cache cleared: {cache_dir}")
+            logger.info("%s cache cleared: %s", cache_type, cache_dir)
 
 
 def get_cache_info() -> dict:
@@ -154,12 +157,12 @@ if __name__ == "__main__":
     setup_osmnx_cache()
 
     # Display cache information
-    print("\n📁 Cache Configuration Information:")
-    print("=" * 50)
+    logger.info("Cache Configuration Information:")
+    logger.info("=" * 50)
     info = get_cache_info()
-    print(f"Cache root directory: {info['cache_root']}")
-    print(f"Total size: {info['total_size']}")
-    print("\nSubdirectories:")
+    logger.info("Cache root directory: %s", info['cache_root'])
+    logger.info("Total size: %s", info['total_size'])
+    logger.info("Subdirectories:")
     for cache_type, details in info["subdirs"].items():
         status = "✅" if details["exists"] else "❌"
-        print(f"  {status} {cache_type}: {details['path']} ({details['size']})")
+        logger.info("  %s %s: %s (%s)", status, cache_type, details['path'], details['size'])

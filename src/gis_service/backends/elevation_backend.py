@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
+from models import DataError, NetworkError
+
 logger = logging.getLogger(__name__)
 
 
@@ -70,7 +72,7 @@ class ElevationBackend:
                 val = self._postgis.find_elevation_at_point(lat, lon)
                 if val is not None:
                     return val
-            except Exception as e:
+            except DataError as e:
                 logger.debug("PostGIS elevation query failed: %s", e)
 
         # Level 3: HTTP API
@@ -123,7 +125,7 @@ class ElevationBackend:
                 for idx, data in zip(remaining, elev_data):
                     if data.get("elevation") is not None:
                         results[idx] = data["elevation"]
-            except Exception as e:
+            except DataError as e:
                 logger.debug("PostGIS batch elevation failed: %s", e)
 
         # Phase 3: Open-Elevation API（仅对仍未找到的）
@@ -134,7 +136,7 @@ class ElevationBackend:
                 if val is not None:
                     results[i] = val
                     time.sleep(0.1)
-            except Exception:
+            except (NetworkError, DataError):
                 pass
 
         # Phase 4: 剩余默认 0.0

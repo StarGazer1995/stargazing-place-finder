@@ -3,6 +3,8 @@ import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from models import DataError
+
 from .light_pollution_analyzer import (
     LightPollutionAnalyzer,
 )
@@ -212,7 +214,7 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
                             "overlay_name": "默认数据",
                         }
                     )
-            except Exception:
+            except DataError:
                 data.append(
                     {
                         "name": f"数据点 {point_index + 1}",
