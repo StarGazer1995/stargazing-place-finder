@@ -8,7 +8,6 @@
 
 import math
 import os
-import sys
 from io import BytesIO
 from typing import Dict, Optional, Tuple
 
@@ -18,6 +17,7 @@ from flask_cors import CORS
 from PIL import Image
 
 from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
+
 from .light_pollution_analyzer import LightPollutionAnalyzer
 
 app = Flask(__name__)
