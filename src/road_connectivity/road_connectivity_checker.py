@@ -5,9 +5,12 @@ Road connectivity detection module
 Used to detect whether specified coordinate points can be reached by road
 """
 
+import hashlib
 import logging
 import os
 import pickle
+import time
+from pathlib import Path
 from typing import List, Optional
 
 import networkx as nx
@@ -25,23 +28,41 @@ except ImportError:
 
 try:
     from cache.cache_config import get_cache_dir, setup_osmnx_cache
-    from stargazing_analyzer.stargazing_place_finder import LocationCache
 except ImportError:
     import os
     import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
     from cache.cache_config import get_cache_dir, setup_osmnx_cache
-    from stargazing_analyzer.stargazing_place_finder import LocationCache
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class RoadAccessInfoCache(LocationCache):
+class RoadAccessInfoCache:
+    """
+    Cache for road access info query results.
+    Uses disk-based pickle cache, standalone replacement for LocationCache.
+    """
+
     def __init__(self, cache_expiry_hours: int = 24):
-        super().__init__(cache_expiry_hours)
+        self.cache_dir = Path(get_cache_dir("default")) / "location_results"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.expiry_hours = cache_expiry_hours * 3600
+        self.cache_mem_data = {}
+
+    def _generate_cache_key(self, location_type: str) -> str:
+        return hashlib.md5(location_type.encode("utf-8")).hexdigest()
+
+    def _get_cache_file_path(self, cache_key: str) -> Path:
+        return self.cache_dir / f"{cache_key}.pkl"
+
+    def _is_cache_valid(self, cache_file: Path) -> bool:
+        if not cache_file.exists():
+            return False
+        file_mtime = cache_file.stat().st_mtime
+        return (time.time() - file_mtime) < self.expiry_hours
 
     def save_road_access_info_to_cache(self, location_type: str, data: List[RoadAccessInfo]):
         """

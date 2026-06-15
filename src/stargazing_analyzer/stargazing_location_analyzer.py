@@ -14,23 +14,12 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 # Import related modules
-try:
-    from gis_service.query_service import GisQueryService
-    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
-    from src.models import StargazingLocation
+from gis_service.query_service import GisQueryService
+from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+from models import StargazingLocation
+from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
-    from .stargazing_place_finder import PostGISClient, StarGazingPlaceFinder
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
-    from gis_service.query_service import GisQueryService
-    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from models import StargazingLocation
-    from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
-    from stargazing_analyzer.stargazing_place_finder import PostGISClient, StarGazingPlaceFinder
+from .stargazing_place_finder import StarGazingPlaceFinder
 
 
 class StargazingLocationAnalyzer:
@@ -65,19 +54,16 @@ class StargazingLocationAnalyzer:
             max_distance_to_road_km: Maximum acceptable distance to road (km), default 0.2 (200m walk)
             db_config_path: Optional path to database config file (JSON or TOML)
         """
-        # Initialize database & GIS service
-        db_client = None
+        # Initialize GIS service
         gis_service = None
         cfg_path = db_config_path or os.environ.get("DB_CONFIG_PATH")
         if cfg_path and os.path.exists(cfg_path):
             try:
                 db_cfg = self._load_db_config(cfg_path)
-                db_client = PostGISClient(db_cfg)
                 gis_service = GisQueryService(db_config=db_cfg)
-                print("PostGIS client & GIS query service initialized")
+                print("GIS query service initialized")
             except Exception as e:
-                print(f"PostGIS initialization failed: {e}")
-                db_client = None
+                print(f"GIS service initialization failed: {e}")
                 gis_service = None
 
         # Initialize light pollution analyzer (GeoTIFF backend only)
@@ -94,7 +80,6 @@ class StargazingLocationAnalyzer:
             self.mountain_finder = StarGazingPlaceFinder(
                 min_height_difference=min_height_difference,
                 light_pollution_analyzer=self.light_pollution_analyzer,
-                db_client=db_client,
                 gis_service=gis_service,
             )
         else:
@@ -106,7 +91,6 @@ class StargazingLocationAnalyzer:
             print("⚠️  Provide a VIIRS GeoTIFF file path via geotiff_path parameter")
             self.mountain_finder = StarGazingPlaceFinder(
                 min_height_difference=min_height_difference,
-                db_client=db_client,
                 gis_service=gis_service,
             )
         # Initialize road connectivity checker with GIS service for PostGIS fast path
