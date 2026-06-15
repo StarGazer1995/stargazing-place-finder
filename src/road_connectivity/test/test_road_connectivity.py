@@ -130,18 +130,19 @@ def test_detailed_checker():
     point = GeoCoordinate(latitude=lat, longitude=lon)
     info = checker.get_accessibility_info(point)
 
-    print(f"Accessibility: {'✅ Accessible' if info['accessible'] else '❌ Not accessible'}")
-    if info["accessible"]:
-        print(f"Distance to road: {info['distance_to_road_km']:.2f} km")
-        print(f"Network nodes count: {info['network_nodes_count']}")
-        if info["nearest_road_type"]:
-            print(f"Nearest road type: {info['nearest_road_type']}")
+    print(f"Accessibility: {'✅ Accessible' if info.is_accessible else '❌ Not accessible'}")
+    if info.is_accessible:
+        print(f"Distance to road: {info.distance_km:.2f} km")
+        print(f"Network nodes count: {info.node_count}")
+        if info.nearest_road_type:
+            print(f"Nearest road type: {info.nearest_road_type}")
     else:
-        if info["error"]:
-            print(f"Error message: {info['error']}")
+        if info.error:
+            print(f"Error message: {info.error}")
 
-    assert "accessible" in info, "Accessibility info should contain 'accessible' key"
-    assert isinstance(info["accessible"], bool), "Accessibility should be a boolean value"
+    assert hasattr(info, "is_accessible"), "RoadAccessInfo should have 'is_accessible' attribute"
+    assert isinstance(info.is_accessible, bool), "Accessibility should be a boolean value"
+    return info.is_accessible
 
 
 def test_error_handling():

@@ -171,9 +171,7 @@ class StarGazingPlaceFinder:
             location_processor_func=lambda *a: process_peak_data(*a, min_height_difference=self.min_height_difference),
         )
 
-    def find_observatories_in_area(
-        self, bbox: LatLonBox, max_observatories: int = 50
-    ) -> List[Observatory]:
+    def find_observatories_in_area(self, bbox: LatLonBox, max_observatories: int = 50) -> List[Observatory]:
         """Find observatories in specified area."""
         return self._find_locations_in_area(
             bbox=bbox,
@@ -182,9 +180,7 @@ class StarGazingPlaceFinder:
             location_processor_func=process_observatory_data,
         )
 
-    def find_viewpoints_in_area(
-        self, bbox: LatLonBox, max_viewpoints: int = 50
-    ) -> List[Viewpoint]:
+    def find_viewpoints_in_area(self, bbox: LatLonBox, max_viewpoints: int = 50) -> List[Viewpoint]:
         """Find viewpoints in specified area."""
         return self._find_locations_in_area(
             bbox=bbox,

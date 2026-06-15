@@ -138,14 +138,14 @@ def batch_connectivity_check(locations: List[Tuple[float, float]],
     """
     results = []
     checker = RoadConnectivityChecker(
-        search_radius=checker_config.search_radius,
+        search_radius_km=checker_config.search_radius,
         network_type=checker_config.network_type
     )
     
-    for i, (lat, lon) in enumerate(locations):
+    for i, point in enumerate(points):
         try:
-            analysis = checker.analyze_connectivity(lat, lon)
-            results.append(ConnectivityResult.from_analysis(analysis, lat, lon))
+            info = checker.get_accessibility_info(point)
+            results.append(ConnectivityResult.from_info(info, point))
             
             if progress_callback:
                 progress_callback(i + 1, len(locations))
@@ -494,7 +494,7 @@ def filter_accessible_stargazing_sites(candidate_sites: List[StargazingSite],
         list: Filtered sites with accessibility information
     """
     checker = RoadConnectivityChecker(
-        search_radius=accessibility_criteria.search_radius,
+        search_radius_km=accessibility_criteria.search_radius,
         network_type='drive'  # Assume car access for stargazing equipment
     )
     
@@ -502,14 +502,15 @@ def filter_accessible_stargazing_sites(candidate_sites: List[StargazingSite],
     
     for site in candidate_sites:
         try:
+            point = GeoCoordinate(latitude=site.latitude, longitude=site.longitude)
             # Analyze road connectivity
-            connectivity = checker.analyze_connectivity(site.latitude, site.longitude)
+            info = checker.get_accessibility_info(point)
             
             # Check if site meets accessibility criteria
-            if meets_accessibility_criteria(connectivity, accessibility_criteria):
+            if meets_accessibility_criteria(info, accessibility_criteria):
                 accessible_site = AccessibleStargazingSite.from_site(site)
-                accessible_site.connectivity_analysis = connectivity
-                accessible_site.accessibility_score = calculate_accessibility_score(connectivity)
+                accessible_site.connectivity_analysis = info
+                accessible_site.accessibility_score = calculate_accessibility_score(info)
                 accessible_sites.append(accessible_site)
                 
         except Exception as e:
@@ -545,8 +546,9 @@ def analyze_multimodal_accessibility(location: Tuple[float, float],
                 network_type=mode
             )
             
-            analysis = checker.analyze_connectivity(location[0], location[1])
-            mode_analyses[mode] = analysis
+            point = GeoCoordinate(latitude=location[0], longitude=location[1])
+            info = checker.get_accessibility_info(point)
+            mode_analyses[mode] = info
             
         except Exception as e:
             logger.error(f"Failed to analyze {mode} accessibility: {e}")
@@ -583,14 +585,13 @@ def plan_emergency_access_routes(target_location: Tuple[float, float],
         EmergencyAccessPlan: Comprehensive emergency access planning
     """
     checker = RoadConnectivityChecker(
-        search_radius=5000.0,  # Extended radius for emergency planning
+        search_radius_km=5000.0,  # Extended radius for emergency planning
         network_type='drive'
     )
     
     # Analyze target location connectivity
-    target_connectivity = checker.analyze_connectivity(
-        target_location[0], target_location[1]
-    )
+    point = GeoCoordinate(latitude=target_location[0], longitude=target_location[1])
+    target_info = checker.get_accessibility_info(point)
     
     # Plan routes from each emergency service
     emergency_routes = []
@@ -744,15 +745,15 @@ def parallel_connectivity_analysis(locations: List[Tuple[float, float]],
         """
         Analyze connectivity for a single location
         """
-        lat, lon = coord_pair
+        point = GeoCoordinate(latitude=location[0], longitude=location[1])
         checker = RoadConnectivityChecker(
-            search_radius=checker_config.search_radius,
+            search_radius_km=checker_config.search_radius,
             network_type=checker_config.network_type
         )
         
         try:
-            analysis = checker.analyze_connectivity(lat, lon)
-            return ConnectivityResult.from_analysis(analysis, lat, lon)
+            info = checker.get_accessibility_info(point)
+            return ConnectivityResult.from_info(info, point)
         except Exception as e:
             return ConnectivityResult.create_error_result(lat, lon, str(e))
     
@@ -809,19 +810,20 @@ def optimize_search_radius(location: Tuple[float, float],
         try:
             # Test network construction with current radius
             test_checker = RoadConnectivityChecker(
-                search_radius=current_radius,
+                search_radius_km=current_radius,
                 network_type='drive'
             )
             
-            analysis = test_checker.analyze_connectivity(location[0], location[1])
+            point = GeoCoordinate(latitude=location[0], longitude=location[1])
+            info = test_checker.get_accessibility_info(point)
             
             # Check if we have sufficient network data
-            if analysis.connectivity_result.is_accessible and \
-               analysis.network_density > 0.5:  # Minimum density threshold
+            if info.is_accessible and \
+               info.network_density > 0.5:  # Minimum density threshold
                 optimal_config = OptimalSearchConfig(
                     optimal_radius=current_radius,
-                    network_density=analysis.network_density,
-                    confidence_score=analysis.connectivity_result.confidence_score
+                    network_density=info.network_density,
+                    confidence_score=info.confidence_score
                 )
                 break
             
@@ -977,7 +979,7 @@ def integrate_with_stargazing_system(peaks: List[Peak],
         list: Peaks with road accessibility analysis
     """
     checker = RoadConnectivityChecker(
-        search_radius=accessibility_requirements.search_radius,
+        search_radius_km=accessibility_requirements.search_radius,
         network_type='drive'
     )
     
@@ -986,11 +988,12 @@ def integrate_with_stargazing_system(peaks: List[Peak],
     for peak in peaks:
         try:
             # Analyze road connectivity for peak
-            connectivity = checker.analyze_connectivity(peak.latitude, peak.longitude)
+            point = GeoCoordinate(latitude=peak.latitude, longitude=peak.longitude)
+            info = checker.get_accessibility_info(point)
             
             # Create accessible peak object
             accessible_peak = AccessiblePeak.from_peak(peak)
-            accessible_peak.road_connectivity = connectivity
+            accessible_peak.road_connectivity = info
             
             # Calculate accessibility score
             accessible_peak.accessibility_score = calculate_peak_accessibility_score(
