@@ -9,7 +9,7 @@ GisQueryService for data retrieval and gis_service.parsers for data transformati
 import importlib.resources as res
 import json
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from gis_service.parsers import (
     extract_coordinates,
@@ -96,8 +96,8 @@ class StarGazingPlaceFinder:
             if i % 5 == 0:
                 print(f"Processing progress: {i + 1}/{min(len(locations_data), max_locations)}")
 
-            lat, lon = extract_coordinates(location_data)
-            if lat is None or lon is None:
+            point = extract_coordinates(location_data)
+            if point is None:
                 print(
                     f"Warning: {location_type} data missing coordinate information, skipping: "
                     f"{location_data.get('id', 'unknown')}"
@@ -115,7 +115,7 @@ class StarGazingPlaceFinder:
                 except ValueError:
                     pass
             if elevation is None:
-                elevation = self.gis_service.find_elevation(lat, lon)
+                elevation = self.gis_service.find_elevation(point.latitude, point.longitude)
             if elevation is None:
                 elevation = 0.0
 
@@ -123,15 +123,17 @@ class StarGazingPlaceFinder:
             nearest_town = "Unknown"
             distance_to_town = 0.0
             town_elevation = None
-            point = GeoCoordinate(latitude=lat, longitude=lon)
             if towns_data:
-                nearest_town, distance_to_town, town_elevation = find_nearest_town(
+                town_info = find_nearest_town(
                     point,
                     towns_data,
                     elevation_func=self.gis_service.find_elevation
                     if hasattr(self.gis_service, "find_elevation")
                     else None,
                 )
+                nearest_town = town_info.name or "Unknown"
+                distance_to_town = town_info.distance_km
+                town_elevation = town_info.elevation_m
 
             # Light pollution
             light_pollution_level = None

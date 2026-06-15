@@ -9,12 +9,12 @@ and sorting by light pollution.
 
 import math
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
-from models import GeoCoordinate, Observatory, Peak, Viewpoint
+from models import GeoCoordinate, Observatory, Peak, TownInfo, Viewpoint
 
 
-def extract_coordinates(data: Dict) -> Tuple[Optional[float], Optional[float]]:
+def extract_coordinates(data: Dict) -> Optional[GeoCoordinate]:
     """
     Extract coordinates from location data dict (Overpass API format).
 
@@ -22,17 +22,17 @@ def extract_coordinates(data: Dict) -> Tuple[Optional[float], Optional[float]]:
         data: Location data dictionary with 'type', 'lat', 'lon' or 'center' keys.
 
     Returns:
-        (latitude, longitude) or (None, None) if extraction fails.
+        A GeoCoordinate, or None if extraction fails.
     """
     try:
         if data["type"] == "node":
-            return data["lat"], data["lon"]
+            return GeoCoordinate(latitude=data["lat"], longitude=data["lon"])
         elif "center" in data:
-            return data["center"]["lat"], data["center"]["lon"]
+            return GeoCoordinate(latitude=data["center"]["lat"], longitude=data["center"]["lon"])
         else:
-            return None, None
+            return None
     except KeyError:
-        return None, None
+        return None
 
 
 def calculate_distance(p1: GeoCoordinate, p2: GeoCoordinate) -> float:
@@ -67,7 +67,7 @@ def find_nearest_town(
     point: GeoCoordinate,
     towns: List[Dict],
     elevation_func: Optional[Callable[[float, float], Optional[float]]] = None,
-) -> Tuple[Optional[str], float, Optional[float]]:
+) -> TownInfo:
     """
     Find the nearest town to a given coordinate.
 
@@ -78,7 +78,7 @@ def find_nearest_town(
                         looking up town elevation.
 
     Returns:
-        (nearest_town_name, distance_km, town_elevation_m).
+        TownInfo with name, distance_km and elevation_m.
     """
     lat, lon = point.latitude, point.longitude
     min_distance = float("inf")
@@ -107,7 +107,7 @@ def find_nearest_town(
                 nearest_town_elevation = elevation_func(town_lat, town_lon)
                 time.sleep(0.1)
 
-    return nearest_town, min_distance, nearest_town_elevation
+    return TownInfo(name=nearest_town, distance_km=min_distance, elevation_m=nearest_town_elevation)
 
 
 def sort_places_by_lightpollution(
