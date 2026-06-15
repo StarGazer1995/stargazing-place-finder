@@ -9,6 +9,7 @@ Returns nW/cm²/sr radiance directly — no more image-based inversion.
 Data source: EOG VIIRS VNL v2.2 (https://eogdata.mines.edu/products/vnl/)
 """
 
+import logging
 import math
 import os
 from pathlib import Path
@@ -16,14 +17,8 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-try:
-    from src.models import LightPollutionInfo
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from models import LightPollutionInfo
+from config import StargazingConfig
+from models import GeoError, LightPollutionInfo
 
 try:
     import rasterio
@@ -34,6 +29,8 @@ try:
     from scipy.ndimage import gaussian_filter
 except ImportError:
     gaussian_filter = None  # type: ignore
+
+logger = logging.getLogger(__name__)
 
 # GeoTIFF resolution in km/pixel (approximately)
 _GEOTIFF_RES_DEG = 0.0041666667
@@ -137,6 +134,7 @@ class LightPollutionAnalyzer:
         geotiff_path: Optional[Union[str, Path]] = None,
         skyglow_sigma_km: float = 15.0,
         skyglow_weight: float = 0.4,
+        config: Optional[StargazingConfig] = None,
     ):
         """Initialize the analyzer.
 
@@ -146,11 +144,17 @@ class LightPollutionAnalyzer:
             skyglow_sigma_km: Gaussian sigma (km) for skyglow diffusion.
                 0 disables skyglow correction.
             skyglow_weight: How much of the skyglow to add back (0-1).
+            config: Centralised StargazingConfig instance. When provided, its
+                values override the individual keyword defaults above.
 
         Raises:
             ImportError: When rasterio is not installed.
             FileNotFoundError: When the GeoTIFF file does not exist.
         """
+        if config is not None:
+            skyglow_sigma_km = config.skyglow_sigma_km
+            skyglow_weight = config.skyglow_weight
+
         if rasterio is None:
             raise ImportError("rasterio is required. Install with: uv add rasterio")
 
@@ -173,9 +177,9 @@ class LightPollutionAnalyzer:
         self._skyglow_transform = None
         self._skyglow_ds = 1
 
-        print("Light pollution analyzer initialized")
-        print(f"  Data: {geotiff_path}")
-        print(f"  Skyglow model: sigma={skyglow_sigma_km}km, weight={skyglow_weight}")
+        logger.info("Light pollution analyzer initialized")
+        logger.info("  Data: %s", geotiff_path)
+        logger.info("  Skyglow model: sigma=%skm, weight=%s", skyglow_sigma_km, skyglow_weight)
         if skyglow_sigma_km > 0:
             self._compute_skyglow()
 
@@ -227,7 +231,9 @@ class LightPollutionAnalyzer:
         self._skyglow_ds = ds
         self._skyglow_shape = self._skyglow_grid.shape
 
-        print(f"  Skyglow grid: {self._skyglow_shape[1]}×{self._skyglow_shape[0]} at ~{_GEOTIFF_RES_KM * ds:.1f} km/px")
+        logger.info(
+            "  Skyglow grid: %s×%s at ~%.1f km/px", self._skyglow_shape[1], self._skyglow_shape[0], _GEOTIFF_RES_KM * ds
+        )
 
     def _get_skyglow(self, latitude: float, longitude: float) -> float:
         """Get the skyglow contribution (nW/cm²/sr) at a point via interpolation.
@@ -264,7 +270,7 @@ class LightPollutionAnalyzer:
             v0 = v00 * (1 - dr) + v10 * dr
             v1 = v01 * (1 - dr) + v11 * dr
             return float(v0 * (1 - dc) + v1 * dc)
-        except Exception:
+        except GeoError:
             return 0.0
 
     def get_skyglow_for_window(
@@ -345,7 +351,7 @@ class LightPollutionAnalyzer:
                 return None
             val = float(self._src.read(1, window=((row, row + 1), (col, col + 1)))[0, 0])
             return val
-        except Exception:
+        except GeoError:
             return None
 
     def get_radiance(self, latitude: float, longitude: float) -> Optional[float]:
@@ -412,7 +418,7 @@ class LightPollutionAnalyzer:
                 latitude=latitude,
                 longitude=longitude,
             )
-        except Exception:
+        except GeoError:
             return None
 
     def batch_analyze_coordinates(self, coordinates_list: list) -> list:

@@ -1,0 +1,74 @@
+# -*- coding: utf-8 -*-
+"""
+Centralised configuration model for stargazing-place-finder.
+
+All default parameter values live here so they can be changed in one
+place instead of being scattered as magic numbers across every module
+constructor.
+"""
+
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
+
+class StargazingConfig(BaseModel):
+    """Centralised configuration for the stargazing place finder pipeline.
+
+    Every field has a sensible default.  Pass an instance to any module
+    constructor (e.g. ``RoadConnectivityChecker(config=cfg)``) to override
+    all defaults at once.
+    """
+
+    # ── Search / location parameters ──────────────────────────────
+    max_locations: int = Field(
+        default=50,
+        ge=1,
+        description="Maximum number of locations to return from a query.",
+    )
+    min_height_difference: float = Field(
+        default=100.0,
+        ge=0,
+        description="Minimum height difference (m) from nearest town.",
+    )
+
+    # ── Road connectivity ─────────────────────────────────────────
+    road_search_radius_km: float = Field(
+        default=10.0,
+        gt=0,
+        description="Road network download / search radius (km).",
+    )
+    max_distance_to_road_km: float = Field(
+        default=0.2,
+        ge=0,
+        description=("Maximum acceptable distance to a road (km). Used as the accessibility threshold."),
+    )
+    min_distance_to_road_km: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Optional minimum distance to road filter (km). When set, places *closer* than this are excluded."
+        ),
+    )
+
+    # ── Light pollution ───────────────────────────────────────────
+    skyglow_sigma_km: float = Field(
+        default=15.0,
+        ge=0,
+        description="Gaussian sigma (km) for skyglow diffusion.  0 disables.",
+    )
+    skyglow_weight: float = Field(
+        default=0.4,
+        ge=0,
+        le=1.0,
+        description="How much skyglow to add back (0 – 1).",
+    )
+
+    # ── Cache ─────────────────────────────────────────────────────
+    cache_expiry_hours: int = Field(
+        default=24,
+        gt=0,
+        description="Cache entry time-to-live (hours).",
+    )
+
+    model_config = {"extra": "forbid"}

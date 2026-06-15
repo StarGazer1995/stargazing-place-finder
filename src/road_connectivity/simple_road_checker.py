@@ -7,21 +7,19 @@ Specialized for quickly determining whether destinations have road connectivity
 
 import logging
 import os
+from typing import Optional
 
 import osmnx as ox
 
-try:
-    from cache.cache_config import setup_osmnx_cache
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
-    from cache.cache_config import setup_osmnx_cache
+from cache.cache_config import setup_osmnx_cache
+from config import StargazingConfig
+from models import NetworkError, NoDataError
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING)
 ox.settings.log_console = False
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleRoadChecker:
@@ -30,14 +28,24 @@ class SimpleRoadChecker:
     Focused on quickly determining whether specified coordinates have road accessibility
     """
 
-    def __init__(self, search_radius_km: float = 5.0, max_distance_to_road_km: float = 2.0):
+    def __init__(
+        self,
+        search_radius_km: float = 5.0,
+        max_distance_to_road_km: float = 2.0,
+        config: Optional[StargazingConfig] = None,
+    ):
         """
         Initialize road connectivity checker
 
         Args:
             search_radius_km: Search radius (kilometers)
             max_distance_to_road_km: Maximum acceptable distance to road (kilometers)
+            config: Optional StargazingConfig instance. When provided, overrides
+                    search_radius_km and max_distance_to_road_km with config values.
         """
+        if config is not None:
+            search_radius_km = config.road_search_radius_km
+            max_distance_to_road_km = config.max_distance_to_road_km
         self.search_radius_km = search_radius_km
         self.max_distance_to_road_km = max_distance_to_road_km
 
@@ -82,9 +90,9 @@ class SimpleRoadChecker:
             # Determine if within acceptable distance range
             return distance_km <= self.max_distance_to_road_km
 
-        except Exception as e:
+        except (NetworkError, NoDataError) as e:
             # If any error occurs, consider it unreachable
-            logging.warning(f"Error detecting coordinates ({lat}, {lon}): {e}")
+            logger.warning(f"Error detecting coordinates ({lat}, {lon}): {e}")
             return False
 
     def _calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -187,21 +195,21 @@ if __name__ == "__main__":
         (30.0, 125.0),  # Some point at sea (should be unreachable)
     ]
 
-    print("🛣️  Simplified Road Connectivity Detection")
-    print("=" * 40)
+    logger.info("🛣️  Simplified Road Connectivity Detection")
+    logger.info("=" * 40)
 
     # Single detection example
-    print("\nSingle detection example:")
+    logger.info("\nSingle detection example:")
     lat, lon = 40.3242, 116.6312
     result = quick_road_check(lat, lon)
-    print(f"Coordinates ({lat}, {lon}): {'✅ Reachable' if result else '❌ Unreachable'}")
+    logger.info(f"Coordinates ({lat}, {lon}): {'✅ Reachable' if result else '❌ Unreachable'}")
 
     # Batch detection example
-    print("\nBatch detection example:")
+    logger.info("\nBatch detection example:")
     results = batch_road_check(test_locations)
 
     for (lat, lon), connected in zip(test_locations, results):
         status = "✅ Reachable" if connected else "❌ Unreachable"
-        print(f"Coordinates ({lat}, {lon}): {status}")
+        logger.info(f"Coordinates ({lat}, {lon}): {status}")
 
-    print("\n✨ Detection completed!")
+    logger.info("\n✨ Detection completed!")

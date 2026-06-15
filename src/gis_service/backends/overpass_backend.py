@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
+from models import NetworkError
+
 logger = logging.getLogger(__name__)
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
@@ -141,7 +143,7 @@ class OverpassBackend:
                 logger.warning("Overpass timeout (%s, attempt %d/%d)", data_type, attempt + 1, self.max_retries)
             except requests.exceptions.HTTPError as e:
                 logger.warning("Overpass HTTP %s (%s, attempt %d/%d)", e, data_type, attempt + 1, self.max_retries)
-            except Exception as e:
+            except NetworkError as e:
                 logger.warning("Overpass error (%s, attempt %d/%d): %s", data_type, attempt + 1, self.max_retries, e)
 
         logger.error("Overpass query failed for %s after %d attempts", data_type, self.max_retries)

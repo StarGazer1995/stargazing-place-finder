@@ -5,6 +5,16 @@ for automatic validation and serialization.
 """
 
 from .elevation import ElevationResult
+from .exceptions import (
+    CacheError,
+    ConfigError,
+    DataError,
+    GeoError,
+    NetworkError,
+    NoDataError,
+    StargazingError,
+    ValidationError,
+)
 from .geo import GeoCoordinate, GroundOverlay, Icon, LatLonBox
 from .light_pollution import LightPollutionInfo
 from .location import Location, LocationType, Observatory, Peak, Viewpoint
@@ -34,4 +44,13 @@ __all__ = [
     "StargazingLocation",
     # Town
     "TownInfo",
+    # Exceptions
+    "CacheError",
+    "ConfigError",
+    "DataError",
+    "GeoError",
+    "NetworkError",
+    "NoDataError",
+    "StargazingError",
+    "ValidationError",
 ]

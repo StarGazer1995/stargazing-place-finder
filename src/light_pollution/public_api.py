@@ -1,12 +1,9 @@
+import importlib.resources as res
 import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-try:
-    import importlib.resources as res
-except ImportError:
-    # Python<3.9 fallback
-    import importlib_resources as res  # type: ignore
+from models import DataError
 
 from .light_pollution_analyzer import (
     LightPollutionAnalyzer,
@@ -217,7 +214,7 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
                             "overlay_name": "默认数据",
                         }
                     )
-            except Exception:
+            except DataError:
                 data.append(
                     {
                         "name": f"数据点 {point_index + 1}",

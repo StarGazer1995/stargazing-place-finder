@@ -6,9 +6,9 @@
 这个模块提供了一个Flask API服务器，用于根据地图视窗范围动态获取光污染图像数据。
 """
 
+import logging
 import math
 import os
-import sys
 from io import BytesIO
 from typing import Dict, Optional, Tuple
 
@@ -17,14 +17,12 @@ from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from PIL import Image
 
-try:
-    from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
+from models import ConfigError, DataError
+from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
 
-    from .light_pollution_analyzer import LightPollutionAnalyzer
-except ImportError:
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
-    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
+from .light_pollution_analyzer import LightPollutionAnalyzer
+
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)  # 允许跨域请求
@@ -43,23 +41,23 @@ def init_analyzer():
         project_root = os.path.dirname(os.path.dirname(current_dir))
         geotiff_file = os.path.join(project_root, "src/light_pollution/resources/viirs_china_2025.tif")
 
-        print("Initializing light pollution analyzer...")
-        print(f"GeoTIFF file path: {geotiff_file}")
+        logger.info("Initializing light pollution analyzer...")
+        logger.info("GeoTIFF file path: %s", geotiff_file)
 
         analyzer = LightPollutionAnalyzer(
             geotiff_path=geotiff_file,
             skyglow_sigma_km=15.0,
             skyglow_weight=0.4,
         )
-        print("✅ Light pollution analyzer initialization completed")
+        logger.info("✅ Light pollution analyzer initialization completed")
 
         # 显示统计信息
         stats = analyzer.get_statistics()
-        print(f"Dataset dimensions: {stats.get('width')}x{stats.get('height')}")
-        print(f"Data path: {stats.get('data_path')}")
+        logger.info("Dataset dimensions: %sx%s", stats.get("width"), stats.get("height"))
+        logger.info("Data path: %s", stats.get("data_path"))
 
-    except Exception as e:
-        print(f"❌ Light pollution analyzer initialization failed: {e}")
+    except (ConfigError, FileNotFoundError) as e:
+        logger.error("❌ Light pollution analyzer initialization failed: %s", e)
         analyzer = None
 
 
@@ -263,8 +261,8 @@ def serve_light_pollution_tile(z: int, x: int, y: int) -> Response:
 
         return Response(png_data, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
-    except Exception as e:
-        print(f"⚠️ Tile render error ({z}/{x}/{y}): {e}")
+    except DataError as e:
+        logger.warning("⚠️ Tile render error (%s/%s/%s): %s", z, x, y, e)
         return _empty_tile()
 
 
@@ -401,7 +399,9 @@ def get_light_pollution_data():
         west = float(request.args.get("west", 0))
         zoom = int(request.args.get("zoom", 10))
 
-        print(f"🌍 Getting light pollution data: bounds=({south}, {west}) to ({north}, {east}), zoom={zoom}")
+        logger.info(
+            "🌍 Getting light pollution data: bounds=(%s, %s) to (%s, %s), zoom=%s", south, west, north, east, zoom
+        )
 
         # 根据缩放级别确定网格分辨率
         if zoom <= 8:
@@ -428,9 +428,11 @@ def get_light_pollution_data():
             scale_factor = math.sqrt(max_points / total_points)
             grid_rows = max(1, int(grid_rows * scale_factor))
             grid_cols = max(1, int(grid_cols * scale_factor))
-            print(f"⚠️ Too many grid points, adjusted to {grid_rows}x{grid_cols} = {grid_rows * grid_cols} points")
+            logger.warning(
+                "⚠️ Too many grid points, adjusted to %sx%s = %s points", grid_rows, grid_cols, grid_rows * grid_cols
+            )
 
-        print(f"🔢 Generating grid: {grid_rows}x{grid_cols} = {grid_rows * grid_cols} points")
+        logger.info("🔢 Generating grid: %sx%s = %s points", grid_rows, grid_cols, grid_rows * grid_cols)
 
         # 批量构建坐标列表，一次性查询
         coordinates_list = []
@@ -487,7 +489,7 @@ def get_light_pollution_data():
                     }
                 )
 
-        print(f"✅ Successfully retrieved {len(data)} light pollution data points")
+        logger.info("✅ Successfully retrieved %s light pollution data points", len(data))
 
         return jsonify(
             {
@@ -502,8 +504,8 @@ def get_light_pollution_data():
             }
         )
 
-    except Exception as e:
-        print(f"❌ Error getting light pollution data: {e}")
+    except DataError as e:
+        logger.error("❌ Error getting light pollution data: %s", e)
         return jsonify({"error": str(e), "data": []}), 500
 
 
@@ -547,12 +549,12 @@ def get_light_pollution_images():
         if north <= south:
             return jsonify({"error": "北边界必须大于南边界"}), 400
 
-        print(f"Getting light pollution image data: North{north}° South{south}° East{east}° West{west}°")
+        logger.info("Getting light pollution image data: North%s° South%s° East%s° West%s°", north, south, east, west)
 
         # GeoTIFF 后端不支持图片提取，返回空数据
         processed_data = []
-        print("⚠️ GeoTIFF backend does not support image extraction")
-        print("✅ Returned 0 light pollution images")
+        logger.warning("⚠️ GeoTIFF backend does not support image extraction")
+        logger.info("✅ Returned 0 light pollution images")
 
         return jsonify(
             {
@@ -563,11 +565,8 @@ def get_light_pollution_images():
             }
         )
 
-    except Exception as e:
-        print(f"❌ Error getting light pollution image data: {e}")
-        import traceback
-
-        traceback.print_exc()
+    except DataError as e:
+        logger.exception("❌ Error getting light pollution image data: %s", e)
         return jsonify({"error": f"服务器内部错误: {str(e)}"}), 500
 
 
@@ -591,7 +590,7 @@ def analyze_coordinate():
         lat = float(request.args.get("lat", 0))
         lng = float(request.args.get("lng", 0))
 
-        print(f"🎯 Analyzing coordinate point: ({lat}, {lng})")
+        logger.info("🎯 Analyzing coordinate point: (%s, %s)", lat, lng)
 
         # 使用光污染分析器获取真实数据
         pollution_info = analyzer.get_light_pollution_color(lat, lng)
@@ -621,7 +620,7 @@ def analyze_coordinate():
                 },
             }
 
-            print(f"✅ Successfully analyzed coordinate point: Bortle class={bortle}, SQM={sqm:.1f}")
+            logger.info("✅ Successfully analyzed coordinate point: Bortle class=%s, SQM=%.1f", bortle, sqm)
             return jsonify(result)
         else:
             # 如果没有找到数据，返回默认值
@@ -642,14 +641,14 @@ def analyze_coordinate():
                 "warning": "该坐标点没有找到光污染数据，使用默认值",
             }
 
-            print(f"⚠️ No data found for coordinate point ({lat}, {lng}), using default values")
+            logger.warning("⚠️ No data found for coordinate point (%s, %s), using default values", lat, lng)
             return jsonify(result)
 
     except ValueError as e:
         return jsonify({"error": "无效的坐标参数", "success": False, "details": str(e)}), 400
 
-    except Exception as e:
-        print(f"❌ Error analyzing coordinate point: {e}")
+    except DataError as e:
+        logger.error("❌ Error analyzing coordinate point: %s", e)
         return jsonify({"error": str(e), "success": False}), 500
 
 
@@ -698,7 +697,7 @@ def analyze_stargazing_area_endpoint():
             road_radius_km = float(request.args.get("road_radius_km", 10.0))
             network_type = request.args.get("network_type", "drive")
 
-        print(f"Analyzing stargazing area: North{north}° South{south}° East{east}° West{west}°")
+        logger.info("Analyzing stargazing area: North%s° South%s° East%s° West%s°", north, south, east, west)
 
         # 获取 GeoTIFF 文件路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -708,7 +707,7 @@ def analyze_stargazing_area_endpoint():
         # Get DB config from environment variable
         db_config_path = os.environ.get("STARGAZING_DB_CONFIG")
         if db_config_path:
-            print(f"Using DB config from: {db_config_path}")
+            logger.info("Using DB config from: %s", db_config_path)
 
         # 调用分析函数
         locations = analyze_stargazing_area(
@@ -751,7 +750,7 @@ def analyze_stargazing_area_endpoint():
             }
             locations_data.append(loc_dict)
 
-        print(f"✅ Successfully analyzed {len(locations_data)} stargazing locations")
+        logger.info("✅ Successfully analyzed %s stargazing locations", len(locations_data))
 
         return jsonify(
             {
@@ -762,8 +761,8 @@ def analyze_stargazing_area_endpoint():
             }
         )
 
-    except Exception as e:
-        print(f"❌ Stargazing area analysis failed: {e}")
+    except DataError as e:
+        logger.error("❌ Stargazing area analysis failed: %s", e)
         return jsonify({"success": False, "error": str(e), "message": "观星区域分析失败"}), 500
 
 
@@ -780,13 +779,13 @@ if __name__ == "__main__":
     init_analyzer()
 
     # 启动Flask服务器
-    print("🚀 Starting light pollution data API server...")
-    print("📡 API endpoints:")
-    print("  - GET /api/light_pollution         - Get light pollution data (JSON)")
-    print("  - GET /api/light_pollution/tiles/{z}/{x}/{y}.png  - Dynamic raster tiles")
-    print("  - GET /api/coordinate_analysis     - Analyze single coordinate point")
-    print("  - GET/POST /api/analyze_stargazing_area - Analyze stargazing area")
-    print("  - GET /api/health                  - Health check")
-    print("🌐 Server address: http://localhost:5001")
+    logger.info("🚀 Starting light pollution data API server...")
+    logger.info("📡 API endpoints:")
+    logger.info("  - GET /api/light_pollution         - Get light pollution data (JSON)")
+    logger.info("  - GET /api/light_pollution/tiles/{z}/{x}/{y}.png  - Dynamic raster tiles")
+    logger.info("  - GET /api/coordinate_analysis     - Analyze single coordinate point")
+    logger.info("  - GET/POST /api/analyze_stargazing_area - Analyze stargazing area")
+    logger.info("  - GET /api/health                  - Health check")
+    logger.info("🌐 Server address: http://localhost:5001")
 
     app.run(host="0.0.0.0", port=5001, debug=False, use_reloader=False)

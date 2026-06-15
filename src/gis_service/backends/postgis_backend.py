@@ -9,6 +9,8 @@ elevation_batch_query.py 中的 BatchElevationQuery 统一到此模块。
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+from models import DataError, NetworkError
+
 logger = logging.getLogger(__name__)
 
 
@@ -244,7 +246,7 @@ class PostgisBackend:
             )
             row = cursor.fetchone()
             return row[0] if row else None
-        except Exception:
+        except DataError:
             return None
         finally:
             try:
@@ -362,7 +364,7 @@ class PostgisBackend:
                 "nearest_lon": nearest_lon,
             }
 
-        except Exception as e:
+        except (NetworkError, DataError) as e:
             logger.error("Road connectivity query failed for (%s, %s): %s", lat, lon, e)
             return {
                 "accessible": False,
@@ -402,7 +404,7 @@ class PostgisBackend:
                     "median_elevation": float(row[4]) if row[4] else None,
                 }
             return {}
-        except Exception as e:
+        except DataError as e:
             logger.error("Elevation stats query failed: %s", e)
             return {"error": str(e)}
         finally:

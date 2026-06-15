@@ -17,23 +17,9 @@ import networkx as nx
 import osmnx as ox
 from geopy.distance import geodesic
 
-try:
-    from src.models import GeoCoordinate, RoadAccessInfo
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from models import GeoCoordinate, RoadAccessInfo
-
-try:
-    from cache.cache_config import get_cache_dir, setup_osmnx_cache
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
-    from cache.cache_config import get_cache_dir, setup_osmnx_cache
+from cache.cache_config import get_cache_dir, setup_osmnx_cache
+from config import StargazingConfig
+from models import DataError, GeoCoordinate, NetworkError, NoDataError, RoadAccessInfo
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -86,7 +72,7 @@ class RoadAccessInfoCache:
             with open(cache_file, "wb") as f:
                 pickle.dump(cached_data, f)
             logger.info(f"💾 Query results cached: {len(data)} records")
-        except Exception as e:
+        except DataError as e:
             logger.error(f"⚠️ Failed to save cache: {e}")
 
     def get_cached_result(self, location_type: str) -> Optional[List[RoadAccessInfo]]:
@@ -111,7 +97,7 @@ class RoadAccessInfoCache:
                     cached_data = pickle.load(f)
                     logger.info(f"✅ Data loaded from cache: {len(cached_data)} records")
                     return cached_data
-            except Exception as e:
+            except (DataError, pickle.PickleError) as e:
                 logger.error(f"⚠️ Failed to read cache file: {e}")
                 # Delete corrupted cache file
                 try:
@@ -150,7 +136,13 @@ class RoadConnectivityChecker:
     Used to detect whether specified coordinates have road network connections
     """
 
-    def __init__(self, search_radius_km: float = 10.0, max_distance_to_road_km: float = 0.2, gis_service=None):
+    def __init__(
+        self,
+        search_radius_km: float = 10.0,
+        max_distance_to_road_km: float = 0.2,
+        gis_service=None,
+        config: Optional[StargazingConfig] = None,
+    ):
         """
         Initialize road connectivity checker
 
@@ -161,7 +153,12 @@ class RoadConnectivityChecker:
             gis_service: GisQueryService instance for PostGIS-accelerated queries.
                          When provided and PostGIS is enabled, road connectivity
                          queries use millisecond-level kNN SQL instead of OSMnx HTTP.
+            config: Optional StargazingConfig instance. When provided, overrides
+                    search_radius_km and max_distance_to_road_km with config values.
         """
+        if config is not None:
+            search_radius_km = config.road_search_radius_km
+            max_distance_to_road_km = config.max_distance_to_road_km
         self.search_radius_km = search_radius_km
         self.max_distance_to_road_km = max_distance_to_road_km
         self.graph_cache = {}  # Cache downloaded road networks
@@ -201,7 +198,7 @@ class RoadConnectivityChecker:
                 if 115.0 <= lon <= 118.0 and 39.0 <= lat <= 41.0:
                     return process_and_return(True)
                 return process_and_return(True)
-            except Exception:
+            except (NetworkError, NoDataError):
                 return process_and_return(False)
         try:
             # Try to get road network around this point
@@ -248,7 +245,7 @@ class RoadConnectivityChecker:
             self.location_cache.save_to_cache(network_type, True)
             return process_and_return(True)
 
-        except Exception as e:
+        except (NetworkError, NoDataError) as e:
             logger.error(f"Error detecting accessibility for coordinates ({lat}, {lon}): {str(e)}")
             return False
 
@@ -316,7 +313,7 @@ class RoadConnectivityChecker:
 
             return graph
 
-        except Exception as e:
+        except NetworkError as e:
             logger.error(f"Failed to download road network: {str(e)}")
             return None
 
@@ -397,10 +394,10 @@ class RoadConnectivityChecker:
                 result["nearest_road_type"] = cache.nearest_road_type
                 result["network_nodes_count"] = cache.network_nodes_count
                 result["error"] = cache.error
-                print("Read road accessible info from cache")
+                logger.info("Read road accessible info from cache")
                 return result
             else:
-                print("No road accessible info in cache")
+                logger.info("No road accessible info in cache")
 
             # Try PostGIS fast path first
             postgis_result = self._check_via_postgis(point, network_type)
@@ -454,7 +451,7 @@ class RoadConnectivityChecker:
             )
             self.location_cache.save_road_access_info_to_cache(f"access_info_{network_type}", [cache])
 
-        except Exception as e:
+        except (DataError, NoDataError) as e:
             result["error"] = str(e)
 
         return result
@@ -487,10 +484,10 @@ if __name__ == "__main__":
 
     for lat, lon in test_coordinates:
         point = GeoCoordinate(latitude=lat, longitude=lon)
-        print(f"\nDetecting coordinates ({lat}, {lon}):")
+        logger.info(f"Detecting coordinates ({lat}, {lon}):")
         info = checker.get_accessibility_info(point)
-        print(f"Accessibility: {info['accessible']}")
+        logger.info(f"Accessibility: {info['accessible']}")
         if info["distance_to_road_km"] is not None:
-            print(f"Distance to nearest road: {info['distance_to_road_km']:.2f} km")
+            logger.info(f"Distance to nearest road: {info['distance_to_road_km']:.2f} km")
         if info["error"]:
-            print(f"Error: {info['error']}")
+            logger.info(f"Error: {info['error']}")

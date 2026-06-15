@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Tuple
 
 from .public_api import analyze_area, init_stargazing_analyzer
+
+logger = logging.getLogger(__name__)
 
 
 def _deg_per_km(lat: float) -> Tuple[float, float]:
@@ -108,12 +111,12 @@ def main() -> None:
     include_road = not args.no_road_connectivity
 
     if args.verbose:
-        print("[cli] bbox:", bbox)
-        print("[cli] include_light_pollution:", include_lp)
-        print("[cli] include_road_connectivity:", include_road)
-        print("[cli] max_locations:", args.max_locations)
+        logger.debug("bbox: %s", bbox)
+        logger.debug("include_light_pollution: %s", include_lp)
+        logger.debug("include_road_connectivity: %s", include_road)
+        logger.debug("max_locations: %s", args.max_locations)
         if args.db_config:
-            print("[cli] db_config_path:", args.db_config)
+            logger.debug("db_config_path: %s", args.db_config)
 
     if args.db_config:
         init_stargazing_analyzer(db_config_path=Path(args.db_config))
@@ -136,9 +139,9 @@ def main() -> None:
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(output_text)
         if args.verbose:
-            print("[cli] wrote:", args.output)
+            logger.debug("wrote: %s", args.output)
     else:
-        print(output_text)
+        logger.info(output_text)
 
 
 if __name__ == "__main__":

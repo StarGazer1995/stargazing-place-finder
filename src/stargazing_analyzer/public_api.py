@@ -1,11 +1,8 @@
+import importlib.resources as res
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-try:
-    import importlib.resources as res
-except ImportError:
-    # Python<3.9 fallback
-    import importlib_resources as res  # type: ignore
+from config import StargazingConfig
 
 from .stargazing_location_analyzer import (
     StargazingLocationAnalyzer,
@@ -30,6 +27,7 @@ def init_stargazing_analyzer(
     road_search_radius_km: float = 10.0,
     max_distance_to_road_km: float = 0.2,
     db_config_path: Optional[Path] = None,
+    config: Optional[StargazingConfig] = None,
 ) -> StargazingLocationAnalyzer:
     """
     初始化并返回天文观测位置分析器实例，供直接导入调用。
@@ -40,10 +38,15 @@ def init_stargazing_analyzer(
         road_search_radius_km: 道路搜索半径（公里）
         max_distance_to_road_km: 离路最大距离（公里），默认 0.2（200m 步行距离）
         db_config_path: 数据库配置文件路径
+        config: Centralised StargazingConfig 实例，提供时将覆盖上述独立参数默认值
 
     Returns:
         已初始化的 StargazingLocationAnalyzer 实例
     """
+    if config is not None:
+        min_height_difference = config.min_height_difference
+        road_search_radius_km = config.road_search_radius_km
+        max_distance_to_road_km = config.max_distance_to_road_km
     global _sa_analyzer
     if geotiff_path is None:
         geotiff_path = _default_geotiff_path()
@@ -53,6 +56,7 @@ def init_stargazing_analyzer(
         road_search_radius_km=road_search_radius_km,
         max_distance_to_road_km=max_distance_to_road_km,
         db_config_path=str(db_config_path) if db_config_path else None,
+        config=config,
     )
     return _sa_analyzer
 
@@ -78,6 +82,7 @@ def analyze_area(
     include_road_connectivity: bool = True,
     min_distance_to_road_km: Optional[float] = None,
     max_distance_to_road_km: Optional[float] = None,
+    config: Optional[StargazingConfig] = None,
 ) -> List[Dict[str, Any]]:
     """
     在给定边界内进行天文观测位置综合分析，返回列表结果。
@@ -90,10 +95,17 @@ def analyze_area(
         include_road_connectivity: 是否计算道路可达性
         min_distance_to_road_km: 最小离路距离（公里），过滤掉距路太近的地点
         max_distance_to_road_km: 最大离路距离（公里），过滤掉距路太远的地点
+        config: Centralised StargazingConfig 实例，提供时将覆盖上述独立参数默认值
 
     Returns:
         位置字典列表，包含坐标、海拔、光污染与道路信息
     """
+    if config is not None:
+        max_locations = config.max_locations
+        if max_distance_to_road_km is None:
+            max_distance_to_road_km = config.max_distance_to_road_km
+        if min_distance_to_road_km is None:
+            min_distance_to_road_km = config.min_distance_to_road_km
     analyzer = _require_analyzer()
     results = analyzer.analyze_area(
         bbox=bbox,
@@ -122,6 +134,7 @@ def analyze_area_simple(
     network_type: str = "drive",
     min_distance_to_road_km: Optional[float] = None,
     max_distance_to_road_km: Optional[float] = None,
+    config: Optional[StargazingConfig] = None,
 ) -> List[Dict[str, Any]]:
     """
     便捷区域分析封装，调用底层函数并返回序列化列表。
@@ -137,10 +150,19 @@ def analyze_area_simple(
         network_type: 道路网络类型
         min_distance_to_road_km: 最小离路距离（公里）
         max_distance_to_road_km: 最大离路距离（公里）
+        config: Centralised StargazingConfig 实例，提供时将覆盖上述独立参数默认值
 
     Returns:
         位置字典列表
     """
+    if config is not None:
+        max_locations = config.max_locations
+        min_height_diff = config.min_height_difference
+        road_radius_km = config.road_search_radius_km
+        if max_distance_to_road_km is None:
+            max_distance_to_road_km = config.max_distance_to_road_km
+        if min_distance_to_road_km is None:
+            min_distance_to_road_km = config.min_distance_to_road_km
     results = _analyze_area_fn(
         south=south,
         west=west,
@@ -154,6 +176,7 @@ def analyze_area_simple(
         network_type=network_type,
         min_distance_to_road_km=min_distance_to_road_km,
         max_distance_to_road_km=max_distance_to_road_km,
+        config=config,
     )
     serialized: List[Dict[str, Any]] = []
     for r in results:

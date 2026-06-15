@@ -12,14 +12,7 @@ from typing import Dict, List, Optional, Tuple
 
 import psycopg2
 
-try:
-    from src.models import ElevationResult
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from models import ElevationResult
+from models import DataError, ElevationResult, NetworkError
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +88,7 @@ class BatchElevationQuery:
 
             return results
 
-        except Exception as e:
+        except DataError as e:
             logger.error(f"批量查询失败: {e}")
             # 返回错误结果
             return [ElevationResult(latitude=lat, longitude=lon, error=str(e)) for lat, lon in coordinates]
@@ -201,7 +194,7 @@ class BatchElevationQuery:
 
             return results
 
-        except Exception as e:
+        except DataError as e:
             logger.error(f"批量查询执行失败: {e}")
             raise
         finally:
@@ -222,7 +215,7 @@ class BatchElevationQuery:
                 if (i + 1) % 10 == 0:
                     logger.debug(f"进度: {i + 1}/{len(coordinates)}")
 
-            except Exception as e:
+            except (NetworkError, DataError) as e:
                 logger.warning(f"查询点 {names[i]} ({lat}, {lon}) 失败: {e}")
                 results.append(ElevationResult(latitude=lat, longitude=lon, error=str(e)))
 
@@ -279,7 +272,7 @@ class BatchElevationQuery:
             else:
                 return ElevationResult(latitude=lat, longitude=lon, error="未找到海拔数据")
 
-        except Exception as e:
+        except (NetworkError, DataError) as e:
             logger.error(f"单点查询失败: {e}")
             return ElevationResult(latitude=lat, longitude=lon, error=str(e))
         finally:
@@ -321,7 +314,7 @@ class BatchElevationQuery:
             else:
                 return {}
 
-        except Exception as e:
+        except DataError as e:
             logger.error(f"获取统计信息失败: {e}")
             return {"error": str(e)}
         finally:

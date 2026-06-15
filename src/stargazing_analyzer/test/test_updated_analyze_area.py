@@ -20,12 +20,8 @@ import unittest
 # 添加 src 目录到Python路径，加载顶层包
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../src"))
 
+from models import StargazingLocation
 from stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer
-
-try:
-    from src.models import StargazingLocation
-except ImportError:
-    from models import StargazingLocation
 
 
 class TestUpdatedAnalyzeArea(unittest.TestCase):

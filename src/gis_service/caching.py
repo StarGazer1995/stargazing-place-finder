@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from cache.cache_config import get_cache_dir
+from config import StargazingConfig
+from models import DataError
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,14 @@ class GisQueryCache:
     自动过期清理。
     """
 
-    def __init__(self, cache_expiry_hours: int = 24, cache_type: str = "location_results"):
+    def __init__(
+        self,
+        cache_expiry_hours: int = 24,
+        cache_type: str = "location_results",
+        config: Optional[StargazingConfig] = None,
+    ):
+        if config is not None:
+            cache_expiry_hours = config.cache_expiry_hours
         self.cache_expiry_seconds = cache_expiry_hours * 3600
         self.cache_dir = get_cache_dir(cache_type)
 
@@ -60,7 +69,7 @@ class GisQueryCache:
                     return data
                 # 过期删除
                 cache_path.unlink(missing_ok=True)
-            except Exception as e:
+            except (DataError, pickle.PickleError) as e:
                 logger.debug("Cache read failed for %s: %s", key, e)
 
         return None
@@ -73,7 +82,7 @@ class GisQueryCache:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             with open(self._disk_path(key), "wb") as f:
                 pickle.dump((now, data), f)
-        except Exception as e:
+        except DataError as e:
             logger.debug("Cache write failed for %s: %s", key, e)
 
     def _disk_path(self, key: str) -> Path:
