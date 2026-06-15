@@ -1,1 +1,0 @@
-"""Mountain peak finding module."""

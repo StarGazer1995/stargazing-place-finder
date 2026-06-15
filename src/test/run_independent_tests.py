@@ -17,12 +17,10 @@ from pathlib import Path
 INDEPENDENT_TEST_FILES = [
     "src/cache/test/test_cache_functionality.py",
     "src/cache/test/test_cache_integration.py",
-    "src/mountain_peak/test/test_mountain_peak_finder.py",
     "src/road_connectivity/test/test_road_connectivity.py",
     "src/stargazing_analyzer/test/test_stargazing_analyzer.py",
     "src/stargazing_analyzer/test/test_updated_analyze_area.py",
     "src/light_pollution/test/test_light_pollution_sorting.py",
-    "src/location_finder/test/test_viewpoint_finder.py",
     "src/utils/test/test_unified_dataclasses.py",
 ]
 

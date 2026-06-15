@@ -21,8 +21,6 @@ src/
 ├── light_pollution/       # Light pollution analysis (VIIRS GeoTIFF backend)
 │   └── resources/         # viirs_china_2025.tif (GeoTIFF data)
 ├── cache/                 # Unified cache configuration (disk + OSMnx)
-├── mountain_peak/         # Mountain peak finding & filtering
-├── location_finder/       # Observatory & viewpoint discovery
 ├── road_connectivity/     # Road accessibility scoring
 ├── stargazing_analyzer/   # Main orchestrator: combines all modules
 │   ├── cli.py             # CLI entry point (`stargazing-finder`)
