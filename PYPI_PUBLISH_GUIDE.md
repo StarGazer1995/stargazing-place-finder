@@ -95,8 +95,6 @@ print('✅ 包安装和功能正常')
 ### 核心模块
 - `light_pollution` - 光污染分析模块
 - `stargazing_analyzer` - 观星地点分析模块  
-- `location_finder` - 位置查找模块
-- `mountain_peak` - 山峰查找模块
 - `road_connectivity` - 道路连通性检测模块
 - `utils` - 工具模块
 

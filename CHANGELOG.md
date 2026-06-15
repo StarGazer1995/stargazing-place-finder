@@ -20,6 +20,7 @@
 - 基础设施: 引入 Sphinx API 文档系统，配置 autodoc + napoleon 解析 Google 风格 docstring，支持 `docs/sphinx/source/` 源码文档管理；利用 `sphinx-apidoc` 在构建时自动生成模块 RST 存根，无需手动维护
 - 基础设施: 引入 bandit 静态安全扫描，识别并标记 Python 安全弱点和恶意代码模式，跳过明确安全的误报（pickle 本地缓存、MD5 缓存 key 等）
 - 基础设施: CI 新增 bandit security scan job（`--severity-level medium`），仅阻断中等及以上严重性问题
+- 重构: 移除已空的 `location_finder` 和 `mountain_peak` 包，功能已迁移至 `stargazing_analyzer.stargazing_place_finder`
 
 ## 0.5.2 (2026-06-11)
 

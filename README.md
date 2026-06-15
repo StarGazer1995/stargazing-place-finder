@@ -44,8 +44,6 @@ graph TB
     %% 分析模块
     subgraph MOD["分析模块 Analysis Modules"]
         LP["light_pollution<br/><i>LightPollutionAnalyzer</i><br/>VIIRS 辐射度→波特尔等级<br/>天光散射模型"]
-        MP["mountain_peak<br/><i>MountainPeakFinder</i><br/>海拔筛选·山峰定位<br/>周边分析"]
-        LF["location_finder<br/><i>ObservatoryFinder<br/>ViewpointFinder</i><br/>天文台·观景台发现"]
         RC["road_connectivity<br/><i>RoadConnectivityChecker</i><br/>道路网络·可达性评分"]
     end
 
@@ -69,20 +67,13 @@ graph TB
     API --> SA
 
     SA --> LP
-    SA --> MP
-    SA --> LF
     SA --> RC
 
     LP --> VIIRS
-    MP --> OSM
-    LF --> OSM
     RC --> OSM
 
-    MP -.-> PG
-    LF -.-> PG
 
     LP --> Cache
-    MP --> Cache
     RC --> Cache
 
     SA -.-> Models
@@ -91,7 +82,7 @@ graph TB
     %% 应用样式
     class CLI,Web,API ui
     class SA orchestration
-    class LP,MP,LF,RC analysis
+    class LP,RC analysis
     class Cache,Models,Utils infra
     class VIIRS,OSM,PG external
 ```
@@ -104,8 +95,6 @@ sequenceDiagram
     participant CLI as CLI / API
     participant SA as stargazing_analyzer
     participant LP as light_pollution
-    participant MP as mountain_peak
-    participant LF as location_finder
     participant RC as road_connectivity
     participant OSM as OpenStreetMap
     participant VIIRS as VIIRS GeoTIFF
@@ -114,16 +103,6 @@ sequenceDiagram
     CLI->>SA: 启动分析
 
     par 并行分析
-        SA->>MP: 查找山峰
-        MP->>OSM: 查询地形数据
-        OSM-->>MP: 返回候选点
-        MP-->>SA: 山峰列表
-
-        SA->>LF: 查找天文台/观景台
-        LF->>OSM: 查询兴趣点
-        OSM-->>LF: 返回地点
-        LF-->>SA: 地点列表
-
         SA->>LP: 分析光污染
         LP->>VIIRS: 读取辐射度
         VIIRS-->>LP: 辐射度 + 天光修正

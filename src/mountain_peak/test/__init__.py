@@ -1,1 +1,0 @@
-"""Tests for mountain peak finding module."""
