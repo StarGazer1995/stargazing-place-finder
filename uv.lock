@@ -3490,6 +3490,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "requests-mock" },
     { name = "responses" },
+    { name = "ruff" },
     { name = "setuptools" },
     { name = "wheel" },
 ]
@@ -3529,6 +3530,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "requests-mock", specifier = ">=1.12.1" },
     { name = "responses", specifier = ">=0.25.8" },
+    { name = "ruff", specifier = ">=0.9.0" },
     { name = "setuptools", specifier = ">=80.9.0" },
     { name = "wheel", specifier = ">=0.45.1" },
 ]
