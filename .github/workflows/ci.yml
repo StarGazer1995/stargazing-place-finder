@@ -51,8 +51,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          lfs: true  # Pull Git LFS files (viirs_china_2025.tif)
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
