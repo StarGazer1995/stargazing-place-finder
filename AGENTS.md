@@ -47,8 +47,10 @@ Packages are configured in `pyproject.toml` via `[tool.setuptools.packages.find]
 | Start API only | `uv run python src/light_pollution/light_pollution_api.py` |
 | Generate maps | `uv run python src/utils/styled_map_generator.py` |
 | CLI usage | `uv run stargazing-finder --center LAT LON RADIUS_KM` |
+| Build docs | `uv run sphinx-build -b html docs/sphinx/source docs/sphinx/build` |
 | Build package | `uv run python publish_to_pypi.py` |
-| Lint | No linter configured; check with `ruff` if installed |
+| Lint | `uv run ruff format --check src/ && uv run ruff check src/` |
+| Security scan | `uv run bandit -r src/ -c pyproject.toml --severity-level-medium` |
 
 Run tests with `FAST_TESTS=1` for a faster test mode that skips slow geospatial operations.
 

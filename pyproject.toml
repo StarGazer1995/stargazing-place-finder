@@ -57,6 +57,7 @@ dev = [
   "build>=0.10.0",
   "twine>=4.0.0",
   "ruff>=0.9.0",
+  "sphinx>=7.4.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -67,6 +68,7 @@ where = ["src"]
 
 [dependency-groups]
 dev = [
+    "bandit>=1.8.6",
     "freezegun>=1.5.5",
     "pytest>=8.4.1",
     "pytest-cov>=7.0.0",
@@ -74,6 +76,7 @@ dev = [
     "responses>=0.25.8",
     "ruff>=0.9.0",
     "setuptools>=80.9.0",
+    "sphinx>=7.4.7",
     "wheel>=0.45.1",
 ]
 
@@ -94,3 +97,17 @@ ignore = ["E501"]
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
+
+[tool.bandit]
+# Bandit security scan configuration
+exclude_dirs = ["test", "tests", ".venv", ".git", "build", "dist"]
+skips = [
+    "B101",  # Allow assert statements in tests
+    "B104",  # Flask dev server binding to 0.0.0.0
+    "B301",  # pickle.load for local disk cache (not untrusted input)
+    "B403",  # pickle import for local disk cache
+    "B311",  # random for retry backoff (not security-sensitive)
+    "B324",  # MD5 for cache key generation (not security-sensitive)
+    "B608",  # SQL f-string for highway filter (parameterized query values)
+]
+targets = ["src"]
