@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 光污染排序功能测试脚本
-专门测试山峰查找器中的光污染分析和排序功能
+专门测试 parsers 中光污染分析和排序功能
 """
 
 import os
@@ -13,15 +14,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 import unittest
 from unittest.mock import Mock
 
-from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
+from gis_service.parsers import sort_places_by_lightpollution
 
 
 class TestLightPollutionSorting(unittest.TestCase):
     """
     光污染排序功能测试类
 
-    测试山峰查找器中光污染分析和排序相关的功能，
+    测试 parsers 中光污染分析和排序相关的功能，
     包括数据处理、排序逻辑和边界条件处理
     """
 
@@ -29,13 +29,10 @@ class TestLightPollutionSorting(unittest.TestCase):
         """
         测试前的初始化设置
 
-        创建测试用的山峰查找器实例和模拟的光污染分析器
+        创建测试用的模拟光污染分析器
         """
-        # 创建模拟的光污染分析器
-        self.mock_light_analyzer = Mock(spec=LightPollutionAnalyzer)
-        self.finder = StarGazingPlaceFinder(
-            min_height_difference=100.0, light_pollution_analyzer=self.mock_light_analyzer
-        )
+        self.mock_light_analyzer = Mock()
+        self.mock_light_analyzer.batch_analyze_coordinates = Mock()
 
         # 测试用的地点数据
         self.test_places = [
@@ -50,8 +47,7 @@ class TestLightPollutionSorting(unittest.TestCase):
 
         验证当没有光污染分析器时，函数应该返回原始列表不变
         """
-        finder_no_analyzer = StarGazingPlaceFinder(min_height_difference=100.0)
-        result = finder_no_analyzer._sort_places_by_lightpollution(self.test_places)
+        result = sort_places_by_lightpollution(self.test_places, None)
 
         # 应该返回原始列表
         self.assertEqual(result, self.test_places)
@@ -72,7 +68,7 @@ class TestLightPollutionSorting(unittest.TestCase):
 
         self.mock_light_analyzer.batch_analyze_coordinates.return_value = mock_pollution_results
 
-        result = self.finder._sort_places_by_lightpollution(self.test_places)
+        result = sort_places_by_lightpollution(self.test_places, self.mock_light_analyzer)
 
         # 验证调用了光污染分析器
         self.mock_light_analyzer.batch_analyze_coordinates.assert_called_once()
@@ -96,7 +92,7 @@ class TestLightPollutionSorting(unittest.TestCase):
         验证函数能正确处理空输入列表
         """
         # 对于空列表，不应该调用光污染分析器
-        result = self.finder._sort_places_by_lightpollution([])
+        result = sort_places_by_lightpollution([], self.mock_light_analyzer)
         self.assertEqual(result, [])
 
         # 确保没有调用光污染分析器
@@ -113,7 +109,7 @@ class TestLightPollutionSorting(unittest.TestCase):
         mock_pollution_result = [{"index": 0, "pollution_info": Mock(brightness=0.5)}]
         self.mock_light_analyzer.batch_analyze_coordinates.return_value = mock_pollution_result
 
-        result = self.finder._sort_places_by_lightpollution(single_place)
+        result = sort_places_by_lightpollution(single_place, self.mock_light_analyzer)
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["tags"]["name"], "单个地点")
@@ -139,7 +135,7 @@ class TestLightPollutionSorting(unittest.TestCase):
 
         self.mock_light_analyzer.batch_analyze_coordinates.return_value = mock_pollution_results
 
-        self.finder._sort_places_by_lightpollution(test_places_varied)
+        sort_places_by_lightpollution(test_places_varied, self.mock_light_analyzer)
 
         # 验证传递的坐标格式
         called_coords = self.mock_light_analyzer.batch_analyze_coordinates.call_args[0][0]
@@ -154,7 +150,7 @@ def run_light_pollution_tests():
     执行单元测试并输出详细的测试结果报告
     """
     print("=== Light Pollution Sorting Function Test ===")
-    print("Testing light pollution analysis and sorting functions in peak finder")
+    print("Testing light pollution analysis and sorting functions")
     print("=" * 50)
 
     # 创建测试套件
@@ -186,4 +182,5 @@ def run_light_pollution_tests():
 
 
 if __name__ == "__main__":
-    run_light_pollution_tests()
+    success = run_light_pollution_tests()
+    sys.exit(0 if success else 1)

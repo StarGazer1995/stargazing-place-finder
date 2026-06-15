@@ -12,6 +12,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..', 'src'))
 from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 from road_connectivity.simple_road_checker import simple_road_check
+from models import GeoCoordinate
 import json
 import time
 
@@ -109,11 +110,8 @@ def demo_detailed_check():
     
     for mode, mode_name in transport_modes:
         print(f"\n{mode_name} accessibility:")
-        info = checker.get_accessibility_info(
-            stargazing_spot['lat'], 
-            stargazing_spot['lon'], 
-            network_type=mode
-        )
+        point = GeoCoordinate(latitude=stargazing_spot['lat'], longitude=stargazing_spot['lon'])
+        info = checker.get_accessibility_info(point, network_type=mode)
         
         if info['accessible']:
             print(f"  ✅ {mode_name} accessible")
@@ -162,11 +160,11 @@ def demo_batch_check():
     
     # 模拟从光污染分析中筛选出的候选观星地点
     candidate_locations = [
-        (40.3242, 116.6312),  # 北京怀柔
-        (40.4769, 117.1230),  # 密云水库
-        (40.2539, 116.2340),  # 房山某地
-        (40.5678, 116.8901),  # 延庆某地
-        (40.1234, 116.5678),  # 大兴某地
+        GeoCoordinate(latitude=40.3242, longitude=116.6312),  # 北京怀柔
+        GeoCoordinate(latitude=40.4769, longitude=117.1230),  # 密云水库
+        GeoCoordinate(latitude=40.2539, longitude=116.2340),  # 房山某地
+        GeoCoordinate(latitude=40.5678, longitude=116.8901),  # 延庆某地
+        GeoCoordinate(latitude=40.1234, longitude=116.5678),  # 大兴某地
     ]
     
     checker = RoadConnectivityChecker(search_radius_km=10.0)
@@ -245,10 +243,8 @@ def integrate_with_stargazing_finder():
     accessible_candidates = []
     
     for candidate in low_pollution_candidates:
-        accessible = checker.is_road_accessible(
-            candidate['lat'], 
-            candidate['lon']
-        )
+        point = GeoCoordinate(latitude=candidate['lat'], longitude=candidate['lon'])
+        accessible = checker.is_road_accessible(point)
         
         if accessible:
             candidate['road_accessible'] = True

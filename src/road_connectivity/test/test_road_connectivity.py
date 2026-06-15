@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
 import time
 
+from models import GeoCoordinate
 from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 from road_connectivity.simple_road_checker import batch_road_check, quick_road_check
 
@@ -126,20 +127,22 @@ def test_detailed_checker():
     print(f"Detailed test: Beijing Huairou ({lat}, {lon})")
 
     # 获取详细信息
-    info = checker.get_accessibility_info(lat, lon)
+    point = GeoCoordinate(latitude=lat, longitude=lon)
+    info = checker.get_accessibility_info(point)
 
-    print(f"Accessibility: {'✅ Accessible' if info['accessible'] else '❌ Not accessible'}")
-    if info["accessible"]:
-        print(f"Distance to road: {info['distance_to_road_km']:.2f} km")
-        print(f"Network nodes count: {info['network_nodes_count']}")
-        if info["nearest_road_type"]:
-            print(f"Nearest road type: {info['nearest_road_type']}")
+    print(f"Accessibility: {'✅ Accessible' if info.is_accessible else '❌ Not accessible'}")
+    if info.is_accessible:
+        print(f"Distance to road: {info.distance_km:.2f} km")
+        print(f"Network nodes count: {info.node_count}")
+        if info.nearest_road_type:
+            print(f"Nearest road type: {info.nearest_road_type}")
     else:
-        if info["error"]:
-            print(f"Error message: {info['error']}")
+        if info.error:
+            print(f"Error message: {info.error}")
 
-    assert "accessible" in info, "Accessibility info should contain 'accessible' key"
-    assert isinstance(info["accessible"], bool), "Accessibility should be a boolean value"
+    assert hasattr(info, "is_accessible"), "RoadAccessInfo should have 'is_accessible' attribute"
+    assert isinstance(info.is_accessible, bool), "Accessibility should be a boolean value"
+    return info.is_accessible
 
 
 def test_error_handling():

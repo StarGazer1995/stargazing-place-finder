@@ -10,6 +10,7 @@ from .light_pollution import LightPollutionInfo
 from .location import Location, LocationType, Observatory, Peak, Viewpoint
 from .road import RoadAccessInfo
 from .stargazing import StargazingLocation
+from .town import TownInfo
 
 __all__ = [
     # Geo / KML
@@ -31,4 +32,6 @@ __all__ = [
     "ElevationResult",
     # Stargazing
     "StargazingLocation",
+    # Town
+    "TownInfo",
 ]

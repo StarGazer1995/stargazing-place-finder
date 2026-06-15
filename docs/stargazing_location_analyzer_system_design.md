@@ -681,11 +681,10 @@ def analyze_stargazing_area(analyzer: StargazingLocationAnalyzer,
                     )
                 
                 # Analyze road connectivity
-                road_connectivity = analyzer.road_checker.analyze_connectivity(
-                    peak.latitude, peak.longitude
-                )
+                point = GeoCoordinate(latitude=peak.latitude, longitude=peak.longitude)
+                road_info = analyzer.road_checker.get_accessibility_info(point)
                 
-                if road_connectivity.accessibility_result.is_accessible:
+                if road_info.is_accessible:
                     accessible_count += 1
                 
                 # Calculate stargazing score

@@ -9,6 +9,8 @@ GisQueryService — 统一的 GIS 查询服务入口。
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+from models import LatLonBox
+
 from .backends.elevation_backend import ElevationBackend
 from .backends.overpass_backend import OverpassBackend
 from .backends.postgis_backend import PostgisBackend
@@ -68,7 +70,7 @@ class GisQueryService:
 
     def query_locations(
         self,
-        bbox: Tuple[float, float, float, float],
+        bbox: LatLonBox,
         location_type: str = "peak",
         filters: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
@@ -78,28 +80,29 @@ class GisQueryService:
         优先使用 PostGIS，不可用时自动切换 Overpass API。
 
         Args:
-            bbox: (south, west, north, east)
+            bbox: Bounding box (LatLonBox with south/west/north/east).
             location_type: 类型 ('peak', 'town', 'observatory', 'viewpoint', 'mountain_peak')
             filters: 额外 SQL 筛选条件（仅 PostGIS）
 
         Returns:
             Overpass 兼容格式的 element dict 列表
         """
+        bbox_tuple = (bbox.south, bbox.west, bbox.north, bbox.east)
         cache_key = None
         if self._cache:
-            cache_key = self._cache._make_key("query_locations", bbox, location_type, filters)
+            cache_key = self._cache._make_key("query_locations", bbox_tuple, location_type, filters)
             cached = self._cache.get(cache_key)
             if cached is not None:
-                logger.debug("Cache hit for %s %s", location_type, bbox)
+                logger.debug("Cache hit for %s %s", location_type, bbox_tuple)
                 return cached
 
-        lon_min, lat_min, lon_max, lat_max = bbox[1], bbox[0], bbox[3], bbox[2]
+        lon_min, lat_min, lon_max, lat_max = bbox.west, bbox.south, bbox.east, bbox.north
 
         if self.postgis_enabled and self._postgis:
-            logger.info("Querying %s via PostGIS: %s", location_type, bbox)
+            logger.info("Querying %s via PostGIS: %s", location_type, bbox_tuple)
             results = self._postgis.query_locations_in_bbox(lon_min, lat_min, lon_max, lat_max, location_type, filters)
         else:
-            logger.info("Querying %s via Overpass: %s", location_type, bbox)
+            logger.info("Querying %s via Overpass: %s", location_type, bbox_tuple)
             results = self._overpass.query_locations_in_bbox(lon_min, lat_min, lon_max, lat_max, location_type, filters)
 
         if cache_key and self._cache:
@@ -107,19 +110,19 @@ class GisQueryService:
 
         return results
 
-    def query_towns(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
+    def query_towns(self, bbox: LatLonBox) -> List[Dict[str, Any]]:
         """查询城镇。"""
         return self.query_locations(bbox, "town")
 
-    def query_peaks(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
+    def query_peaks(self, bbox: LatLonBox) -> List[Dict[str, Any]]:
         """查询山峰。"""
         return self.query_locations(bbox, "peak")
 
-    def query_observatories(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
+    def query_observatories(self, bbox: LatLonBox) -> List[Dict[str, Any]]:
         """查询天文台。"""
         return self.query_locations(bbox, "observatory")
 
-    def query_viewpoints(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
+    def query_viewpoints(self, bbox: LatLonBox) -> List[Dict[str, Any]]:
         """查询观景点。"""
         return self.query_locations(bbox, "viewpoint")
 

@@ -21,6 +21,12 @@
 - 基础设施: 引入 bandit 静态安全扫描，识别并标记 Python 安全弱点和恶意代码模式，跳过明确安全的误报（pickle 本地缓存、MD5 缓存 key 等）
 - 基础设施: CI 新增 bandit security scan job（`--severity-level medium`），仅阻断中等及以上严重性问题
 - 重构: 移除已空的 `location_finder` 和 `mountain_peak` 包，功能已迁移至 `stargazing_analyzer.stargazing_place_finder`
+- 重构: 统一使用 Pydantic dataclass 模型作为函数签名
+  - `RoadConnectivityChecker` 所有公共方法接受 `GeoCoordinate` 而非原始 `(lat, lon)` 参数
+  - `GisQueryService.query_locations()` 等接受 `LatLonBox` 而非 `Tuple[float, float, float, float]`
+  - `extract_coordinates()` 返回 `Optional[GeoCoordinate]` 而非 `Tuple[Optional[float], Optional[float]]`
+  - `find_nearest_town()` 返回 `TownInfo` 模型而非原始三元组
+  - 新增 `TownInfo` Pydantic 模型 (`src/models/town.py`)
 
 ## 0.5.2 (2026-06-11)
 
