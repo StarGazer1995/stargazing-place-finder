@@ -145,3 +145,8 @@ examples/cache_data/
 examples/spatial_cache/
 src/light_pollution/cache/
 src/road_connectivity/cache/
+
+# Runtime-generated cache data
+cache/location_results/
+cache/road_networks/
+cache/temp/

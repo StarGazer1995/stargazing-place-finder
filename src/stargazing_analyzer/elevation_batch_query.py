@@ -12,14 +12,7 @@ from typing import Dict, List, Optional, Tuple
 
 import psycopg2
 
-try:
-    from src.models import ElevationResult
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from models import ElevationResult
+from models import ElevationResult
 
 logger = logging.getLogger(__name__)
 

@@ -17,14 +17,8 @@ from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from PIL import Image
 
-try:
-    from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
-
-    from .light_pollution_analyzer import LightPollutionAnalyzer
-except ImportError:
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
-    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-    from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
+from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
+from .light_pollution_analyzer import LightPollutionAnalyzer
 
 app = Flask(__name__)
 CORS(app)  # 允许跨域请求

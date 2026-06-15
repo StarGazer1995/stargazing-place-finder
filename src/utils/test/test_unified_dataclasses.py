@@ -11,10 +11,7 @@ import sys
 # 添加 src 目录到Python路径以加载顶层包
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
-try:
-    from src.models import Location, Observatory, Peak, Viewpoint
-except ImportError:
-    from models import Location, Observatory, Peak, Viewpoint
+from models import Location, Observatory, Peak, Viewpoint
 
 
 def test_unified_location_class():

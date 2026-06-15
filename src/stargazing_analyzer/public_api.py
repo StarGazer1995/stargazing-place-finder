@@ -1,11 +1,6 @@
+import importlib.resources as res
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-
-try:
-    import importlib.resources as res
-except ImportError:
-    # Python<3.9 fallback
-    import importlib_resources as res  # type: ignore
 
 from .stargazing_location_analyzer import (
     StargazingLocationAnalyzer,

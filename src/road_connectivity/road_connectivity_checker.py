@@ -17,23 +17,8 @@ import networkx as nx
 import osmnx as ox
 from geopy.distance import geodesic
 
-try:
-    from src.models import GeoCoordinate, RoadAccessInfo
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from models import GeoCoordinate, RoadAccessInfo
-
-try:
-    from cache.cache_config import get_cache_dir, setup_osmnx_cache
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
-    from cache.cache_config import get_cache_dir, setup_osmnx_cache
+from models import GeoCoordinate, RoadAccessInfo
+from cache.cache_config import get_cache_dir, setup_osmnx_cache
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)

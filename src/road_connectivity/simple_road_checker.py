@@ -10,14 +10,7 @@ import os
 
 import osmnx as ox
 
-try:
-    from cache.cache_config import setup_osmnx_cache
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
-    from cache.cache_config import setup_osmnx_cache
+from cache.cache_config import setup_osmnx_cache
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING)

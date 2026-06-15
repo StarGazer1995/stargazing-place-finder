@@ -16,14 +16,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-try:
-    from src.models import LightPollutionInfo
-except ImportError:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from models import LightPollutionInfo
+from models import LightPollutionInfo
 
 try:
     import rasterio
