@@ -53,9 +53,7 @@ class BatchElevationQuery:
             from gis_service.backends.postgis_backend import PostgisBackend
 
             backend = PostgisBackend(self.db_config)
-            results = backend.batch_query_elevations(
-                coordinates, names, batch_size=self.batch_size
-            )
+            results = backend.batch_query_elevations(coordinates, names, batch_size=self.batch_size)
 
             elapsed = time.time() - start_time
             ok = sum(1 for r in results if r.elevation is not None)
@@ -64,10 +62,7 @@ class BatchElevationQuery:
 
         except Exception as e:  # noqa: BLE001
             logger.error("批量查询失败: %s", e)
-            return [
-                ElevationResult(latitude=lat, longitude=lon, error=str(e))
-                for lat, lon in coordinates
-            ]
+            return [ElevationResult(latitude=lat, longitude=lon, error=str(e)) for lat, lon in coordinates]
 
     def get_statistics(self) -> Dict:
         """获取 PostGIS 中海拔数据统计信息。"""

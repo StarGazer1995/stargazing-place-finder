@@ -7,6 +7,7 @@
 
 import os
 import sys
+import warnings
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
@@ -15,6 +16,9 @@ from src.cache.cache_config import clear_cache, get_cache_info
 from src.light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 from src.road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 from src.road_connectivity.simple_road_checker import SimpleRoadChecker
+
+# 抑制已弃用功能的 DeprecationWarning（向后兼容测试）
+warnings.simplefilter("ignore", DeprecationWarning)
 
 
 def test_cache_directories():

@@ -447,12 +447,22 @@ def simple_road_check(point: GeoCoordinate) -> bool:
     """
     Simple road connectivity detection function
 
+    .. deprecated::
+        请直接使用 ``RoadConnectivityChecker``。
+
     Args:
         point: Geographic coordinate.
 
     Returns:
         bool: True means accessible, False means inaccessible
     """
+    import warnings
+
+    warnings.warn(
+        "simple_road_check is deprecated, use RoadConnectivityChecker directly.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     checker = RoadConnectivityChecker(search_radius_km=5.0)
     return checker.is_road_accessible(point)
 
