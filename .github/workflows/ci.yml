@@ -54,6 +54,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download GeoTIFF data from Release asset
         run: |
@@ -76,10 +78,6 @@ jobs:
         run: uv run pytest --cov=src --cov-report=xml --cov-report=term --no-header
         env:
           FAST_TESTS: "1"  # Skip slow geospatial network queries
-
-      - name: Fetch base branch for diff coverage (PR only)
-        if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} --depth=1
 
       - name: Check new code coverage with diff-cover
         if: github.event_name == 'pull_request'
