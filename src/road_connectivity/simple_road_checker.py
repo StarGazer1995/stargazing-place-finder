@@ -2,22 +2,21 @@
 # -*- coding: utf-8 -*-
 """
 Simplified Road Connectivity Checker
-Specialized for quickly determining whether destinations have road connectivity
+
+.. deprecated::
+    此模块已弃用。请使用 :class:`road_connectivity.RoadConnectivityChecker`。
+    ``SimpleRoadChecker`` 保留仅为向后兼容，内部委托给 ``RoadConnectivityChecker``。
 """
 
 import logging
-import os
-from typing import Optional
+import warnings
+from typing import List, Optional, Tuple
 
-import osmnx as ox
-
-from cache.cache_config import setup_osmnx_cache
 from config import StargazingConfig
-from models import NetworkError, NoDataError
+from models import GeoCoordinate
 
-# Configure logging
-logging.basicConfig(level=logging.WARNING)
-ox.settings.log_console = False
+from .geo_fence import GeoFence
+from .road_connectivity_checker import RoadConnectivityChecker
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,10 @@ logger = logging.getLogger(__name__)
 class SimpleRoadChecker:
     """
     Simplified Road Connectivity Checker
-    Focused on quickly determining whether specified coordinates have road accessibility
+
+    .. deprecated::
+        请改用 :class:`road_connectivity.road_connectivity_checker.RoadConnectivityChecker`。
+        本类保留仅为向后兼容，内部委托给 ``RoadConnectivityChecker``。
     """
 
     def __init__(
@@ -33,6 +35,7 @@ class SimpleRoadChecker:
         search_radius_km: float = 5.0,
         max_distance_to_road_km: float = 2.0,
         config: Optional[StargazingConfig] = None,
+        geo_fence: Optional[GeoFence] = None,
     ):
         """
         Initialize road connectivity checker
@@ -42,147 +45,92 @@ class SimpleRoadChecker:
             max_distance_to_road_km: Maximum acceptable distance to road (kilometers)
             config: Optional StargazingConfig instance. When provided, overrides
                     search_radius_km and max_distance_to_road_km with config values.
+            geo_fence: Optional GeoFence instance for testing. When enabled, returns
+                       pre-defined results without real backend queries.
         """
+        warnings.warn(
+            "SimpleRoadChecker is deprecated, use RoadConnectivityChecker instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if config is not None:
             search_radius_km = config.road_search_radius_km
             max_distance_to_road_km = config.max_distance_to_road_km
         self.search_radius_km = search_radius_km
         self.max_distance_to_road_km = max_distance_to_road_km
-
-        # Set up OSMnx cache directory
-        setup_osmnx_cache()
+        self._inner = RoadConnectivityChecker(
+            search_radius_km=search_radius_km,
+            max_distance_to_road_km=max_distance_to_road_km,
+            geo_fence=geo_fence,  # 可 None，RoadConnectivityChecker 内部不再 fallback
+        )
 
     def is_connected(self, lat: float, lon: float) -> bool:
-        """
-        Check if specified coordinates have road connectivity
+        """检查坐标是否有道路连通（已弃用，委托给 RoadConnectivityChecker）。"""
+        point = GeoCoordinate(latitude=lat, longitude=lon)
+        return self._inner.is_road_accessible(point)
 
-        Args:
-            lat: Latitude
-            lon: Longitude
-
-        Returns:
-            bool: True indicates road connectivity, False indicates no road connectivity
-        """
-        try:
-            # Download road network for specified area
-            G = ox.graph_from_point(
-                (lat, lon),
-                dist=self.search_radius_km * 1000,  # Convert to meters
-                network_type="drive",
-                simplify=True,
-            )
-
-            # Check if network is empty
-            if len(G.nodes) == 0:
-                return False
-
-            # Find nearest road node
-            nearest_node = ox.nearest_nodes(G, lon, lat)
-
-            # Calculate distance to nearest road
-            node_data = G.nodes[nearest_node]
-            node_lat = node_data["y"]
-            node_lon = node_data["x"]
-
-            # Use simple distance calculation (approximate)
-            distance_km = self._calculate_distance(lat, lon, node_lat, node_lon)
-
-            # Determine if within acceptable distance range
-            return distance_km <= self.max_distance_to_road_km
-
-        except (NetworkError, NoDataError) as e:
-            # If any error occurs, consider it unreachable
-            logger.warning(f"Error detecting coordinates ({lat}, {lon}): {e}")
-            return False
-
-    def _calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """
-        Calculate approximate distance between two points (kilometers)
-        Using simplified spherical distance formula
-
-        Args:
-            lat1, lon1: Coordinates of the first point
-            lat2, lon2: Coordinates of the second point
-
-        Returns:
-            float: Distance (kilometers)
-        """
-        import math
-
-        # Earth radius (kilometers)
-        R = 6371.0
-
-        # Convert to radians
-        lat1_rad = math.radians(lat1)
-        lon1_rad = math.radians(lon1)
-        lat2_rad = math.radians(lat2)
-        lon2_rad = math.radians(lon2)
-
-        # Calculate differences
-        dlat = lat2_rad - lat1_rad
-        dlon = lon2_rad - lon1_rad
-
-        # Haversine formula
-        a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-        return R * c
-
-    def batch_check(self, coordinates: list) -> list:
-        """
-        Batch check road connectivity for multiple coordinates
-
-        Args:
-            coordinates: List of coordinates in format [(lat1, lon1), (lat2, lon2), ...]
-
-        Returns:
-            list: Corresponding connectivity result list [True, False, ...]
-        """
-        results = []
-        for lat, lon in coordinates:
-            results.append(self.is_connected(lat, lon))
-        return results
+    def batch_check(self, coordinates: List[Tuple[float, float]]) -> List[bool]:
+        """批量检查道路连通性（已弃用，委托给 RoadConnectivityChecker）。"""
+        points = [GeoCoordinate(latitude=lat, longitude=lon) for lat, lon in coordinates]
+        return self._inner.batch_check_accessibility(points)
 
 
 # Convenience functions
-def quick_road_check(lat: float, lon: float, search_radius_km: float = 5.0) -> bool:
+def quick_road_check(
+    lat: float,
+    lon: float,
+    search_radius_km: float = 5.0,
+    geo_fence: Optional[GeoFence] = None,
+) -> bool:
     """
     Convenience function for quickly checking if specified coordinates have road connectivity
+
+    .. deprecated::
+        请直接使用 ``RoadConnectivityChecker``。
 
     Args:
         lat: Latitude
         lon: Longitude
         search_radius_km: Search radius (kilometers), default 5 kilometers
+        geo_fence: Optional GeoFence instance for testing.
 
     Returns:
         bool: True indicates road connectivity, False indicates no road connectivity
     """
-    if os.environ.get("FAST_TESTS") == "1":
-        if 120.0 <= lon <= 135.0 and 20.0 <= lat <= 35.0:
-            return False
-        if 115.0 <= lon <= 118.0 and 39.0 <= lat <= 41.0:
-            return True
-        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
-            return False
-        return True
-    checker = SimpleRoadChecker(search_radius_km=search_radius_km)
+    warnings.warn(
+        "quick_road_check is deprecated, use RoadConnectivityChecker instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    checker = SimpleRoadChecker(search_radius_km=search_radius_km, geo_fence=geo_fence)
     return checker.is_connected(lat, lon)
 
 
-def batch_road_check(coordinates: list, search_radius_km: float = 5.0) -> list:
+def batch_road_check(
+    coordinates: List[Tuple[float, float]],
+    search_radius_km: float = 5.0,
+    geo_fence: Optional[GeoFence] = None,
+) -> List[bool]:
     """
     Convenience function for batch checking road connectivity of multiple coordinates
+
+    .. deprecated::
+        请直接使用 ``RoadConnectivityChecker.batch_check_accessibility()``。
 
     Args:
         coordinates: List of coordinates in format [(lat1, lon1), (lat2, lon2), ...]
         search_radius_km: Search radius (kilometers), default 5 kilometers
+        geo_fence: Optional GeoFence instance for testing.
 
     Returns:
         list: Corresponding connectivity result list [True, False, ...]
     """
-    if os.environ.get("FAST_TESTS") == "1":
-        return [quick_road_check(lat, lon, search_radius_km) for lat, lon in coordinates]
-    checker = SimpleRoadChecker(search_radius_km=search_radius_km)
+    warnings.warn(
+        "batch_road_check is deprecated, use RoadConnectivityChecker instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    checker = SimpleRoadChecker(search_radius_km=search_radius_km, geo_fence=geo_fence)
     return checker.batch_check(coordinates)
 
 

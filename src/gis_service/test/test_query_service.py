@@ -6,6 +6,7 @@ All PostGIS and Overpass API calls are mocked so tests run
 fast, offline, and without external dependencies.
 """
 
+import sys
 import unittest
 from typing import Any, Dict
 from unittest.mock import patch
@@ -192,4 +193,4 @@ class TestGisQueryService(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(argv=sys.argv[:1])

@@ -123,8 +123,8 @@ class ElevationBackend:
                 batch_names = [f"pt_{i}" for i in remaining]
                 elev_data = self._postgis.batch_query_elevations(batch_coords, batch_names)
                 for idx, data in zip(remaining, elev_data):
-                    if data.get("elevation") is not None:
-                        results[idx] = data["elevation"]
+                    if data.elevation is not None:
+                        results[idx] = data.elevation
             except DataError as e:
                 logger.debug("PostGIS batch elevation failed: %s", e)
 

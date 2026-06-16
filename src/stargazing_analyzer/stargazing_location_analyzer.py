@@ -214,9 +214,6 @@ class StargazingLocationAnalyzer:
 
         logger.info("Total %s locations found, starting detailed analysis...", len(all_locations))
 
-        if os.environ.get("FAST_TESTS") == "1":
-            include_road_connectivity = False
-
         # Fetch towns data once for town density computation
         towns_data = []
         try:

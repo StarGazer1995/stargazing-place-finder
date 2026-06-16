@@ -269,8 +269,8 @@ def run_tests():
 
 
 if __name__ == "__main__":
-    if os.environ.get("FAST_TESTS") == "1":
-        print("FAST_TESTS mode: skipping all tests in test_updated_analyze_area.py (require network)")
+    if "--fast" in sys.argv:
+        print("Fast mode: skipping all tests in test_updated_analyze_area.py (require network)")
         print("✅ Skipped - all tests in this file need Overpass API access")
         sys.exit(0)
 

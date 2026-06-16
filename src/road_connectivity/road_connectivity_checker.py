@@ -7,7 +7,6 @@ Used to detect whether specified coordinate points can be reached by road
 
 import hashlib
 import logging
-import os
 import pickle
 import time
 from pathlib import Path
@@ -20,6 +19,8 @@ from geopy.distance import geodesic
 from cache.cache_config import get_cache_dir, setup_osmnx_cache
 from config import StargazingConfig
 from models import DataError, GeoCoordinate, NetworkError, NoDataError, RoadAccessInfo
+
+from .geo_fence import GeoFence
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -142,6 +143,7 @@ class RoadConnectivityChecker:
         max_distance_to_road_km: float = 0.2,
         gis_service=None,
         config: Optional[StargazingConfig] = None,
+        geo_fence: Optional[GeoFence] = None,
     ):
         """
         Initialize road connectivity checker
@@ -155,6 +157,8 @@ class RoadConnectivityChecker:
                          queries use millisecond-level kNN SQL instead of OSMnx HTTP.
             config: Optional StargazingConfig instance. When provided, overrides
                     search_radius_km and max_distance_to_road_km with config values.
+            geo_fence: Optional GeoFence instance for testing. When provided and
+                       enabled, returns pre-defined results without real backend queries.
         """
         if config is not None:
             search_radius_km = config.road_search_radius_km
@@ -163,6 +167,7 @@ class RoadConnectivityChecker:
         self.max_distance_to_road_km = max_distance_to_road_km
         self.graph_cache = {}  # Cache downloaded road networks
         self.gis_service = gis_service  # Optional GisQueryService for PostGIS fast path
+        self.geo_fence = geo_fence  # 仅当上游显式传入时才使用
         # Set OSMnx cache directory
         setup_osmnx_cache()
 
@@ -189,17 +194,10 @@ class RoadConnectivityChecker:
             self.location_cache.save_road_access_info_to_cache(f"accessible_{network_type}", [road_info])
             return res
 
-        if os.environ.get("FAST_TESTS") == "1":
-            try:
-                if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
-                    return process_and_return(False)
-                if 120.0 <= lon <= 135.0 and 20.0 <= lat <= 35.0:
-                    return process_and_return(False)
-                if 115.0 <= lon <= 118.0 and 39.0 <= lat <= 41.0:
-                    return process_and_return(True)
-                return process_and_return(True)
-            except (NetworkError, NoDataError):
-                return process_and_return(False)
+        if self.geo_fence is not None:
+            fence_result = self.geo_fence.check_road_accessible(lat, lon)
+            if fence_result is not None:
+                return process_and_return(fence_result)
         try:
             # Try to get road network around this point
             cached_results = self.location_cache.get_cached_result(f"accessible_{network_type}")
@@ -242,7 +240,6 @@ class RoadConnectivityChecker:
                 return process_and_return(False)
 
             logger.info(f"Coordinates ({lat}, {lon}) accessible, distance to nearest road {distance_km:.2f}km")
-            self.location_cache.save_to_cache(network_type, True)
             return process_and_return(True)
 
         except (NetworkError, NoDataError) as e:
@@ -362,30 +359,21 @@ class RoadConnectivityChecker:
         }
 
         try:
-            if os.environ.get("FAST_TESTS") == "1":
-                accessible = True
-                if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
-                    accessible = False
-                elif 120.0 <= lon <= 135.0 and 20.0 <= lat <= 35.0:
-                    accessible = False
-                elif 115.0 <= lon <= 118.0 and 39.0 <= lat <= 41.0:
-                    accessible = True
-                result["accessible"] = accessible
-                result["distance_to_road_km"] = 0.8 if accessible else None
-                result["nearest_road_type"] = "residential" if accessible else None
-                result["network_nodes_count"] = 1200 if accessible else 0
-                result["error"] = None if accessible else "fast_mode_unreachable"
-                cache = RoadAccessInfo(
-                    is_road_accessible=result["accessible"],
-                    distance_to_road_km=result["distance_to_road_km"],
-                    nearest_road_type=result["nearest_road_type"],
-                    network_nodes_count=result["network_nodes_count"],
-                    error=result["error"],
-                    latitude=lat,
-                    longitude=lon,
-                )
-                self.location_cache.save_road_access_info_to_cache(f"access_info_{network_type}", [cache])
-                return result
+            if self.geo_fence is not None:
+                fence_result = self.geo_fence.get_fake_accessibility_info(lat, lon)
+                if fence_result is not None:
+                    result.update(fence_result)
+                    cache = RoadAccessInfo(
+                        is_road_accessible=result["accessible"],
+                        distance_to_road_km=result["distance_to_road_km"],
+                        nearest_road_type=result["nearest_road_type"],
+                        network_nodes_count=result["network_nodes_count"],
+                        error=result["error"],
+                        latitude=lat,
+                        longitude=lon,
+                    )
+                    self.location_cache.save_road_access_info_to_cache(f"access_info_{network_type}", [cache])
+                    return result
             cached_res = self.location_cache.get_cached_result(f"access_info_{network_type}")
             cache = self.location_cache.get_location_by_coordinates(cached_res, lat, lon)
             if cache is not None:
@@ -461,12 +449,22 @@ def simple_road_check(point: GeoCoordinate) -> bool:
     """
     Simple road connectivity detection function
 
+    .. deprecated::
+        请直接使用 ``RoadConnectivityChecker``。
+
     Args:
         point: Geographic coordinate.
 
     Returns:
         bool: True means accessible, False means inaccessible
     """
+    import warnings
+
+    warnings.warn(
+        "simple_road_check is deprecated, use RoadConnectivityChecker directly.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     checker = RoadConnectivityChecker(search_radius_km=5.0)
     return checker.is_road_accessible(point)
 

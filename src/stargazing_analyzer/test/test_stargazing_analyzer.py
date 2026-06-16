@@ -512,7 +512,7 @@ def run_all_tests():
 
 
 if __name__ == "__main__":
-    if os.environ.get("FAST_TESTS") == "1":
+    if "--fast" in sys.argv:
         print("FAST_TESTS mode: skipping tests that require network access")
         # Run only tests that don't need network (skip test_basic_analysis and test_convenience_function)
         print("\n=== Fast mode: running offline-only tests ===\n")

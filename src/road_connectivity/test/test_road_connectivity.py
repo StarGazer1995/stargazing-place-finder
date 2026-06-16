@@ -7,6 +7,7 @@
 
 import os
 import sys
+import warnings
 
 # 添加 src 目录到Python路径以加载顶层包
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
@@ -16,6 +17,9 @@ import time
 from models import GeoCoordinate
 from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 from road_connectivity.simple_road_checker import batch_road_check, quick_road_check
+
+# 抑制已弃用功能的 DeprecationWarning（向后兼容测试）
+warnings.simplefilter("ignore", DeprecationWarning)
 
 
 def test_quick_check():

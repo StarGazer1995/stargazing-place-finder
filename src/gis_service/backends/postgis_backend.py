@@ -9,7 +9,7 @@ elevation_batch_query.py 中的 BatchElevationQuery 统一到此模块。
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from models import DataError, NetworkError
+from models import DataError, ElevationResult, NetworkError
 
 logger = logging.getLogger(__name__)
 
@@ -129,95 +129,113 @@ class PostgisBackend:
         self,
         coordinates: List[Tuple[float, float]],
         names: Optional[List[str]] = None,
-    ) -> List[Dict[str, Any]]:
+        batch_size: int = 50,
+    ) -> List[ElevationResult]:
         """
-        批量查询多个坐标的海拔。
+        批量查询多个坐标的海拔（已分块），返回一致的数据模型。
 
         Args:
             coordinates: [(lat, lon), ...]
             names: 可选地点名称列表
+            batch_size: 每批处理数量，默认 50
 
         Returns:
-            [{'lat': .., 'lon': .., 'elevation': .. or None, 'name': .., 'distance_meters': .., 'feature_type': ..}, ...]
+            List[ElevationResult] — 每个坐标一个结果，顺序与输入一致
         """
         if not coordinates:
             return []
-
-        import psycopg2
 
         if names is None:
             names = [f"Point_{i + 1}" for i in range(len(coordinates))]
         elif len(names) < len(coordinates):
             names.extend([f"Point_{i + 1}" for i in range(len(names), len(coordinates))])
 
+        all_results: List[ElevationResult] = []
+        for start in range(0, len(coordinates), batch_size):
+            batch_coords = coordinates[start : start + batch_size]
+            batch_names = names[start : start + batch_size]
+            all_results.extend(self._query_single_batch(batch_coords, batch_names))
+        return all_results
+
+    def _query_single_batch(
+        self,
+        coordinates: List[Tuple[float, float]],
+        names: List[str],
+    ) -> List[ElevationResult]:
+        """执行单批海拔查询。"""
+        import psycopg2
+
         conn = psycopg2.connect(**self.config)
         cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                CREATE TEMP TABLE _gis_elev_pts (
+                    id SERIAL PRIMARY KEY, lat DOUBLE PRECISION,
+                    lon DOUBLE PRECISION, name VARCHAR(255)
+                ) ON COMMIT DROP;
+            """)
+            for i, (lat, lon) in enumerate(coordinates):
+                cursor.execute(
+                    "INSERT INTO _gis_elev_pts (lat, lon, name) VALUES (%s, %s, %s)",
+                    (lat, lon, names[i]),
+                )
 
-        cursor.execute("""
-            CREATE TEMP TABLE _gis_elev_pts (
-                id SERIAL PRIMARY KEY, lat DOUBLE PRECISION,
-                lon DOUBLE PRECISION, name VARCHAR(255)
-            ) ON COMMIT DROP;
-        """)
-        for i, (lat, lon) in enumerate(coordinates):
-            cursor.execute(
-                "INSERT INTO _gis_elev_pts (lat, lon, name) VALUES (%s, %s, %s)",
-                (lat, lon, names[i]),
+            cursor.execute("""
+                SELECT
+                    t.id, t.lat, t.lon, t.name,
+                    p.ele::float as elevation,
+                    p.name as source_name,
+                    ST_Distance(
+                        ST_Transform(p.way, 4326),
+                        ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)
+                    ) * 111000 as distance_meters,
+                    CASE
+                        WHEN p.amenity  IS NOT NULL THEN 'amenity=' || p.amenity
+                        WHEN p.tourism  IS NOT NULL THEN 'tourism=' || p.tourism
+                        WHEN p."natural" IS NOT NULL THEN 'natural=' || p."natural"
+                        WHEN p.man_made IS NOT NULL THEN 'man_made=' || p.man_made
+                        ELSE 'unknown'
+                    END as feature_type
+                FROM _gis_elev_pts t
+                CROSS JOIN LATERAL (
+                    SELECT name, ele, way, amenity, tourism, "natural", man_made
+                    FROM planet_osm_point
+                    WHERE ele IS NOT NULL
+                        AND ele ~ '^[0-9]+(\\.[0-9]+)?$'
+                        AND ele::float >= -500
+                        AND ele::float <= 9000
+                    ORDER BY ST_Transform(way, 4326) <-> ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)
+                    LIMIT 1
+                ) p
+                ORDER BY t.id;
+            """)
+
+            results: List[ElevationResult] = []
+            for row in cursor.fetchall():
+                _id, lat, lon, name, elev, source, dist, ftype = row
+                results.append(
+                    ElevationResult(
+                        latitude=lat,
+                        longitude=lon,
+                        elevation=elev,
+                        source_name=source or "unknown",
+                        distance_meters=dist,
+                        feature_type=ftype,
+                    )
+                )
+
+            logger.info(
+                "Elevation batch query: %d points, %d found",
+                len(coordinates),
+                sum(1 for r in results if r.elevation is not None),
             )
-
-        cursor.execute("""
-            SELECT
-                t.id, t.lat, t.lon, t.name,
-                p.ele::float as elevation,
-                p.name as source_name,
-                ST_Distance(
-                    ST_Transform(p.way, 4326),
-                    ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)
-                ) * 111000 as distance_meters,
-                CASE
-                    WHEN p.amenity  IS NOT NULL THEN 'amenity=' || p.amenity
-                    WHEN p.tourism  IS NOT NULL THEN 'tourism=' || p.tourism
-                    WHEN p."natural" IS NOT NULL THEN 'natural=' || p."natural"
-                    WHEN p.man_made IS NOT NULL THEN 'man_made=' || p.man_made
-                    ELSE 'unknown'
-                END as feature_type
-            FROM _gis_elev_pts t
-            CROSS JOIN LATERAL (
-                SELECT name, ele, way, amenity, tourism, "natural", man_made
-                FROM planet_osm_point
-                WHERE ele IS NOT NULL
-                    AND ele ~ '^[0-9]+(\\.[0-9]+)?$'
-                    AND ele::float >= -500
-                    AND ele::float <= 9000
-                ORDER BY ST_Transform(way, 4326) <-> ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)
-                LIMIT 1
-            ) p
-            ORDER BY t.id;
-        """)
-
-        results = []
-        for row in cursor.fetchall():
-            _id, lat, lon, name, elev, source, dist, ftype = row
-            results.append(
-                {
-                    "lat": lat,
-                    "lon": lon,
-                    "name": name,
-                    "elevation": elev,
-                    "source_name": source or "unknown",
-                    "distance_meters": dist,
-                    "feature_type": ftype,
-                }
-            )
-
-        cursor.close()
-        conn.close()
-        logger.info(
-            "Elevation batch query: %d points, %d found",
-            len(coordinates),
-            sum(1 for r in results if r["elevation"] is not None),
-        )
-        return results
+            return results
+        except Exception as e:
+            logger.error("PostGIS batch elevation query failed: %s", e)
+            raise DataError(f"PostGIS batch elevation query failed: {e}") from e
+        finally:
+            cursor.close()
+            conn.close()
 
     # ── 单点高程查询 ──────────────────────────────────────────
 
