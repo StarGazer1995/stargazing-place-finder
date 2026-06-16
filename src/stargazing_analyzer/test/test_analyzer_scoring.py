@@ -38,7 +38,8 @@ def analyzer():
         a.mountain_finder.find_peaks_in_area.return_value = []
         a.mountain_finder.find_observatories_in_area.return_value = []
         a.mountain_finder.find_viewpoints_in_area.return_value = []
-        a.mountain_finder.get_towns_from_overpass.return_value = []
+        a.mountain_finder.gis_service = MagicMock()
+        a.mountain_finder.gis_service.query_locations.return_value = []
 
         # Mock road_checker
         a.road_checker = MagicMock()
@@ -333,10 +334,10 @@ class TestFetchTownsData:
     """Test _fetch_towns_data error handling."""
 
     def test_no_data_error_returns_empty(self, analyzer):
-        """When get_towns_from_overpass raises NoDataError, return []."""
+        """When query_locations raises NoDataError, return []."""
         from models import NoDataError
 
-        analyzer.mountain_finder.get_towns_from_overpass.side_effect = NoDataError("no data")
+        analyzer.mountain_finder.gis_service.query_locations.side_effect = NoDataError("no data")
         result = analyzer._fetch_towns_data(MagicMock())
         assert result == []
 

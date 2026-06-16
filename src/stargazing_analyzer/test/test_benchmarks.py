@@ -210,7 +210,8 @@ class TestFullPipelineBenchmarks:
         )
         a.mountain_finder.find_observatories_in_area = MagicMock(return_value=[])
         a.mountain_finder.find_viewpoints_in_area = MagicMock(return_value=[])
-        a.mountain_finder.get_towns_from_overpass = MagicMock(return_value=[])
+        a.mountain_finder.gis_service = MagicMock()
+        a.mountain_finder.gis_service.query_locations = MagicMock(return_value=[])
         # Mock road checker
         a.road_checker = MagicMock(spec=RoadConnectivityChecker)
         a.road_checker.get_accessibility_info.return_value = {

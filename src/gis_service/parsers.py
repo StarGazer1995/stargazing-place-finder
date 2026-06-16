@@ -105,9 +105,7 @@ def find_nearest_town(
         if distance < min_distance:
             min_distance = distance
             nearest_town = town.get("tags", {}).get("name", "Unknown town")
-            if elevation_func:
-                nearest_town_elevation = elevation_func(town_lat, town_lon)
-                time.sleep(0.1)
+            nearest_town_elevation = None
 
     return TownInfo(name=nearest_town, distance_km=min_distance, elevation_m=nearest_town_elevation)
 

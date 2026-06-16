@@ -116,7 +116,8 @@ def analyzer(mock_peak_data, mock_observatory_data, mock_viewpoint_data, mock_to
     a.mountain_finder.find_peaks_in_area = MagicMock(return_value=mock_peak_data)
     a.mountain_finder.find_observatories_in_area = MagicMock(return_value=mock_observatory_data)
     a.mountain_finder.find_viewpoints_in_area = MagicMock(return_value=mock_viewpoint_data)
-    a.mountain_finder.get_towns_from_overpass = MagicMock(return_value=mock_towns_data)
+    a.mountain_finder.gis_service = MagicMock()
+    a.mountain_finder.gis_service.query_locations = MagicMock(return_value=mock_towns_data)
 
     # Road checker returns a fake accessibility result
     a.road_checker.get_accessibility_info = MagicMock(

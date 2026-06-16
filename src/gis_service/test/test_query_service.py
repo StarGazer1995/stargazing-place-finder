@@ -242,6 +242,7 @@ class TestPostgisBackendFormatRow(unittest.TestCase):
             None,  # tower:type
             None,  # leisure
             "peak",  # natural
+            None,  # ele
         )
         result = backend._format_location_row(row)
         self.assertEqual(result["type"], "node")
