@@ -66,8 +66,8 @@ class ElevationBackend:
                 val = float(osm_tags["ele"])
                 if val is not None:
                     return val
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Failed to parse elevation from OSM tags: %s", e)
 
         # Level 2: PostGIS
         if self._postgis:
@@ -115,8 +115,8 @@ class ElevationBackend:
                 if tags and "ele" in tags:
                     try:
                         results[i] = float(tags["ele"])
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as e:
+                        logger.debug("Failed to parse elevation from OSM tags (batch): %s", e)
 
         # Phase 2: PostGIS 批量查询
         remaining = [i for i in range(n) if results[i] is None]
@@ -139,8 +139,8 @@ class ElevationBackend:
                 if val is not None:
                     results[i] = val
                     time.sleep(0.1)
-            except (NetworkError, DataError):
-                pass
+            except (NetworkError, DataError) as e:
+                logger.debug("Open-Elevation API failed for batch item: %s", e)
 
         # Phase 4: 剩余默认 0.0
         return [r if r is not None else 0.0 for r in results]
