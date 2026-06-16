@@ -6,7 +6,6 @@ All PostGIS and external API calls are mocked.
 """
 
 import os
-import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
