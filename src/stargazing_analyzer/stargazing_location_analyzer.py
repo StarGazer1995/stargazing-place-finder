@@ -245,8 +245,9 @@ class StargazingLocationAnalyzer:
     def _fetch_towns_data(self, bbox: LatLonBox) -> List[Dict]:
         """Fetch towns data for town density computation (optional)."""
         try:
-            return self.mountain_finder.get_towns_from_overpass(bbox)
-        except NoDataError:
+            return self.mountain_finder.gis_service.query_locations(bbox, "town")
+        except (NoDataError, Exception) as e:
+            logger.warning("Failed to fetch towns data: %s", e)
             return []
 
     def _batch_light_pollution(

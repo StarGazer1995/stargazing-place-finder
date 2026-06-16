@@ -96,6 +96,38 @@ class StarGazingPlaceFinder:
         towns_data = self.gis_service.query_locations(bbox, "town")
         logger.info("Found %s towns", len(towns_data))
 
+        # Batch pre-fetch elevation for locations without ele tag,
+        # avoiding slow per-point kNN queries for each location.
+        coords_needing_elev = []
+        for loc in locations_data:
+            if "ele" not in loc.get("tags", {}):
+                try:
+                    if loc["type"] == "node":
+                        coords_needing_elev.append((loc["lat"], loc["lon"]))
+                    elif "center" in loc:
+                        coords_needing_elev.append((loc["center"]["lat"], loc["center"]["lon"]))
+                except (KeyError, TypeError):
+                    continue
+        if coords_needing_elev:
+            logger.info("Batch pre-fetching elevation for %d locations...", len(coords_needing_elev))
+            elevations = self.gis_service.batch_find_elevations(coords_needing_elev)
+            elev_idx = 0
+            for loc in locations_data:
+                if "ele" not in loc.get("tags", {}):
+                    try:
+                        if loc["type"] == "node":
+                            pass
+                        elif "center" in loc:
+                            pass
+                        else:
+                            continue
+                    except (KeyError, TypeError):
+                        continue
+                    if elev_idx < len(elevations) and elevations[elev_idx] is not None:
+                        loc.setdefault("tags", {})["ele"] = str(int(elevations[elev_idx]))
+                    elev_idx += 1
+            logger.info("Batch elevation pre-fetch complete")
+
         res_list = []
         for i, location_data in enumerate(locations_data[:max_locations]):
             if i % 5 == 0:
@@ -154,14 +186,13 @@ class StarGazingPlaceFinder:
         return elevation if elevation is not None else 0.0
 
     def _resolve_nearest_town(self, point: GeoCoordinate, towns_data: List[dict]) -> tuple:
-        """查找最近城镇。返回 (name, distance_km, elevation_m)。"""
+        """查找最近城镇。返回 (name, distance_km, elevation_m)。
+
+        海拔只从 OSM tags 获取（若有的话），不再通过 PostGIS kNN 逐点查询。
+        """
         if not towns_data:
             return "Unknown", 0.0, None
-        town_info = find_nearest_town(
-            point,
-            towns_data,
-            elevation_func=self.gis_service.find_elevation if hasattr(self.gis_service, "find_elevation") else None,
-        )
+        town_info = find_nearest_town(point, towns_data)
         return town_info.name or "Unknown", town_info.distance_km, town_info.elevation_m
 
     # ── Public entry points ─────────────────────────────────────────

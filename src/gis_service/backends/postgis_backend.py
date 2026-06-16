@@ -72,7 +72,7 @@ class PostgisBackend:
                    ST_Y(ST_Transform(way, 4326)) as latitude,
                    amenity, tourism, shop, highway, place,
                    man_made, "tower:type" as tower_type,
-                   leisure, "natural"
+                   leisure, "natural", ele
             FROM planet_osm_point
             WHERE ST_Transform(way, 4326) && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
         """
@@ -111,6 +111,7 @@ class PostgisBackend:
             ("tower:type", 10),
             ("leisure", 11),
             ("natural", 12),
+            ("ele", 13),
         ]
         for key, idx in tag_mappings:
             if row[idx]:
@@ -123,7 +124,7 @@ class PostgisBackend:
         self,
         coordinates: List[Tuple[float, float]],
         names: Optional[List[str]] = None,
-        batch_size: int = 50,
+        batch_size: int = 500,
     ) -> List[ElevationResult]:
         """
         批量查询多个坐标的海拔（已分块），返回一致的数据模型。
@@ -156,53 +157,52 @@ class PostgisBackend:
         coordinates: List[Tuple[float, float]],
         names: List[str],
     ) -> List[ElevationResult]:
-        """执行单批海拔查询。"""
+        """执行单批海拔查询（使用 VALUES 表达式，避免临时表造成 PG catalog 冲突）。"""
         import psycopg2
+
+        if not coordinates:
+            return []
+
+        # 构造 VALUES 行: (1, lat1, lon1, 'name1'), (2, lat2, lon2, 'name2'), ...
+        value_rows = []
+        params: List[float] = []
+        for i, (lat, lon) in enumerate(coordinates):
+            value_rows.append(f"({i + 1}::int, %s::float, %s::float, %s::text)")
+            params.extend([lat, lon, names[i]])
+
+        values_clause = ", ".join(value_rows)
+        sql = f"""
+            SELECT
+                t.id, t.lat, t.lon, t.name,
+                p.ele::float as elevation,
+                p.name as source_name,
+                ST_Distance(ST_Transform(p.way, 4326)::geography,
+                            ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)::geography) as distance_meters,
+                CASE
+                    WHEN p.amenity  IS NOT NULL THEN 'amenity=' || p.amenity
+                    WHEN p.tourism  IS NOT NULL THEN 'tourism=' || p.tourism
+                    WHEN p."natural" IS NOT NULL THEN 'natural=' || p."natural"
+                    WHEN p.man_made IS NOT NULL THEN 'man_made=' || p.man_made
+                    ELSE 'unknown'
+                END as feature_type
+            FROM (VALUES {values_clause}) AS t(id, lat, lon, name)
+            CROSS JOIN LATERAL (
+                SELECT name, ele, way, amenity, tourism, "natural", man_made
+                FROM planet_osm_point
+                WHERE ele IS NOT NULL
+                    AND ele ~ '^[0-9]+(\\.[0-9]+)?$'
+                    AND ele::float >= -500
+                    AND ele::float <= 9000
+                ORDER BY way <-> ST_Transform(ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326), 3857)
+                LIMIT 1
+            ) p
+            ORDER BY t.id;
+        """
 
         conn = psycopg2.connect(**self.config)
         cursor = conn.cursor()
         try:
-            cursor.execute("""
-                CREATE TEMP TABLE _gis_elev_pts (
-                    id SERIAL PRIMARY KEY, lat DOUBLE PRECISION,
-                    lon DOUBLE PRECISION, name VARCHAR(255)
-                ) ON COMMIT DROP;
-            """)
-            for i, (lat, lon) in enumerate(coordinates):
-                cursor.execute(
-                    "INSERT INTO _gis_elev_pts (lat, lon, name) VALUES (%s, %s, %s)",
-                    (lat, lon, names[i]),
-                )
-
-            cursor.execute("""
-                SELECT
-                    t.id, t.lat, t.lon, t.name,
-                    p.ele::float as elevation,
-                    p.name as source_name,
-                    ST_Distance(
-                        ST_Transform(p.way, 4326),
-                        ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)
-                    ) * 111000 as distance_meters,
-                    CASE
-                        WHEN p.amenity  IS NOT NULL THEN 'amenity=' || p.amenity
-                        WHEN p.tourism  IS NOT NULL THEN 'tourism=' || p.tourism
-                        WHEN p."natural" IS NOT NULL THEN 'natural=' || p."natural"
-                        WHEN p.man_made IS NOT NULL THEN 'man_made=' || p.man_made
-                        ELSE 'unknown'
-                    END as feature_type
-                FROM _gis_elev_pts t
-                CROSS JOIN LATERAL (
-                    SELECT name, ele, way, amenity, tourism, "natural", man_made
-                    FROM planet_osm_point
-                    WHERE ele IS NOT NULL
-                        AND ele ~ '^[0-9]+(\\.[0-9]+)?$'
-                        AND ele::float >= -500
-                        AND ele::float <= 9000
-                    ORDER BY ST_Transform(way, 4326) <-> ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)
-                    LIMIT 1
-                ) p
-                ORDER BY t.id;
-            """)
+            cursor.execute(sql, params)
 
             results: List[ElevationResult] = []
             for row in cursor.fetchall():
@@ -251,7 +251,7 @@ class PostgisBackend:
                 WHERE ele IS NOT NULL
                     AND ele ~ '^[0-9]+(\\.[0-9]+)?$'
                     AND ele::float >= -500 AND ele::float <= 9000
-                ORDER BY ST_Transform(way, 4326) <-> ST_SetSRID(ST_MakePoint(%s, %s), 4326)
+                ORDER BY way <-> ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 3857)
                 LIMIT 1;
                 """,
                 (lon, lat),

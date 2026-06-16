@@ -394,7 +394,10 @@ def test_convenience_function(mock_peaks, mock_obs, mock_viewpoints):
     print("✓ Convenience function test passed")
 
 
-def test_error_handling():
+@patch("stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.find_peaks_in_area", return_value=[])
+@patch("stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.find_observatories_in_area", return_value=[])
+@patch("stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.find_viewpoints_in_area", return_value=[])
+def test_error_handling(mock_peaks, mock_obs, mock_viewpoints):
     """
     测试观星地点分析器的错误处理机制
 

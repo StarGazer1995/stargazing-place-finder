@@ -70,6 +70,7 @@ class RoadAccessInfoCache:
                     cached_data.append(item)
         self.cache_mem_data[location_type] = cached_data
         try:
+            Path(cache_file).parent.mkdir(parents=True, exist_ok=True)
             with open(cache_file, "wb") as f:
                 pickle.dump(cached_data, f)
             logger.info(f"💾 Query results cached: {len(data)} records")

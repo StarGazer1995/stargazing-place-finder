@@ -239,3 +239,480 @@ class TestCacheAndUtils:
         result = finder._resolve_elevation(tags, point)
         assert result == 500.0  # Falls through to mocked gis_service.find_elevation
         finder.gis_service.find_elevation.assert_called_once_with(40.0, 116.0)
+
+
+class TestElevationPreFetch:
+    """Tests for _search_locations batch elevation pre-fetch logic."""
+
+    @pytest.fixture
+    def mock_gis_with_batch(self):
+        """Create a gis mock that returns controlled data for batch test."""
+        mock = MagicMock()
+        mock.clear_cache.return_value = None
+        mock.get_elevation_statistics.return_value = {"total_requests": 0}
+        return mock
+
+    def _build_location_row(self, lat, lon, name="Peak", ele=None, loc_type="node"):
+        """Helper to build a location dict as returned by GisQueryService."""
+        row = {
+            "type": loc_type,
+            "lat": lat,
+            "lon": lon,
+            "id": hash(f"{lat}{lon}{name}") % 10**9,
+            "tags": {"name": name, "natural": "peak"},
+        }
+        if ele is not None:
+            row["tags"]["ele"] = str(ele)
+        return row
+
+    def test_skip_batch_when_all_have_ele(self, mock_gis_with_batch, finder):
+        """When every location already has an 'ele' tag, batch_find_elevations is NOT called."""
+        locations = [
+            self._build_location_row(40.0, 116.0, "P1", ele=1200),
+            self._build_location_row(40.1, 116.1, "P2", ele=800),
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,
+            [],  # towns (empty)
+        ]
+
+        def processor(n, pt, el, tg, tn, dt, te, lp, ix):
+            return Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            )
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=processor,
+        )
+        mock_gis_with_batch.batch_find_elevations.assert_not_called()
+
+    def test_trigger_batch_when_missing_ele(self, mock_gis_with_batch):
+        """When some locations lack 'ele' tag, batch_find_elevations is called."""
+        locations = [
+            self._build_location_row(40.0, 116.0, "P1", ele=1200),  # has ele → skip
+            self._build_location_row(40.1, 116.1, "P2", ele=None),  # no ele → batch
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,  # peak query
+            [],  # town query (empty)
+        ]
+        mock_gis_with_batch.batch_find_elevations.return_value = [1500.0]
+
+        def processor(n, pt, el, tg, tn, dt, te, lp, ix):
+            return Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            )
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        result = finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=processor,
+        )
+        mock_gis_with_batch.batch_find_elevations.assert_called_once()
+        args, _ = mock_gis_with_batch.batch_find_elevations.call_args
+        assert args[0] == [(40.1, 116.1)]  # Only the coords without ele tag
+        assert len(result) >= 1
+
+    def test_batch_result_injected_into_tags(self, mock_gis_with_batch):
+        """Batch elevation results are injected as 'ele' in tags."""
+        locations = [
+            self._build_location_row(40.0, 116.0, "NoEle1", ele=None),
+            self._build_location_row(40.1, 116.1, "NoEle2", ele=None),
+            self._build_location_row(40.2, 116.2, "HasEle", ele=999),
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,
+            [],
+        ]
+        mock_gis_with_batch.batch_find_elevations.return_value = [1200.0, 800.0, 999.0]
+
+        captured_tags = []
+
+        def processor(n, pt, el, tg, tn, dt, te, lp, ix):
+            captured_tags.append(tg)
+            return Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            )
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=processor,
+        )
+        # The first two had ele injected; third kept its 999
+        assert captured_tags[0]["ele"] == "1200"
+        assert captured_tags[1]["ele"] == "800"
+        assert captured_tags[2]["ele"] == "999"
+
+    def test_batch_empty_coords_list(self, mock_gis_with_batch):
+        """All locations skipped (no coords) → empty result, batch not called."""
+        locations = [
+            {
+                "type": "way",
+                "id": 1,
+                "tags": {"name": "AreaPeak", "natural": "peak"},
+                # no 'center' key — so coordinate extraction fails
+            },
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,
+            [],
+        ]
+
+        def processor(n, pt, el, tg, tn, dt, te, lp, ix):
+            return Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            )
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        result = finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=processor,
+        )
+        mock_gis_with_batch.batch_find_elevations.assert_not_called()
+        assert len(result) == 0
+
+    def test_batch_way_type_with_center_key(self, mock_gis_with_batch):
+        """Way-type location with 'center' key triggers elevation pre-fetch via center coords."""
+        locations = [
+            {
+                "type": "way",
+                "id": 1001,
+                "center": {"lat": 40.5, "lon": 116.5},
+                "tags": {"name": "WayPeak", "natural": "peak"},
+                # No 'ele' tag → needs elevation
+            },
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,
+            [],
+        ]
+        mock_gis_with_batch.batch_find_elevations.return_value = [1800.0]
+
+        def processor(n, pt, el, tg, tn, dt, te, lp, ix):
+            return Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            )
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        result = finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=processor,
+        )
+        mock_gis_with_batch.batch_find_elevations.assert_called_once()
+        args, _ = mock_gis_with_batch.batch_find_elevations.call_args
+        assert args[0] == [(40.5, 116.5)]  # center coords used
+        assert len(result) == 1
+
+    def test_batch_way_without_center_skipped(self, mock_gis_with_batch):
+        """Way-type without 'center' and without 'lat'/'lon' → exception caught by except block."""
+        locations = [
+            {
+                "type": "way",
+                "id": 2002,
+                "tags": {"name": "NoCenter", "natural": "peak"},
+                # No 'center' key, no 'lat'/'lon' → triggers KeyError
+            },
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,
+            [],
+        ]
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        result = finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=lambda n, pt, el, tg, tn, dt, te, lp, ix: Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            ),
+        )
+        mock_gis_with_batch.batch_find_elevations.assert_not_called()
+        assert len(result) == 0
+
+    def test_batch_node_without_latlon_triggers_exception(self, mock_gis_with_batch):
+        """Node type without lat/lon keys triggers KeyError → caught by except."""
+        locations = [
+            {
+                "type": "node",
+                "id": 4004,
+                "tags": {"name": "NoLatLon"},
+                # No 'lat' key → KeyError at loc["lat"]
+            },
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,
+            [],
+        ]
+
+        def processor(n, pt, el, tg, tn, dt, te, lp, ix):
+            return Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            )
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=processor,
+        )
+        mock_gis_with_batch.batch_find_elevations.assert_not_called()
+
+    def test_batch_injection_way_with_exception(self, mock_gis_with_batch):
+        """Injection loop handles node-type with missing lat in the except block."""
+        locations = [
+            {
+                "type": "node",
+                "id": 5005,
+                "tags": {"name": "BadNode"},
+                # No 'lat' key → in coords loop, KeyError is caught
+            },
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,
+            [],
+        ]
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        result = finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=lambda n, pt, el, tg, tn, dt, te, lp, ix: Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            ),
+        )
+        mock_gis_with_batch.batch_find_elevations.assert_not_called()
+        assert len(result) == 0
+
+    def test_injection_loop_else_continue_for_way_without_center(self, mock_gis_with_batch):
+        """A way without center and without ele hits injection loop 'else: continue'."""
+        locations = [
+            self._build_location_row(40.0, 116.0, "GoodNode", ele=None),  # triggers batch
+            {
+                "type": "way",
+                "id": 6006,
+                "tags": {"name": "WaySansCenter"},
+                # No center key, no ele → in injection loop hits else: continue
+            },
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,
+            [],
+        ]
+        mock_gis_with_batch.batch_find_elevations.return_value = [1500.0]
+
+        captured_tags = []
+
+        def processor(n, pt, el, tg, tn, dt, te, lp, ix):
+            captured_tags.append(tg)
+            return Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            )
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=processor,
+        )
+        # Only the node location gets processed (the way has no coords)
+        assert len(captured_tags) == 1
+        assert captured_tags[0]["ele"] == "1500"
+
+    def test_injection_loop_except_for_missing_type_key(self, mock_gis_with_batch):
+        """Location without 'type' key triggers except block in injection loop."""
+        locations = [
+            self._build_location_row(40.0, 116.0, "GoodNode", ele=None),
+            {
+                "id": 7007,
+                "tags": {"name": "NoType"},
+                # No 'type' key → KeyError in both coords and injection loops
+            },
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,
+            [],
+        ]
+        mock_gis_with_batch.batch_find_elevations.return_value = [1500.0]
+
+        def processor(n, pt, el, tg, tn, dt, te, lp, ix):
+            return Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            )
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=processor,
+        )
+        mock_gis_with_batch.batch_find_elevations.assert_called_once()
+        """Injection loop handles way types with center key correctly."""
+        locations = [
+            {
+                "type": "way",
+                "id": 3003,
+                "center": {"lat": 41.0, "lon": 118.0},
+                "tags": {"name": "InjectWay"},
+            },
+        ]
+        mock_gis_with_batch.query_locations.side_effect = [
+            locations,
+            [],
+        ]
+        mock_gis_with_batch.batch_find_elevations.return_value = [2000.0]
+
+        captured_tags = []
+
+        def processor(n, pt, el, tg, tn, dt, te, lp, ix):
+            captured_tags.append(tg)
+            return Peak(
+                name=tg.get("name", "Unknown"),
+                latitude=pt.latitude,
+                longitude=pt.longitude,
+                elevation=int(tg.get("ele", 0)),
+                distance_to_nearest_town=0,
+                nearest_town_name="",
+                location_type="mountain_peak",
+                height_difference=0,
+            )
+
+        finder2 = StarGazingPlaceFinder(
+            min_height_difference=100.0,
+            light_pollution_analyzer=None,
+            gis_service=mock_gis_with_batch,
+        )
+        finder2._find_locations_in_area(
+            LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5),
+            "peak",
+            max_locations=10,
+            location_processor_func=processor,
+        )
+        assert captured_tags[0]["ele"] == "2000"

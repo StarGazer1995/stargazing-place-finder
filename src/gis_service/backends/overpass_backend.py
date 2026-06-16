@@ -17,7 +17,10 @@ from models import NetworkError
 logger = logging.getLogger(__name__)
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
-DEFAULT_TIMEOUT = 45
+OVERPASS_FALLBACK_URLS = [
+    "https://overpass.kumi.systems/api/interpreter",
+]
+DEFAULT_TIMEOUT = 60
 DEFAULT_MAX_RETRIES = 3
 
 
@@ -32,10 +35,11 @@ class OverpassBackend:
     def __init__(
         self,
         url: str = OVERPASS_URL,
+        fallback_urls: Optional[List[str]] = None,
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
     ):
-        self.url = url
+        self.urls = [url] + (fallback_urls or OVERPASS_FALLBACK_URLS)
         self.timeout = timeout
         self.max_retries = max_retries
 
@@ -125,26 +129,77 @@ class OverpassBackend:
     # ── 请求执行 ──────────────────────────────────────────────
 
     def _request(self, query: str, data_type: str) -> List[Dict[str, object]]:
-        for attempt in range(self.max_retries):
-            try:
-                if attempt > 0:
-                    delay = random.uniform(1, 3) * (attempt + 1)
-                    logger.info("Overpass retry %d/%d, waiting %.1fs", attempt + 1, self.max_retries, delay)
-                    time.sleep(delay)
+        """
+        向 Overpass API 发送 POST 请求，多 URL 轮询 + 自动重试。
 
-                logger.info("Querying Overpass for %s ...", data_type)
-                resp = requests.post(self.url, data=query, timeout=self.timeout)
-                resp.raise_for_status()
-                elements = resp.json().get("elements", [])
-                logger.info("Overpass %s: found %d", data_type, len(elements))
-                return elements
+        先尝试主 URL（含重试），失败后逐个尝试备用 URL。
+        """
+        for url_idx, url in enumerate(self.urls):
+            prefix = f"[{url_idx}] " if url_idx > 0 else ""
+            for attempt in range(self.max_retries):
+                try:
+                    if attempt > 0:
+                        delay = random.uniform(1, 3) * (attempt + 1)
+                        logger.info(
+                            "%sOverpass retry %d/%d at %s, waiting %.1fs",
+                            prefix,
+                            attempt + 1,
+                            self.max_retries,
+                            url,
+                            delay,
+                        )
+                        time.sleep(delay)
 
-            except requests.exceptions.Timeout:
-                logger.warning("Overpass timeout (%s, attempt %d/%d)", data_type, attempt + 1, self.max_retries)
-            except requests.exceptions.HTTPError as e:
-                logger.warning("Overpass HTTP %s (%s, attempt %d/%d)", e, data_type, attempt + 1, self.max_retries)
-            except NetworkError as e:
-                logger.warning("Overpass error (%s, attempt %d/%d): %s", data_type, attempt + 1, self.max_retries, e)
+                    logger.info("%sQuerying Overpass for %s at %s", prefix, data_type, url)
+                    resp = requests.post(
+                        url,
+                        data={"data": query},
+                        timeout=self.timeout,
+                    )
+                    resp.raise_for_status()
+                    elements = resp.json().get("elements", [])
+                    logger.info(
+                        "%sOverpass %s at %s: found %d",
+                        prefix,
+                        data_type,
+                        url,
+                        len(elements),
+                    )
+                    return elements
 
-        logger.error("Overpass query failed for %s after %d attempts", data_type, self.max_retries)
+                except requests.exceptions.Timeout:
+                    logger.warning(
+                        "%sOverpass timeout (%s, attempt %d/%d)",
+                        prefix,
+                        data_type,
+                        attempt + 1,
+                        self.max_retries,
+                    )
+                except requests.exceptions.HTTPError as e:
+                    logger.warning(
+                        "%sOverpass HTTP %s (%s, attempt %d/%d)",
+                        prefix,
+                        e,
+                        data_type,
+                        attempt + 1,
+                        self.max_retries,
+                    )
+                except NetworkError as e:
+                    logger.warning(
+                        "%sOverpass error (%s, attempt %d/%d): %s",
+                        prefix,
+                        data_type,
+                        attempt + 1,
+                        self.max_retries,
+                        e,
+                    )
+
+            if url_idx < len(self.urls) - 1:
+                logger.info(
+                    "%sAll retries exhausted for %s, trying fallback URL...",
+                    prefix,
+                    url,
+                )
+
+        logger.error("Overpass query failed for %s after all URLs exhausted", data_type)
         return []
