@@ -55,73 +55,67 @@ class PostgisBackend:
 
         conn = psycopg2.connect(**self.config)
         cursor = conn.cursor()
+        try:
+            query = self._build_location_query(location_type, filters)
+            cursor.execute(query, (lon_min, lat_min, lon_max, lat_max))
+            results = cursor.fetchall()
+            return [self._format_location_row(row) for row in results]
+        finally:
+            cursor.close()
+            conn.close()
 
-        base_query = """
-            SELECT
-                osm_id, name,
-                ST_X(ST_Transform(way, 4326)) as longitude,
-                ST_Y(ST_Transform(way, 4326)) as latitude,
-                amenity, tourism, shop, highway, place,
-                man_made, "tower:type" as tower_type,
-                leisure, "natural"
+    def _build_location_query(self, location_type: Optional[str], filters: Optional[str]) -> str:
+        """构建位置查询 SQL。"""
+        base = """
+            SELECT osm_id, name,
+                   ST_X(ST_Transform(way, 4326)) as longitude,
+                   ST_Y(ST_Transform(way, 4326)) as latitude,
+                   amenity, tourism, shop, highway, place,
+                   man_made, "tower:type" as tower_type,
+                   leisure, "natural"
             FROM planet_osm_point
             WHERE ST_Transform(way, 4326) && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
         """
-
-        type_conditions = []
+        conditions = []
         if location_type == "town":
-            type_conditions.append("place IN ('city', 'town', 'village', 'hamlet') AND name IS NOT NULL")
+            conditions.append("place IN ('city','town','village','hamlet') AND name IS NOT NULL")
         elif location_type == "observatory":
-            type_conditions.append(
-                "(amenity = 'observatory' OR man_made = 'telescope' "
-                "OR (man_made = 'tower' AND \"tower:type\" = 'astronomical') "
-                "OR amenity = 'planetarium')"
+            conditions.append(
+                "(amenity='observatory' OR man_made='telescope' OR "
+                "(man_made='tower' AND \"tower:type\"='astronomical') OR amenity='planetarium')"
             )
         elif location_type == "viewpoint":
-            type_conditions.append(
-                "(tourism = 'viewpoint' "
-                "OR (man_made = 'tower' AND \"tower:type\" = 'observation') "
-                "OR amenity = 'observation_deck' "
-                "OR leisure = 'viewing_platform')"
+            conditions.append(
+                "(tourism='viewpoint' OR (man_made='tower' AND \"tower:type\"='observation') OR "
+                "amenity='observation_deck' OR leisure='viewing_platform')"
             )
         elif location_type == "peak":
-            type_conditions.append("(\"natural\" IN ('peak','volcano'))")
-
-        conditions = list(type_conditions)
+            conditions.append("(\"natural\" IN ('peak','volcano'))")
         if filters:
             conditions.append(filters)
-
         if conditions:
-            query = base_query + " AND " + " AND ".join(conditions)
-        else:
-            query = base_query
+            return base + " AND " + " AND ".join(conditions)
+        return base
 
-        cursor.execute(query, (lon_min, lat_min, lon_max, lat_max))
-        results = cursor.fetchall()
-
-        formatted: List[Dict[str, Any]] = []
-        for row in results:
-            elem: Dict[str, Any] = {"type": "node", "id": row[0], "lat": row[3], "lon": row[2], "tags": {}}
-            tag_keys = [
-                ("name", 1),
-                ("amenity", 4),
-                ("tourism", 5),
-                ("shop", 6),
-                ("highway", 7),
-                ("place", 8),
-                ("man_made", 9),
-                ("tower:type", 10),
-                ("leisure", 11),
-                ("natural", 12),
-            ]
-            for key, idx in tag_keys:
-                if row[idx]:
-                    elem["tags"][key] = row[idx]
-            formatted.append(elem)
-
-        cursor.close()
-        conn.close()
-        return formatted
+    def _format_location_row(self, row: tuple) -> Dict[str, Any]:
+        """将 SQL 查询行格式化为 Overpass 兼容 dict。"""
+        elem: Dict[str, Any] = {"type": "node", "id": row[0], "lat": row[3], "lon": row[2], "tags": {}}
+        tag_mappings = [
+            ("name", 1),
+            ("amenity", 4),
+            ("tourism", 5),
+            ("shop", 6),
+            ("highway", 7),
+            ("place", 8),
+            ("man_made", 9),
+            ("tower:type", 10),
+            ("leisure", 11),
+            ("natural", 12),
+        ]
+        for key, idx in tag_mappings:
+            if row[idx]:
+                elem["tags"][key] = row[idx]
+        return elem
 
     # ── 批量高程查询 ──────────────────────────────────────────
 
@@ -318,70 +312,10 @@ class PostgisBackend:
                 - nearest_lat: Optional[float] 最近点纬度
                 - nearest_lon: Optional[float] 最近点经度
         """
-        import psycopg2
-
         highway_filter = self._HIGHWAY_FILTERS.get(network_type, "highway IS NOT NULL")
-
         try:
-            conn = psycopg2.connect(**self.config)
-            cursor = conn.cursor()
-
-            # 使用 <-> kNN 算子找最近道路
-            # - kNN 在 native SRID(3857) 上利用 GiST 索引
-            # - 距离用 geography 类型算精确米数
-            cursor.execute(
-                f"""
-                SELECT
-                    highway,
-                    name,
-                    ST_Distance(
-                        ST_Transform(way, 4326)::geography,
-                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
-                    ) as distance_meters,
-                    ST_Y(ST_ClosestPoint(
-                        ST_Transform(way, 4326),
-                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)
-                    )) as nearest_lat,
-                    ST_X(ST_ClosestPoint(
-                        ST_Transform(way, 4326),
-                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)
-                    )) as nearest_lon
-                FROM planet_osm_line
-                WHERE {highway_filter}
-                ORDER BY way <-> ST_Transform(
-                    ST_SetSRID(ST_MakePoint(%s, %s), 4326), 3857
-                )
-                LIMIT 1;
-            """,
-                (lon, lat, lon, lat, lon, lat, lon, lat),
-            )
-
-            row = cursor.fetchone()
-            cursor.close()
-            conn.close()
-
-            if row is None:
-                return {
-                    "accessible": False,
-                    "distance_meters": None,
-                    "road_type": None,
-                    "road_name": None,
-                    "nearest_lat": None,
-                    "nearest_lon": None,
-                }
-
-            highway, name, distance_meters, nearest_lat, nearest_lon = row
-            max_distance_meters = min(radius_km * 1000 / 2, 5000.0)
-
-            return {
-                "accessible": distance_meters <= max_distance_meters,
-                "distance_meters": distance_meters,
-                "road_type": highway,
-                "road_name": name,
-                "nearest_lat": nearest_lat,
-                "nearest_lon": nearest_lon,
-            }
-
+            row = self._execute_road_knn_query(lat, lon, highway_filter)
+            return self._build_road_connectivity_result(row, radius_km)
         except (NetworkError, DataError) as e:
             logger.error("Road connectivity query failed for (%s, %s): %s", lat, lon, e)
             return {
@@ -393,6 +327,58 @@ class PostgisBackend:
                 "nearest_lon": None,
                 "error": str(e),
             }
+
+    def _execute_road_knn_query(self, lat: float, lon: float, highway_filter: str) -> Optional[tuple]:
+        """执行 kNN 道路查询，返回原始行。"""
+        import psycopg2
+
+        conn = psycopg2.connect(**self.config)
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                f"""
+                SELECT highway, name,
+                    ST_Distance(
+                        ST_Transform(way, 4326)::geography,
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
+                    ) as distance_meters,
+                    ST_Y(ST_ClosestPoint(ST_Transform(way, 4326),
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326))) as nearest_lat,
+                    ST_X(ST_ClosestPoint(ST_Transform(way, 4326),
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326))) as nearest_lon
+                FROM planet_osm_line
+                WHERE {highway_filter}
+                ORDER BY way <-> ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 3857)
+                LIMIT 1;
+            """,
+                (lon, lat, lon, lat, lon, lat, lon, lat),
+            )
+            return cursor.fetchone()
+        finally:
+            cursor.close()
+            conn.close()
+
+    def _build_road_connectivity_result(self, row: Optional[tuple], radius_km: float) -> Dict[str, Any]:
+        """将 kNN 查询行格式化为道路连通性结果。"""
+        if row is None:
+            return {
+                "accessible": False,
+                "distance_meters": None,
+                "road_type": None,
+                "road_name": None,
+                "nearest_lat": None,
+                "nearest_lon": None,
+            }
+        highway, name, distance_meters, nearest_lat, nearest_lon = row
+        max_distance_meters = min(radius_km * 1000 / 2, 5000.0)
+        return {
+            "accessible": distance_meters <= max_distance_meters,
+            "distance_meters": distance_meters,
+            "road_type": highway,
+            "road_name": name,
+            "nearest_lat": nearest_lat,
+            "nearest_lon": nearest_lon,
+        }
 
     # ── 统计信息 ──────────────────────────────────────────────
 

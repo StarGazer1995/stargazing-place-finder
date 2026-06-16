@@ -92,82 +92,77 @@ class StarGazingPlaceFinder:
             logger.info("No %s data found", location_type)
             return []
 
-        # Get town data
         logger.info("Getting town data...")
         towns_data = self.gis_service.query_locations(bbox, "town")
         logger.info("Found %s towns", len(towns_data))
 
         res_list = []
-        remaining = max_locations
-
         for i, location_data in enumerate(locations_data[:max_locations]):
             if i % 5 == 0:
                 logger.info("Processing progress: %s/%s", i + 1, min(len(locations_data), max_locations))
 
-            point = extract_coordinates(location_data)
-            if point is None:
-                logger.warning(
-                    "%s data missing coordinate information, skipping: %s",
-                    location_type,
-                    location_data.get("id", "unknown"),
-                )
-                continue
-
-            tags = location_data.get("tags", {})
-            name = tags.get("name", f"{location_type}_{i + 1}")
-
-            # Elevation: tags > gis_service
-            elevation = None
-            if "ele" in tags:
-                try:
-                    elevation = float(tags["ele"])
-                except ValueError:
-                    pass
-            if elevation is None:
-                elevation = self.gis_service.find_elevation(point.latitude, point.longitude)
-            if elevation is None:
-                elevation = 0.0
-
-            # Nearest town
-            nearest_town = "Unknown"
-            distance_to_town = 0.0
-            town_elevation = None
-            if towns_data:
-                town_info = find_nearest_town(
-                    point,
-                    towns_data,
-                    elevation_func=self.gis_service.find_elevation
-                    if hasattr(self.gis_service, "find_elevation")
-                    else None,
-                )
-                nearest_town = town_info.name or "Unknown"
-                distance_to_town = town_info.distance_km
-                town_elevation = town_info.elevation_m
-
-            # Light pollution
-            light_pollution_level = None
-            if "light_pollution" in location_data:
-                light_pollution_level = getattr(
-                    location_data["light_pollution"], "pollution_level", "Unknown pollution level"
-                )
-
-            location = location_processor_func(
-                name,
-                point,
-                elevation,
-                tags,
-                nearest_town,
-                distance_to_town,
-                town_elevation,
-                light_pollution_level,
-                i,
+            location = self._process_single_location(
+                location_data, towns_data, location_type, i, location_processor_func
             )
             if location:
                 res_list.append(location)
-                remaining -= 1
 
         logger.info("\nTotal found %s %s", len(res_list), location_type)
         return res_list
+
+    def _process_single_location(
+        self,
+        location_data: dict,
+        towns_data: List[dict],
+        location_type: str,
+        index: int,
+        processor_func,
+    ) -> Optional[Location]:
+        """处理单个位置数据并构建 Location 对象。"""
+        point = extract_coordinates(location_data)
+        if point is None:
+            logger.warning(
+                "%s data missing coordinate information, skipping: %s",
+                location_type,
+                location_data.get("id", "unknown"),
+            )
+            return None
+
+        tags = location_data.get("tags", {})
+        name = tags.get("name", f"{location_type}_{index + 1}")
+        elevation = self._resolve_elevation(tags, point)
+        nearest_town, distance_to_town, town_elevation = self._resolve_nearest_town(point, towns_data)
+
+        light_pollution_level = None
+        if "light_pollution" in location_data:
+            light_pollution_level = getattr(
+                location_data["light_pollution"], "pollution_level", "Unknown pollution level"
+            )
+
+        return processor_func(
+            name, point, elevation, tags, nearest_town, distance_to_town, town_elevation, light_pollution_level, index
+        )
+
+    def _resolve_elevation(self, tags: dict, point: GeoCoordinate) -> float:
+        """从 tags 或 gis_service 获取海拔。"""
+        if "ele" in tags:
+            try:
+                return float(tags["ele"])
+            except ValueError:
+                pass
+        elevation = self.gis_service.find_elevation(point.latitude, point.longitude)
+        return elevation if elevation is not None else 0.0
+
+    def _resolve_nearest_town(self, point: GeoCoordinate, towns_data: List[dict]) -> tuple:
+        """查找最近城镇。返回 (name, distance_km, elevation_m)。"""
+        if not towns_data:
+            return "Unknown", 0.0, None
+        town_info = find_nearest_town(
+            point,
+            towns_data,
+            elevation_func=self.gis_service.find_elevation if hasattr(self.gis_service, "find_elevation") else None,
+        )
+        return town_info.name or "Unknown", town_info.distance_km, town_info.elevation_m
 
     # ── Public entry points ─────────────────────────────────────────
 

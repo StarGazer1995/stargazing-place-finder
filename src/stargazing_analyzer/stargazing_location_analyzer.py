@@ -160,34 +160,60 @@ class StargazingLocationAnalyzer:
         max_distance_to_road_km: Optional[float] = None,
     ) -> List[StargazingLocation]:
         """
-        Analyze stargazing locations within specified area (supports multiple types like peaks, observatories, viewpoints)
+        Analyze stargazing locations within specified area.
 
         Args:
             bbox: Bounding box (LatLonBox with south/west/north/east).
             max_locations: Maximum number of locations
-            location_types: List of location types, options: ['mountain_peak', 'observatory', 'viewpoint']
-                          If None, defaults to searching all types
+            location_types: Location types to search. Defaults to all types.
             network_type: Road network type ('drive', 'walk', 'bike', 'all')
             include_light_pollution: Whether to include light pollution analysis
             include_road_connectivity: Whether to include road connectivity analysis
-            min_distance_to_road_km: Minimum distance to road in km (filter out places too close to road)
-            max_distance_to_road_km: Maximum distance to road in km (filter out places too far from road)
+            min_distance_to_road_km: Minimum distance to road in km (filter out places too close)
+            max_distance_to_road_km: Maximum distance to road in km (filter out places too far)
 
         Returns:
             List of stargazing locations
         """
         logger.info("Starting area analysis: (%s, %s, %s, %s)", bbox.south, bbox.west, bbox.north, bbox.east)
-
-        # Default to searching all types of locations
         if location_types is None:
             location_types = ["mountain_peak", "observatory", "viewpoint"]
 
-        all_locations = []
+        all_locations = self._search_locations(bbox, max_locations, location_types)
+        if not all_locations:
+            return []
 
-        # 1. Search for locations based on specified types
+        towns_data = self._fetch_towns_data(bbox)
+        light_pollution_batch = self._batch_light_pollution(all_locations, include_light_pollution)
+
+        stargazing_locations = self._parallel_analyze_locations(
+            all_locations,
+            towns_data,
+            light_pollution_batch,
+            include_road_connectivity,
+            network_type,
+        )
+
+        stargazing_locations = self._filter_by_road_distance(
+            stargazing_locations,
+            min_distance_to_road_km,
+            max_distance_to_road_km,
+        )
+
+        stargazing_locations.sort(key=lambda x: x.stargazing_score or 0, reverse=True)
+        logger.info("Analysis completed, total %s stargazing locations", len(stargazing_locations))
+        return stargazing_locations
+
+    def _search_locations(
+        self,
+        bbox: LatLonBox,
+        max_locations: int,
+        location_types: List[str],
+    ) -> List[Any]:
+        """Search for locations by type and collect results."""
+        all_locations = []
         for location_type in location_types:
             logger.info("Searching for %s...", location_type)
-
             if location_type == "mountain_peak":
                 locations = self.mountain_finder.find_peaks_in_area(bbox, max_locations=max_locations)
             elif location_type == "observatory":
@@ -197,7 +223,6 @@ class StargazingLocationAnalyzer:
             else:
                 logger.warning("Unsupported location type %s", location_type)
                 continue
-
             if locations:
                 logger.info("Found %s %s", len(locations), location_type)
                 all_locations.extend(locations)
@@ -208,34 +233,48 @@ class StargazingLocationAnalyzer:
             logger.info("No qualifying stargazing locations found")
             return []
 
-        # Limit total number
         if len(all_locations) > max_locations:
             all_locations = all_locations[:max_locations]
-
         logger.info("Total %s locations found, starting detailed analysis...", len(all_locations))
+        return all_locations
 
-        # Fetch towns data once for town density computation
-        towns_data = []
+    def _fetch_towns_data(self, bbox: LatLonBox) -> List[Any]:
+        """Fetch towns data for town density computation (optional)."""
         try:
-            towns_data = self.mountain_finder.get_towns_from_overpass(bbox)
+            return self.mountain_finder.get_towns_from_overpass(bbox)
         except NoDataError:
-            pass  # Town density is optional
+            return []
 
-        # 2a. Batch light pollution analysis (one GeoTIFF batch read instead of N per-point reads)
-        light_pollution_batch: Dict[Tuple[float, float], Any] = {}
-        if include_light_pollution and self.light_pollution_analyzer:
-            try:
-                coords = [(loc.latitude, loc.longitude) for loc in all_locations]
-                batch_results = self.light_pollution_analyzer.batch_analyze_coordinates(coords)
-                for r in batch_results:
-                    lat, lon = r["coordinates"]
-                    light_pollution_batch[(lat, lon)] = r.get("pollution_info")
-                logger.info("  Batch light pollution: %s locations", len(batch_results))
-            except GeoError as e:
-                logger.error("  Batch light pollution failed: %s", e)
+    def _batch_light_pollution(
+        self,
+        locations: List[Any],
+        include_light_pollution: bool,
+    ) -> Dict[Tuple[float, float], Any]:
+        """Batch light pollution analysis: one GeoTIFF read instead of N per-point reads."""
+        batch: Dict[Tuple[float, float], Any] = {}
+        if not include_light_pollution or not self.light_pollution_analyzer:
+            return batch
+        try:
+            coords = [(loc.latitude, loc.longitude) for loc in locations]
+            batch_results = self.light_pollution_analyzer.batch_analyze_coordinates(coords)
+            for r in batch_results:
+                lat, lon = r["coordinates"]
+                batch[(lat, lon)] = r.get("pollution_info")
+            logger.info("  Batch light pollution: %s locations", len(batch_results))
+        except GeoError as e:
+            logger.error("  Batch light pollution failed: %s", e)
+        return batch
 
-        # 2. Perform comprehensive analysis for each location (parallel with max_workers=4)
-        total = len(all_locations)
+    def _parallel_analyze_locations(
+        self,
+        locations: List[Any],
+        towns_data: List[Any],
+        light_pollution_batch: Dict[Tuple[float, float], Any],
+        include_road_connectivity: bool,
+        network_type: str,
+    ) -> List[StargazingLocation]:
+        """Parallel comprehensive analysis with ThreadPoolExecutor (max_workers=4)."""
+        total = len(locations)
         stargazing_locations: List[StargazingLocation] = [None] * total
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {
@@ -249,41 +288,40 @@ class StargazingLocationAnalyzer:
                     i,
                     total,
                 ): i
-                for i, location in enumerate(all_locations, 1)
+                for i, location in enumerate(locations, 1)
             }
             for future in as_completed(futures):
-                idx = futures[future] - 1  # 1-based → 0-based
+                idx = futures[future] - 1
                 try:
                     stargazing_locations[idx] = future.result()
                 except DataError as e:
                     logger.error("  Location %s analysis failed: %s", idx + 1, e)
-        stargazing_locations = [loc for loc in stargazing_locations if loc is not None]
+        return [loc for loc in stargazing_locations if loc is not None]
 
-        # 3. Filter by road distance if specified
-        if min_distance_to_road_km is not None or max_distance_to_road_km is not None:
-            before_count = len(stargazing_locations)
-            filtered = []
-            for loc in stargazing_locations:
-                d = loc.distance_to_road_km
-                if d is None:
-                    continue
-                if min_distance_to_road_km is not None and d < min_distance_to_road_km:
-                    continue
-                if max_distance_to_road_km is not None and d > max_distance_to_road_km:
-                    continue
-                filtered.append(loc)
-            stargazing_locations = filtered
-            after_count = len(stargazing_locations)
-            if after_count < before_count:
-                logger.info(
-                    "Road distance filter: removed %s locations (%s remaining)", before_count - after_count, after_count
-                )
-
-        # Sort by score
-        stargazing_locations.sort(key=lambda x: x.stargazing_score or 0, reverse=True)
-
-        logger.info("Analysis completed, total %s stargazing locations", len(stargazing_locations))
-        return stargazing_locations
+    def _filter_by_road_distance(
+        self,
+        locations: List[StargazingLocation],
+        min_km: Optional[float],
+        max_km: Optional[float],
+    ) -> List[StargazingLocation]:
+        """Filter locations by road distance constraints."""
+        if min_km is None and max_km is None:
+            return locations
+        before = len(locations)
+        filtered = []
+        for loc in locations:
+            d = loc.distance_to_road_km
+            if d is None:
+                continue
+            if min_km is not None and d < min_km:
+                continue
+            if max_km is not None and d > max_km:
+                continue
+            filtered.append(loc)
+        after = len(filtered)
+        if after < before:
+            logger.info("Road distance filter: removed %s locations (%s remaining)", before - after, after)
+        return filtered
 
     def _process_one_location(
         self,
@@ -408,35 +446,39 @@ class StargazingLocationAnalyzer:
             Comprehensive score (0-100 points)
         """
         score = 0.0
+        score += self._score_light_pollution(location)
+        score += self._score_town_isolation(location)
+        score += self._score_road_accessibility(location)
+        score += self._score_elevation_terrain(location)
+        score += self._score_location_type(location)
+        return round(score, 1)
 
-        # ================================================================
-        # 1. Light Pollution (0-35 points) — Bortle-based
-        # ================================================================
+    def _score_light_pollution(self, location: StargazingLocation) -> float:
+        """Light Pollution (0-35 points) — Bortle-based or brightness fallback."""
         if location.light_pollution_bortle is not None:
-            score += self._BORTLE_SCORES.get(location.light_pollution_bortle, 18)
-        elif location.light_pollution_brightness is not None:
-            # Fallback: approximate Bortle from brightness, then score
+            return self._BORTLE_SCORES.get(location.light_pollution_bortle, 18)
+
+        if location.light_pollution_brightness is not None:
             b = location.light_pollution_brightness
             if b < 30:
-                score += 35  # ~Bortle 1
-            elif b < 60:
-                score += 31  # ~Bortle 2
-            elif b < 90:
-                score += 26  # ~Bortle 3
-            elif b < 120:
-                score += 20  # ~Bortle 4
-            elif b < 150:
-                score += 14  # ~Bortle 5
-            elif b < 180:
-                score += 8  # ~Bortle 6
-            elif b < 210:
-                score += 3  # ~Bortle 7
-            elif b < 240:
-                score += 1  # ~Bortle 8
-            else:
-                score += 0  # ~Bortle 9
-        elif location.light_pollution_level:
-            # Legacy string matching for old KML data
+                return 35  # ~Bortle 1
+            if b < 60:
+                return 31  # ~Bortle 2
+            if b < 90:
+                return 26  # ~Bortle 3
+            if b < 120:
+                return 20  # ~Bortle 4
+            if b < 150:
+                return 14  # ~Bortle 5
+            if b < 180:
+                return 8  # ~Bortle 6
+            if b < 210:
+                return 3  # ~Bortle 7
+            if b < 240:
+                return 1  # ~Bortle 8
+            return 0  # ~Bortle 9
+
+        if location.light_pollution_level:
             legacy = {
                 "Extremely Low": 35,
                 "Very Low": 31,
@@ -446,88 +488,72 @@ class StargazingLocationAnalyzer:
                 "Very High": 8,
                 "Extremely High": 3,
             }
-            score += legacy.get(location.light_pollution_level, 18)
-        else:
-            logger.warning("⚠️  Warning: %s lacks light pollution data, scoring accuracy affected", location.name)
-            score += 18  # Conservative middle
+            return legacy.get(location.light_pollution_level, 18)
 
-        # ================================================================
-        # 2. Town Isolation (0-20 points) — Distance + density
-        # ================================================================
+        logger.warning("⚠️  Warning: %s lacks light pollution data, scoring accuracy affected", location.name)
+        return 18  # Conservative middle
+
+    def _score_town_isolation(self, location: StargazingLocation) -> float:
+        """Town Isolation (0-20 points) — Distance from nearest town + density penalty."""
         town_dist = location.distance_to_nearest_town
-        if town_dist is not None and town_dist > 0:
-            if town_dist >= 50:
-                dist_score = 16
-            elif town_dist >= 30:
-                dist_score = 14
-            elif town_dist >= 20:
-                dist_score = 11
-            elif town_dist >= 10:
-                dist_score = 7
-            elif town_dist >= 5:
-                dist_score = 3
-            else:
-                dist_score = 0
+        if town_dist is None or town_dist <= 0:
+            return 8  # Unknown distance → medium
 
-            # Density penalty: -2 per additional town within 20km (max -8)
-            density_penalty = min(location.nearby_town_count * 2, 8)
-            score += max(0, dist_score - density_penalty)
+        if town_dist >= 50:
+            dist_score = 16
+        elif town_dist >= 30:
+            dist_score = 14
+        elif town_dist >= 20:
+            dist_score = 11
+        elif town_dist >= 10:
+            dist_score = 7
+        elif town_dist >= 5:
+            dist_score = 3
         else:
-            score += 8  # Unknown town distance → medium
+            dist_score = 0
 
-        # ================================================================
-        # 3. Road Accessibility (0-20 points)
-        #    Threshold: ≤200m from road = accessible (can park + walk)
-        # ================================================================
-        if location.road_accessible is not None:
-            if location.road_accessible:
-                if location.distance_to_road_km is not None:
-                    d = location.distance_to_road_km
-                    if d <= 0.05:
-                        score += 14  # ≤50m — convenient but potential road noise/light
-                    elif d <= 0.2:
-                        score += 20  # 50-200m — ideal: drive close, walk to dark spot
-                    else:
-                        score += 10  # Beyond threshold, should not happen by logic
-                else:
-                    score += 12  # Accessible but distance unknown
-            else:
-                score += 0  # Not accessible (>200m from road)
-        else:
-            score += 10  # Unknown status
+        # Density penalty: -2 per additional town within 20km (max -8)
+        density_penalty = min(location.nearby_town_count * 2, 8)
+        return max(0.0, float(dist_score - density_penalty))
 
-        # ================================================================
-        # 4. Elevation + Terrain (0-15 points)
-        #    Combines absolute altitude and height above nearest town
-        # ================================================================
-        if location.elevation:
-            # Base elevation: 1pt per 200m, capped at 8 (1600m)
-            elevation_score = min(location.elevation / 200.0, 8.0)
+    def _score_road_accessibility(self, location: StargazingLocation) -> float:
+        """Road Accessibility (0-20 points). Threshold ≤200m = accessible."""
+        if location.road_accessible is None:
+            return 10  # Unknown status
+        if not location.road_accessible:
+            return 0  # Not accessible (>200m from road)
+        if location.distance_to_road_km is None:
+            return 12  # Accessible but distance unknown
+        d = location.distance_to_road_km
+        if d <= 0.05:
+            return 14  # ≤50m — convenient but potential road noise/light
+        if d <= 0.2:
+            return 20  # 50-200m — ideal
+        return 10  # Beyond threshold, should not happen by logic
 
-            # Height-difference bonus: the higher above nearest town, the better
-            # (above the light/haze layer)
-            height_bonus = 0.0
-            if location.height_difference:
-                height_bonus = min(location.height_difference / 200.0, 7.0)
+    def _score_elevation_terrain(self, location: StargazingLocation) -> float:
+        """Elevation + Terrain (0-15 points). Combines altitude and height above towns."""
+        if not location.elevation:
+            return 0
+        elevation_score = min(location.elevation / 200.0, 8.0)
+        height_bonus = 0.0
+        if location.height_difference:
+            height_bonus = min(location.height_difference / 200.0, 7.0)
+        return elevation_score + height_bonus
 
-            score += elevation_score + height_bonus
-
-        # ================================================================
-        # 5. Location Type (0-10 points)
-        # ================================================================
+    def _score_location_type(self, location: StargazingLocation) -> float:
+        """Location Type (0-10 points)."""
         if location.is_mountain_peak():
             if location.prominence:
-                # 1pt per 200m prominence, capped at 10 (2000m)
-                score += min(location.prominence / 200.0, 10.0)
-        elif location.is_observatory():
-            score += 6  # Observatory base (city observatories exist)
-        elif location.is_viewpoint():
+                return min(location.prominence / 200.0, 10.0)
+            return 0
+        if location.is_observatory():
+            return 6  # Observatory base
+        if location.is_viewpoint():
             if location.height_difference:
-                score += min(location.height_difference / 150.0, 10.0)
-            else:
-                score += 5
-
-        return round(score, 1)
+                return min(location.height_difference / 150.0, 10.0)
+            return 5
+        return 0
 
     def _get_recommendation_level_with_warning(self, location: StargazingLocation) -> str:
         """

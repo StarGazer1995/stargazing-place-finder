@@ -340,7 +340,9 @@ class RoadConnectivityChecker:
 
     def get_accessibility_info(self, point: GeoCoordinate, network_type: str = "drive") -> dict:
         """
-        Get detailed accessibility information
+        Get detailed accessibility information.
+
+        Delegates to: geo_fence → cache → PostGIS → OSMnx fallback.
 
         Args:
             point: Geographic coordinate.
@@ -359,90 +361,101 @@ class RoadConnectivityChecker:
         }
 
         try:
-            if self.geo_fence is not None:
-                fence_result = self.geo_fence.get_fake_accessibility_info(lat, lon)
-                if fence_result is not None:
-                    result.update(fence_result)
-                    cache = RoadAccessInfo(
-                        is_road_accessible=result["accessible"],
-                        distance_to_road_km=result["distance_to_road_km"],
-                        nearest_road_type=result["nearest_road_type"],
-                        network_nodes_count=result["network_nodes_count"],
-                        error=result["error"],
-                        latitude=lat,
-                        longitude=lon,
-                    )
-                    self.location_cache.save_road_access_info_to_cache(f"access_info_{network_type}", [cache])
-                    return result
-            cached_res = self.location_cache.get_cached_result(f"access_info_{network_type}")
-            cache = self.location_cache.get_location_by_coordinates(cached_res, lat, lon)
-            if cache is not None:
-                result["accessible"] = cache.is_road_accessible
-                result["distance_to_road_km"] = cache.distance_to_road_km
-                result["nearest_road_type"] = cache.nearest_road_type
-                result["network_nodes_count"] = cache.network_nodes_count
-                result["error"] = cache.error
-                logger.info("Read road accessible info from cache")
-                return result
-            else:
-                logger.info("No road accessible info in cache")
-
-            # Try PostGIS fast path first
-            postgis_result = self._check_via_postgis(point, network_type)
-            if postgis_result is not None:
-                result["accessible"] = postgis_result
-                # Try to get more details from a separate query
-                if self.gis_service and getattr(self.gis_service, "postgis_enabled", False):
-                    details = self.gis_service.query_road_connectivity(lat, lon, self.search_radius_km, network_type)
-                    if not details.get("fallback_needed"):
-                        result["distance_to_road_km"] = (
-                            details["distance_meters"] / 1000.0 if details["distance_meters"] is not None else None
-                        )
-                        result["nearest_road_type"] = details.get("road_type")
-                        result["error"] = None
+            if self._try_geo_fence_info(result, lat, lon, network_type):
                 return result
 
-            graph = self._get_road_network(point, network_type)
-
-            if graph is None or len(graph.nodes()) == 0:
-                result["error"] = "Unable to get road network data"
+            if self._try_cache_info(result, lat, lon, network_type):
                 return result
 
-            result["network_nodes_count"] = len(graph.nodes())
+            if self._try_postgis_info(result, point, network_type):
+                return result
 
-            # Find nearest road node
-            nearest_node = ox.distance.nearest_nodes(graph, lon, lat)
-
-            if nearest_node is not None:
-                node_data = graph.nodes[nearest_node]
-                node_lat, node_lon = node_data["y"], node_data["x"]
-                distance_km = geodesic((lat, lon), (node_lat, node_lon)).kilometers
-
-                result["distance_to_road_km"] = distance_km
-                result["accessible"] = distance_km <= self.max_distance_to_road_km
-
-                # Try to get road type information
-                edges = graph.edges(nearest_node, data=True)
-                if edges:
-                    edge_data = list(edges)[0][2]
-                    result["nearest_road_type"] = edge_data.get("highway", "unknown")
-                    result["error"] = None
-
-            cache = RoadAccessInfo(
-                is_road_accessible=result["accessible"],
-                distance_to_road_km=result["distance_to_road_km"],
-                nearest_road_type=result["nearest_road_type"],
-                network_nodes_count=result["network_nodes_count"],
-                error=result["error"],
-                latitude=lat,
-                longitude=lon,
-            )
-            self.location_cache.save_road_access_info_to_cache(f"access_info_{network_type}", [cache])
-
+            self._try_osmnx_info(result, point, lat, lon, network_type)
         except (DataError, NoDataError) as e:
             result["error"] = str(e)
 
         return result
+
+    def _try_geo_fence_info(self, result: dict, lat: float, lon: float, network_type: str) -> bool:
+        """GeoFence 围栏拦截（测试用）。返回 True 表示已命中围栏结果。"""
+        if self.geo_fence is None:
+            return False
+        fence_result = self.geo_fence.get_fake_accessibility_info(lat, lon)
+        if fence_result is None:
+            return False
+        result.update(fence_result)
+        self._save_accessibility_cache(result, lat, lon, network_type)
+        return True
+
+    def _try_cache_info(self, result: dict, lat: float, lon: float, network_type: str) -> bool:
+        """从缓存读取。返回 True 表示命中缓存。"""
+        cached_res = self.location_cache.get_cached_result(f"access_info_{network_type}")
+        cache = self.location_cache.get_location_by_coordinates(cached_res, lat, lon)
+        if cache is None:
+            logger.info("No road accessible info in cache")
+            return False
+        result["accessible"] = cache.is_road_accessible
+        result["distance_to_road_km"] = cache.distance_to_road_km
+        result["nearest_road_type"] = cache.nearest_road_type
+        result["network_nodes_count"] = cache.network_nodes_count
+        result["error"] = cache.error
+        logger.info("Read road accessible info from cache")
+        return True
+
+    def _try_postgis_info(self, result: dict, point: GeoCoordinate, network_type: str) -> bool:
+        """PostGIS kNN 快速路径。返回 True 表示成功获取结果。"""
+        lat, lon = point.latitude, point.longitude
+        postgis_result = self._check_via_postgis(point, network_type)
+        if postgis_result is None:
+            return False
+        result["accessible"] = postgis_result
+        if self.gis_service and getattr(self.gis_service, "postgis_enabled", False):
+            details = self.gis_service.query_road_connectivity(lat, lon, self.search_radius_km, network_type)
+            if not details.get("fallback_needed"):
+                result["distance_to_road_km"] = (
+                    details["distance_meters"] / 1000.0 if details["distance_meters"] is not None else None
+                )
+                result["nearest_road_type"] = details.get("road_type")
+                result["error"] = None
+        return True
+
+    def _try_osmnx_info(self, result: dict, point: GeoCoordinate, lat: float, lon: float, network_type: str) -> None:
+        """OSMnx 回退路径：下载路网图并查询最近道路节点。"""
+        graph = self._get_road_network(point, network_type)
+        if graph is None or len(graph.nodes()) == 0:
+            result["error"] = "Unable to get road network data"
+            return
+
+        result["network_nodes_count"] = len(graph.nodes())
+        nearest_node = ox.distance.nearest_nodes(graph, lon, lat)
+
+        if nearest_node is not None:
+            node_data = graph.nodes[nearest_node]
+            node_lat, node_lon = node_data["y"], node_data["x"]
+            distance_km = geodesic((lat, lon), (node_lat, node_lon)).kilometers
+            result["distance_to_road_km"] = distance_km
+            result["accessible"] = distance_km <= self.max_distance_to_road_km
+
+            edges = graph.edges(nearest_node, data=True)
+            if edges:
+                edge_data = list(edges)[0][2]
+                result["nearest_road_type"] = edge_data.get("highway", "unknown")
+                result["error"] = None
+
+        self._save_accessibility_cache(result, lat, lon, network_type)
+
+    def _save_accessibility_cache(self, result: dict, lat: float, lon: float, network_type: str) -> None:
+        """将可达性结果写入缓存。"""
+        cache = RoadAccessInfo(
+            is_road_accessible=result["accessible"],
+            distance_to_road_km=result["distance_to_road_km"],
+            nearest_road_type=result["nearest_road_type"],
+            network_nodes_count=result["network_nodes_count"],
+            error=result["error"],
+            latitude=lat,
+            longitude=lon,
+        )
+        self.location_cache.save_road_access_info_to_cache(f"access_info_{network_type}", [cache])
 
 
 def simple_road_check(point: GeoCoordinate) -> bool:
