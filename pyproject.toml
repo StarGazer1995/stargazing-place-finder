@@ -71,6 +71,7 @@ dev = [
     "bandit>=1.8.6",
     "freezegun>=1.5.5",
     "pytest>=8.4.1",
+    "pytest-benchmark>=5.2.3",
     "pytest-cov>=7.0.0",
     "requests-mock>=1.12.1",
     "responses>=0.25.8",
@@ -103,6 +104,14 @@ pythonpath = ["src"]
 testpaths = ["src"]
 addopts = ["-v", "--tb=short"]
 filterwarnings = ["ignore::DeprecationWarning", "ignore::PendingDeprecationWarning"]
+
+[tool.pytest-benchmark]
+histogram = true
+min_rounds = 5
+max_time = 2.0
+storage = "file"
+save = "baseline"
+compare = "baseline"
 
 [tool.coverage.run]
 source = ["src"]
