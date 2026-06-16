@@ -279,12 +279,3 @@ def run_tests():
             print(f"Error: {error[0]}")
             print(f"Reason: {error[1]}")
     print("=" * 60)
-
-
-if __name__ == "__main__":
-    if "--fast" in sys.argv:
-        print("Fast mode: skipping all tests in test_updated_analyze_area.py (require network)")
-        print("✅ Skipped - all tests in this file need Overpass API access")
-        sys.exit(0)
-
-    run_tests()

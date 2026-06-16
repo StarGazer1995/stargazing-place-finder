@@ -35,7 +35,7 @@ def test_cache_directories():
         assert cache_info["subdirs"][dir_name]["exists"], f"{dir_name} directory does not exist"
         print(f"  ✅ {dir_name} directory exists")
 
-    return True
+    return  # pragma: no cover
 
 
 def test_light_pollution_analyzer_cache():
@@ -57,7 +57,7 @@ def test_light_pollution_analyzer_cache():
         analyzer.close()
         print("  ✅ close() works normally on uninitialized analyzer")
 
-        return True
+        return  # pragma: no cover
 
     except Exception as e:
         print(f"  ❌ Light pollution analyzer test failed: {e}")
@@ -82,7 +82,7 @@ def test_road_connectivity_checker_cache():
         assert os.path.exists(checker._road_cache_dir), "Road cache directory does not exist"
         print("  ✅ Road cache directory exists")
 
-        return True
+        return  # pragma: no cover
 
     except Exception as e:
         print(f"  ❌ Road connectivity checker cache test failed: {e}")
@@ -107,7 +107,7 @@ def test_simple_road_checker_cache():
         assert cache_folder is not None, "OSMnx cache directory not set"
         print(f"  ✅ OSMnx cache directory set: {cache_folder}")
 
-        return True
+        return  # pragma: no cover
 
     except Exception as e:
         print(f"  ❌ Simple road checker cache test failed: {e}")
@@ -131,7 +131,7 @@ def test_cache_cleanup():
         temp_size = cache_info["subdirs"]["temp"]["size"]
         print(f"  ✅ Temporary cache size: {temp_size}")
 
-        return True
+        return  # pragma: no cover
 
     except Exception as e:
         print(f"  ❌ Cache cleanup test failed: {e}")
@@ -173,16 +173,6 @@ def main():
         return False
 
 
-if __name__ == "__main__":
-    try:
-        success = main()
-        sys.exit(0 if success else 1)
-    except KeyboardInterrupt:
-        print("\n\n👋 Test cancelled")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n❌ Error occurred during testing: {e}")
-        import traceback
 
         traceback.print_exc()
         sys.exit(1)

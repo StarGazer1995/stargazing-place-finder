@@ -137,7 +137,6 @@ def test_detailed_checker():
 
     assert "accessible" in info, "RoadAccessInfo should have 'accessible' key"
     assert isinstance(info["accessible"], bool), "Accessibility should be a boolean value"
-    return info["accessible"]
 
 
 def test_error_handling():
@@ -229,7 +228,3 @@ def run_all_tests():
     except Exception as e:
         print(f"\n❌ Error occurred during testing: {e}")
         print("Please check if dependencies are correctly installed")
-
-
-if __name__ == "__main__":
-    run_all_tests()

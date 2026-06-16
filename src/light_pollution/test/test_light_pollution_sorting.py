@@ -14,6 +14,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 import unittest
 from unittest.mock import Mock
 
+import pytest
+
 from gis_service.parsers import sort_places_by_lightpollution
 
 
@@ -143,6 +145,28 @@ class TestLightPollutionSorting(unittest.TestCase):
         self.assertEqual(called_coords, expected_coords)
 
 
+# ── Standalone parametrized tests (not inside unittest.TestCase) ──
+@pytest.mark.parametrize(
+    "places, analyzer, expected_len",
+    [
+        pytest.param([], Mock(), 0, id="empty-list"),
+        pytest.param([{"type": "node", "lat": 40.0, "lon": 116.0}], None, 1, id="no-analyzer"),
+        pytest.param(
+            [{"type": "node", "lat": 40.0, "lon": 116.0, "tags": {"name": "A"}}],
+            Mock(),
+            1,
+            id="single-item",
+        ),
+    ],
+)
+def test_sort_places_parametrized(places, analyzer, expected_len):
+    """Verify ``sort_places_by_lightpollution`` handles diverse inputs as a standalone function."""
+    if analyzer is not None and places:
+        analyzer.batch_analyze_coordinates.return_value = [{"index": 0, "pollution_info": Mock(brightness=0.5)}]
+    result = sort_places_by_lightpollution(places, analyzer)
+    assert len(result or []) == expected_len
+
+
 def run_light_pollution_tests():
     """
     运行光污染排序相关的所有测试
@@ -179,8 +203,3 @@ def run_light_pollution_tests():
     else:
         print("⚠️ Some tests failed, please check code logic")
         return False
-
-
-if __name__ == "__main__":
-    success = run_light_pollution_tests()
-    sys.exit(0 if success else 1)

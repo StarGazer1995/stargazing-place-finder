@@ -39,7 +39,7 @@ Packages are configured in `pyproject.toml` via `[tool.setuptools.packages.find]
 | Action | Command |
 |--------|---------|
 | Install deps | `uv sync` |
-| Run all tests | `uv run python src/test/run_src_tests.py` |
+| Run all tests | `uv run pytest` |
 | Run single test | `uv run pytest src/<module>/test/test_*.py` |
 | Start web app | `bash start.sh` (API + HTTP server on :8000) |
 | Start API only | `uv run python src/light_pollution/light_pollution_api.py` |
@@ -127,7 +127,7 @@ Dev: `pytest`, `pytest-cov`, `requests-mock`, `responses`, `freezegun`, `build`,
 3. Ensure backward compatibility — existing import paths should continue to work
 4. Update `CHANGELOG.md` with the version bump and description
 5. Version in `pyproject.toml` must match the changelog entry
-6. Run full test suite before finalizing (`uv run python src/test/run_src_tests.py`)
+6. Run full test suite before finalizing (`uv run pytest`)
 
 ## CI/CD & Release Workflow
 

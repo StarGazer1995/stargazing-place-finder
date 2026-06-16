@@ -6,7 +6,6 @@ All PostGIS and Overpass API calls are mocked so tests run
 fast, offline, and without external dependencies.
 """
 
-import sys
 import unittest
 from typing import Any, Dict
 from unittest.mock import patch
@@ -251,7 +250,3 @@ class TestPostgisBackendFormatRow(unittest.TestCase):
         self.assertEqual(result["lon"], 116.4)
         self.assertEqual(result["tags"]["name"], "Test Peak")
         self.assertEqual(result["tags"]["natural"], "peak")
-
-
-if __name__ == "__main__":
-    unittest.main(argv=sys.argv[:1])
