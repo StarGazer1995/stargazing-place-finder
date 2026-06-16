@@ -6,7 +6,6 @@ Specialized for quickly determining whether destinations have road connectivity
 """
 
 import logging
-import os
 from typing import Optional
 
 import osmnx as ox
@@ -14,6 +13,8 @@ import osmnx as ox
 from cache.cache_config import setup_osmnx_cache
 from config import StargazingConfig
 from models import NetworkError, NoDataError
+
+from .geo_fence import GeoFence
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING)
@@ -33,6 +34,7 @@ class SimpleRoadChecker:
         search_radius_km: float = 5.0,
         max_distance_to_road_km: float = 2.0,
         config: Optional[StargazingConfig] = None,
+        geo_fence: Optional[GeoFence] = None,
     ):
         """
         Initialize road connectivity checker
@@ -42,12 +44,15 @@ class SimpleRoadChecker:
             max_distance_to_road_km: Maximum acceptable distance to road (kilometers)
             config: Optional StargazingConfig instance. When provided, overrides
                     search_radius_km and max_distance_to_road_km with config values.
+            geo_fence: Optional GeoFence instance for testing. When enabled, returns
+                       pre-defined results without real backend queries.
         """
         if config is not None:
             search_radius_km = config.road_search_radius_km
             max_distance_to_road_km = config.max_distance_to_road_km
         self.search_radius_km = search_radius_km
         self.max_distance_to_road_km = max_distance_to_road_km
+        self.geo_fence = geo_fence or GeoFence()
 
         # Set up OSMnx cache directory
         setup_osmnx_cache()
@@ -145,7 +150,12 @@ class SimpleRoadChecker:
 
 
 # Convenience functions
-def quick_road_check(lat: float, lon: float, search_radius_km: float = 5.0) -> bool:
+def quick_road_check(
+    lat: float,
+    lon: float,
+    search_radius_km: float = 5.0,
+    geo_fence: Optional[GeoFence] = None,
+) -> bool:
     """
     Convenience function for quickly checking if specified coordinates have road connectivity
 
@@ -153,35 +163,38 @@ def quick_road_check(lat: float, lon: float, search_radius_km: float = 5.0) -> b
         lat: Latitude
         lon: Longitude
         search_radius_km: Search radius (kilometers), default 5 kilometers
+        geo_fence: Optional GeoFence instance for testing.
 
     Returns:
         bool: True indicates road connectivity, False indicates no road connectivity
     """
-    if os.environ.get("FAST_TESTS") == "1":
-        if 120.0 <= lon <= 135.0 and 20.0 <= lat <= 35.0:
-            return False
-        if 115.0 <= lon <= 118.0 and 39.0 <= lat <= 41.0:
-            return True
-        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
-            return False
-        return True
+    fence = geo_fence or GeoFence()
+    fence_result = fence.check_road_accessible(lat, lon)
+    if fence_result is not None:
+        return fence_result
     checker = SimpleRoadChecker(search_radius_km=search_radius_km)
     return checker.is_connected(lat, lon)
 
 
-def batch_road_check(coordinates: list, search_radius_km: float = 5.0) -> list:
+def batch_road_check(
+    coordinates: list,
+    search_radius_km: float = 5.0,
+    geo_fence: Optional[GeoFence] = None,
+) -> list:
     """
     Convenience function for batch checking road connectivity of multiple coordinates
 
     Args:
         coordinates: List of coordinates in format [(lat1, lon1), (lat2, lon2), ...]
         search_radius_km: Search radius (kilometers), default 5 kilometers
+        geo_fence: Optional GeoFence instance for testing.
 
     Returns:
         list: Corresponding connectivity result list [True, False, ...]
     """
-    if os.environ.get("FAST_TESTS") == "1":
-        return [quick_road_check(lat, lon, search_radius_km) for lat, lon in coordinates]
+    fence = geo_fence or GeoFence()
+    if fence.enabled:
+        return [quick_road_check(lat, lon, search_radius_km, geo_fence=fence) for lat, lon in coordinates]
     checker = SimpleRoadChecker(search_radius_km=search_radius_km)
     return checker.batch_check(coordinates)
 

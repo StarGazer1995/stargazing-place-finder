@@ -6,6 +6,7 @@ All PostGIS and external API calls are mocked.
 """
 
 import os
+import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -177,4 +178,4 @@ class TestCheckViaPostgis(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(argv=sys.argv[:1])
