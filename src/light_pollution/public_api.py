@@ -135,6 +135,81 @@ def radiance_to_pollution_level(radiance: float) -> str:
     return _radiance_to_pollution_level(radiance)
 
 
+# ---------------------------------------------------------------------------
+# Helper functions for get_light_pollution_grid
+# ---------------------------------------------------------------------------
+
+
+def _grid_resolution_from_zoom(zoom: int) -> float:
+    """根据缩放级别返回网格分辨率"""
+    if zoom <= 8:
+        return 0.1
+    elif zoom <= 12:
+        return 0.05
+    elif zoom <= 16:
+        return 0.02
+    else:
+        return 0.01
+
+
+def _calculate_grid_dims(lat_range: float, lng_range: float, grid_resolution: float):
+    """计算网格行数和列数，上限为 max_points=2000"""
+    grid_rows = max(1, int(lat_range / grid_resolution))
+    grid_cols = max(1, int(lng_range / grid_resolution))
+    max_points = 2000
+    total_points = grid_rows * grid_cols
+    if total_points > max_points:
+        scale_factor = math.sqrt(max_points / total_points)
+        grid_rows = max(1, int(grid_rows * scale_factor))
+        grid_cols = max(1, int(grid_cols * scale_factor))
+    return grid_rows, grid_cols
+
+
+def _query_grid_point(
+    analyzer: LightPollutionAnalyzer, lat: float, lng: float, point_index: int
+) -> Optional[Dict[str, Any]]:
+    """查询单点光污染数据，成功返回数据字典，失败返回 None"""
+    try:
+        pollution_info = analyzer.get_light_pollution_color(lat, lng)
+        if pollution_info is None:
+            return None
+        bortle = pollution_info.bortle
+        sqm = bortle_to_sqm(bortle)
+        brightness = pollution_info.brightness
+        intensity = brightness / 255.0
+        return {
+            "name": f"数据点 {point_index + 1}",
+            "lat": lat,
+            "lng": lng,
+            "bortle": bortle,
+            "sqm": f"{sqm:.1f}",
+            "intensity": intensity,
+            "brightness": brightness,
+            "rgb": pollution_info.rgb,
+            "hex": pollution_info.hex,
+            "overlay_name": pollution_info.overlay_name,
+            "radiance": pollution_info.radiance,
+        }
+    except DataError:
+        return None
+
+
+def _grid_default_point(lat: float, lng: float, point_index: int) -> Dict[str, Any]:
+    """返回默认数据点"""
+    return {
+        "name": f"数据点 {point_index + 1}",
+        "lat": lat,
+        "lng": lng,
+        "bortle": 5,
+        "sqm": "20.0",
+        "intensity": 0.5,
+        "brightness": 128,
+        "rgb": [128, 128, 128],
+        "hex": "#808080",
+        "overlay_name": "默认数据",
+    }
+
+
 def get_light_pollution_grid(north: float, south: float, east: float, west: float, zoom: int = 10) -> Dict[str, Any]:
     """
     生成指定边界范围内的光污染网格数据，返回结构与HTTP接口一致。
@@ -150,27 +225,11 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
         dict: {success, data: List[点数据], metadata}
     """
     analyzer = _require_analyzer()
-
-    if zoom <= 8:
-        grid_resolution = 0.1
-    elif zoom <= 12:
-        grid_resolution = 0.05
-    elif zoom <= 16:
-        grid_resolution = 0.02
-    else:
-        grid_resolution = 0.01
+    grid_resolution = _grid_resolution_from_zoom(zoom)
 
     lat_range = north - south
     lng_range = east - west
-    grid_rows = max(1, int(lat_range / grid_resolution))
-    grid_cols = max(1, int(lng_range / grid_resolution))
-
-    max_points = 2000
-    total_points = grid_rows * grid_cols
-    if total_points > max_points:
-        scale_factor = math.sqrt(max_points / total_points)
-        grid_rows = max(1, int(grid_rows * scale_factor))
-        grid_cols = max(1, int(grid_cols * scale_factor))
+    grid_rows, grid_cols = _calculate_grid_dims(lat_range, lng_range, grid_resolution)
 
     data: List[Dict[str, Any]] = []
     point_index = 0
@@ -178,57 +237,10 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
         for col in range(grid_cols):
             lat = south + (row + 0.5) * (lat_range / grid_rows)
             lng = west + (col + 0.5) * (lng_range / grid_cols)
-            try:
-                pollution_info = analyzer.get_light_pollution_color(lat, lng)
-                if pollution_info:
-                    bortle = pollution_info.bortle
-                    sqm = bortle_to_sqm(bortle)
-                    brightness = pollution_info.brightness
-                    intensity = brightness / 255.0
-                    entry = {
-                        "name": f"数据点 {point_index + 1}",
-                        "lat": lat,
-                        "lng": lng,
-                        "bortle": bortle,
-                        "sqm": f"{sqm:.1f}",
-                        "intensity": intensity,
-                        "brightness": brightness,
-                        "rgb": pollution_info.rgb,
-                        "hex": pollution_info.hex,
-                        "overlay_name": pollution_info.overlay_name,
-                        "radiance": pollution_info.radiance,
-                    }
-                    data.append(entry)
-                else:
-                    data.append(
-                        {
-                            "name": f"数据点 {point_index + 1}",
-                            "lat": lat,
-                            "lng": lng,
-                            "bortle": 5,
-                            "sqm": "20.0",
-                            "intensity": 0.5,
-                            "brightness": 128,
-                            "rgb": [128, 128, 128],
-                            "hex": "#808080",
-                            "overlay_name": "默认数据",
-                        }
-                    )
-            except DataError:
-                data.append(
-                    {
-                        "name": f"数据点 {point_index + 1}",
-                        "lat": lat,
-                        "lng": lng,
-                        "bortle": 5,
-                        "sqm": "20.0",
-                        "intensity": 0.5,
-                        "brightness": 128,
-                        "rgb": [128, 128, 128],
-                        "hex": "#808080",
-                        "overlay_name": "默认数据",
-                    }
-                )
+            entry = _query_grid_point(analyzer, lat, lng, point_index)
+            if entry is None:
+                entry = _grid_default_point(lat, lng, point_index)
+            data.append(entry)
             point_index += 1
 
     return {

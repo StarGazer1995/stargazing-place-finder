@@ -153,6 +153,85 @@ def _empty_tile() -> Response:
     return Response(buf.getvalue(), mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 
+def _validate_tile_request(z: int, x: int, y: int) -> Optional[Response]:
+    """Check analyzer readiness and tile cache. Returns a cached Response or None."""
+    if analyzer is None or analyzer._src is None:
+        return _empty_tile()
+    cache_key = f"{z}/{x}/{y}"
+    cached = _tile_cache.get(cache_key)
+    if cached is not None:
+        return Response(cached, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+    return None
+
+
+def _clamp_tile_bounds(
+    north: float,
+    south: float,
+    east: float,
+    west: float,
+    src,
+) -> Optional[Tuple[float, float, float, float]]:
+    """Clamp tile bounds to valid latitude range and GeoTIFF extent. Returns None if no overlap."""
+    north = min(north, 90.0)
+    south = max(south, -90.0)
+    if west > src.bounds.right or east < src.bounds.left or south > src.bounds.top or north < src.bounds.bottom:
+        return None
+    west = max(west, float(src.bounds.left))
+    east = min(east, float(src.bounds.right))
+    south = max(south, float(src.bounds.bottom))
+    north = min(north, float(src.bounds.top))
+    return north, south, east, west
+
+
+def _read_tile_window(
+    src,
+    west: float,
+    east: float,
+    south: float,
+    north: float,
+) -> Optional[np.ndarray]:
+    """Read GeoTIFF data for the geographic window, decimated to tile size."""
+    row_nw, col_nw = src.index(west, north)
+    row_se, col_se = src.index(east, south)
+    row_start = max(0, min(row_nw, row_se))
+    row_end = min(int(src.height), max(row_nw, row_se) + 1)
+    col_start = max(0, min(col_nw, col_se))
+    col_end = min(int(src.width), max(col_nw, col_se) + 1)
+    if row_end <= row_start or col_end <= col_start:
+        return None
+    data = src.read(1, window=((row_start, row_end), (col_start, col_end)), out_shape=(_TILE_SIZE, _TILE_SIZE))
+    if hasattr(analyzer, "get_skyglow_for_window") and analyzer._skyglow_grid is not None:
+        sg = analyzer.get_skyglow_for_window(west, east, south, north, (_TILE_SIZE, _TILE_SIZE))
+        data = data.astype(np.float32) + analyzer._skyglow_weight * sg
+    return data
+
+
+def _render_tile_png(data: np.ndarray, src, cache_key: str) -> Response:
+    """Apply colormap, encode as PNG, cache the result, and return a Response."""
+    lut = _build_tile_cmap_lut()
+    if data.dtype.kind == "f":
+        valid = ~np.isnan(data)
+    else:
+        valid = np.ones_like(data, dtype=bool)
+    nodata = src.nodata
+    if nodata is not None:
+        valid = valid & (data != nodata)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        intensity = np.where(valid, data, 0.0)
+        intensity = np.minimum(1.0, 1.0 - 1.0 / (1.0 + intensity * 0.1))
+    idx = np.clip((intensity * 255).astype(np.uint8), 0, 255)
+    rgba = lut[idx].copy()
+    rgba[~valid] = (0, 0, 0, 0)
+    img = Image.fromarray(rgba, "RGBA")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    png_data = buf.getvalue()
+    _tile_cache[cache_key] = png_data
+    if len(_tile_cache) > _MAX_TILE_CACHE:
+        _tile_cache.clear()
+    return Response(png_data, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+
+
 @app.route("/api/light_pollution/tiles/<int:z>/<int:x>/<int:y>.png")
 def serve_light_pollution_tile(z: int, x: int, y: int) -> Response:
     """
@@ -161,106 +240,24 @@ def serve_light_pollution_tile(z: int, x: int, y: int) -> Response:
     Tile coordinate system: XYZ (Slippy Map) — same as OpenStreetMap.
     Callers fetch tiles via: /api/light_pollution/tiles/{z}/{x}/{y}.png
     """
-    if analyzer is None or analyzer._src is None:
-        return _empty_tile()
-
-    # Check cache
-    cache_key = f"{z}/{x}/{y}"
-    cached = _tile_cache.get(cache_key)
+    cached = _validate_tile_request(z, x, y)
     if cached is not None:
-        return Response(cached, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+        return cached
 
     src = analyzer._src
+    cache_key = f"{z}/{x}/{y}"
 
-    # Get tile geographic bounds
     north, south, east, west = _tile_bounds(x, y, z)
-
-    # Clamp to valid latitude range
-    north = min(north, 90.0)
-    south = max(south, -90.0)
-
-    # Quick rejection: no overlap with GeoTIFF coverage
-    if west > src.bounds.right or east < src.bounds.left or south > src.bounds.top or north < src.bounds.bottom:
+    bounds = _clamp_tile_bounds(north, south, east, west, src)
+    if bounds is None:
         return _empty_tile()
-
-    # Clamp bounds to GeoTIFF extent to avoid edge reads
-    west = max(west, float(src.bounds.left))
-    east = min(east, float(src.bounds.right))
-    south = max(south, float(src.bounds.bottom))
-    north = min(north, float(src.bounds.top))
+    north, south, east, west = bounds
 
     try:
-        # Convert geographic bounds to pixel coordinates
-        # src.index(lon, lat) → (row, col)
-        # row = vertical (latitude, 0=top/north), col = horizontal (longitude, 0=left/west)
-        row_nw, col_nw = src.index(west, north)  # NW corner of tile
-        row_se, col_se = src.index(east, south)  # SE corner of tile
-
-        # Row increases southward, col increases eastward
-        row_start = min(row_nw, row_se)
-        row_end = max(row_nw, row_se) + 1
-        col_start = min(col_nw, col_se)
-        col_end = max(col_nw, col_se) + 1
-
-        # Clamp to raster dimensions
-        row_start = max(0, row_start)
-        row_end = min(int(src.height), row_end)
-        col_start = max(0, col_start)
-        col_end = min(int(src.width), col_end)
-
-        if row_end <= row_start or col_end <= col_start:
+        data = _read_tile_window(src, west, east, south, north)
+        if data is None:
             return _empty_tile()
-
-        # Read window with decimation to tile size
-        data = src.read(
-            1,
-            window=((row_start, row_end), (col_start, col_end)),
-            out_shape=(_TILE_SIZE, _TILE_SIZE),
-        )
-
-        # Build RGBA tile
-        lut = _build_tile_cmap_lut()
-
-        # Determine valid pixels (not nodata, not NaN)
-        if data.dtype.kind == "f":
-            valid = ~np.isnan(data)
-        else:
-            valid = np.ones_like(data, dtype=bool)
-
-        nodata = src.nodata
-        if nodata is not None:
-            valid = valid & (data != nodata)
-
-        # Add skyglow correction to compensate for VIIRS background subtraction
-        # The skyglow model diffuses city lights to simulate atmospheric scattering
-        if hasattr(analyzer, "get_skyglow_for_window") and analyzer._skyglow_grid is not None:
-            sg = analyzer.get_skyglow_for_window(west, east, south, north, (_TILE_SIZE, _TILE_SIZE))
-            data = data.astype(np.float32) + analyzer._skyglow_weight * sg
-
-        # Calculate intensity using same formula as brightness_to_intensity:
-        # intensity = 1.0 - 1.0/(1.0 + radiance * 0.1), capped at 1.0
-        with np.errstate(divide="ignore", invalid="ignore"):
-            intensity = np.where(valid, data, 0.0)
-            intensity = np.minimum(1.0, 1.0 - 1.0 / (1.0 + intensity * 0.1))
-
-        # Map through lookup table
-        idx = np.clip((intensity * 255).astype(np.uint8), 0, 255)
-        rgba = lut[idx].copy()
-        rgba[~valid] = (0, 0, 0, 0)
-
-        # Encode as PNG
-        img = Image.fromarray(rgba, "RGBA")
-        buf = BytesIO()
-        img.save(buf, format="PNG")
-        png_data = buf.getvalue()
-
-        # Cache (limit size)
-        _tile_cache[cache_key] = png_data
-        if len(_tile_cache) > _MAX_TILE_CACHE:
-            _tile_cache.clear()
-
-        return Response(png_data, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
-
+        return _render_tile_png(data, src, cache_key)
     except DataError as e:
         logger.warning("⚠️ Tile render error (%s/%s/%s): %s", z, x, y, e)
         return _empty_tile()
@@ -373,6 +370,108 @@ def bortle_to_sqm(bortle: int) -> float:
     return sqm_values.get(bortle, 20.0)
 
 
+def _parse_pollution_request():
+    """解析并验证请求参数中的地理边界和缩放级别."""
+    north = float(request.args.get("north", 0))
+    south = float(request.args.get("south", 0))
+    east = float(request.args.get("east", 0))
+    west = float(request.args.get("west", 0))
+    zoom = int(request.args.get("zoom", 10))
+    return north, south, east, west, zoom
+
+
+def _calculate_grid_resolution(zoom, lat_range, lng_range):
+    """根据缩放级别和地理范围确定网格分辨率及行列数."""
+    if zoom <= 8:
+        grid_resolution = 0.1
+    elif zoom <= 12:
+        grid_resolution = 0.05
+    elif zoom <= 16:
+        grid_resolution = 0.02
+    else:
+        grid_resolution = 0.01
+
+    grid_rows = max(1, int(lat_range / grid_resolution))
+    grid_cols = max(1, int(lng_range / grid_resolution))
+
+    max_points = 2000
+    total_points = grid_rows * grid_cols
+    if total_points > max_points:
+        scale_factor = math.sqrt(max_points / total_points)
+        grid_rows = max(1, int(grid_rows * scale_factor))
+        grid_cols = max(1, int(grid_cols * scale_factor))
+        logger.warning(
+            "⚠️ Too many grid points, adjusted to %sx%s = %s points", grid_rows, grid_cols, grid_rows * grid_cols
+        )
+
+    return grid_resolution, grid_rows, grid_cols
+
+
+def _build_coordinate_grid(south, north, west, east, grid_rows, grid_cols):
+    """构建采样坐标网格."""
+    lat_range = north - south
+    lng_range = east - west
+    coordinates_list = []
+    grid_info = []
+    for row in range(grid_rows):
+        for col in range(grid_cols):
+            lat = south + (row + 0.5) * (lat_range / grid_rows)
+            lng = west + (col + 0.5) * (lng_range / grid_cols)
+            coordinates_list.append((lat, lng))
+            grid_info.append((lat, lng))
+    return coordinates_list, grid_info
+
+
+def _format_pollution_point(result, lat, lng, idx):
+    """格式化单个采样点的光污染数据."""
+    pollution_info = result.get("pollution_info")
+    if pollution_info:
+        brightness = pollution_info.brightness
+        bortle = brightness_to_bortle(brightness)
+        sqm = bortle_to_sqm(bortle)
+        intensity = brightness / 255.0
+        return {
+            "name": f"数据点 {idx + 1}",
+            "lat": lat,
+            "lng": lng,
+            "bortle": bortle,
+            "sqm": f"{sqm:.1f}",
+            "intensity": intensity,
+            "brightness": brightness,
+            "rgb": pollution_info.rgb,
+            "hex": pollution_info.hex,
+            "overlay_name": pollution_info.overlay_name,
+        }
+    return {
+        "name": f"数据点 {idx + 1}",
+        "lat": lat,
+        "lng": lng,
+        "bortle": 5,
+        "sqm": "20.0",
+        "intensity": 0.5,
+        "brightness": 128,
+        "rgb": [128, 128, 128],
+        "hex": "#808080",
+        "overlay_name": "默认数据",
+    }
+
+
+def _build_pollution_response(data, north, south, east, west, zoom, grid_resolution):
+    """构建光污染数据的JSON响应."""
+    return jsonify(
+        {
+            "success": True,
+            "data": data,
+            "metadata": {
+                "bounds": {"north": north, "south": south, "east": east, "west": west},
+                "zoom": zoom,
+                "grid_resolution": grid_resolution,
+                "total_points": len(data),
+            },
+        }
+    )
+
+
 @app.route("/api/light_pollution", methods=["GET"])
 def get_light_pollution_data():
     """
@@ -392,117 +491,29 @@ def get_light_pollution_data():
         return jsonify({"error": "光污染分析器未初始化", "data": []}), 500
 
     try:
-        # 获取查询参数
-        north = float(request.args.get("north", 0))
-        south = float(request.args.get("south", 0))
-        east = float(request.args.get("east", 0))
-        west = float(request.args.get("west", 0))
-        zoom = int(request.args.get("zoom", 10))
+        north, south, east, west, zoom = _parse_pollution_request()
 
         logger.info(
             "🌍 Getting light pollution data: bounds=(%s, %s) to (%s, %s), zoom=%s", south, west, north, east, zoom
         )
 
-        # 根据缩放级别确定网格分辨率
-        if zoom <= 8:
-            grid_resolution = 0.1  # 低缩放级别，粗网格
-        elif zoom <= 12:
-            grid_resolution = 0.05  # 中等缩放级别
-        elif zoom <= 16:
-            grid_resolution = 0.02  # 高缩放级别
-        else:
-            grid_resolution = 0.01  # 非常高缩放级别，细网格
-
-        # 计算网格范围
         lat_range = north - south
         lng_range = east - west
-        grid_rows = max(1, int(lat_range / grid_resolution))
-        grid_cols = max(1, int(lng_range / grid_resolution))
-
-        # 限制最大网格数量以避免性能问题
-        max_points = 2000
-        total_points = grid_rows * grid_cols
-
-        if total_points > max_points:
-            # 调整网格分辨率
-            scale_factor = math.sqrt(max_points / total_points)
-            grid_rows = max(1, int(grid_rows * scale_factor))
-            grid_cols = max(1, int(grid_cols * scale_factor))
-            logger.warning(
-                "⚠️ Too many grid points, adjusted to %sx%s = %s points", grid_rows, grid_cols, grid_rows * grid_cols
-            )
+        grid_resolution, grid_rows, grid_cols = _calculate_grid_resolution(zoom, lat_range, lng_range)
 
         logger.info("🔢 Generating grid: %sx%s = %s points", grid_rows, grid_cols, grid_rows * grid_cols)
 
-        # 批量构建坐标列表，一次性查询
-        coordinates_list = []
-        grid_info = []  # (lat, lng) per point
-        for row in range(grid_rows):
-            for col in range(grid_cols):
-                lat = south + (row + 0.5) * (lat_range / grid_rows)
-                lng = west + (col + 0.5) * (lng_range / grid_cols)
-                coordinates_list.append((lat, lng))
-                grid_info.append((lat, lng))
+        coordinates_list, grid_info = _build_coordinate_grid(south, north, west, east, grid_rows, grid_cols)
 
-        # 一次性批量查询（按行读取 GeoTIFF，效率远高于逐点读取）
         batch_results = analyzer.batch_analyze_coordinates(coordinates_list)
 
         data = []
-        for idx, result in enumerate(batch_results):
-            lat, lng = grid_info[idx]
-            pollution_info = result.get("pollution_info")
-
-            if pollution_info:
-                # 从批量查询结果中提取信息
-                brightness = pollution_info.brightness
-                bortle = brightness_to_bortle(brightness)
-                sqm = bortle_to_sqm(bortle)
-                intensity = brightness / 255.0
-
-                data.append(
-                    {
-                        "name": f"数据点 {idx + 1}",
-                        "lat": lat,
-                        "lng": lng,
-                        "bortle": bortle,
-                        "sqm": f"{sqm:.1f}",
-                        "intensity": intensity,
-                        "brightness": brightness,
-                        "rgb": pollution_info.rgb,
-                        "hex": pollution_info.hex,
-                        "overlay_name": pollution_info.overlay_name,
-                    }
-                )
-            else:
-                data.append(
-                    {
-                        "name": f"数据点 {idx + 1}",
-                        "lat": lat,
-                        "lng": lng,
-                        "bortle": 5,
-                        "sqm": "20.0",
-                        "intensity": 0.5,
-                        "brightness": 128,
-                        "rgb": [128, 128, 128],
-                        "hex": "#808080",
-                        "overlay_name": "默认数据",
-                    }
-                )
+        for idx, (result, (lat, lng)) in enumerate(zip(batch_results, grid_info)):
+            data.append(_format_pollution_point(result, lat, lng, idx))
 
         logger.info("✅ Successfully retrieved %s light pollution data points", len(data))
 
-        return jsonify(
-            {
-                "success": True,
-                "data": data,
-                "metadata": {
-                    "bounds": {"north": north, "south": south, "east": east, "west": west},
-                    "zoom": zoom,
-                    "grid_resolution": grid_resolution,
-                    "total_points": len(data),
-                },
-            }
-        )
+        return _build_pollution_response(data, north, south, east, west, zoom, grid_resolution)
 
     except DataError as e:
         logger.error("❌ Error getting light pollution data: %s", e)
@@ -652,6 +663,80 @@ def analyze_coordinate():
         return jsonify({"error": str(e), "success": False}), 500
 
 
+def _parse_stargazing_params() -> Tuple[float, float, float, float, int, float, float, str]:
+    """Parse request params from POST JSON body or GET query args.
+
+    Returns:
+        (south, west, north, east, max_locations, min_height_diff, road_radius_km, network_type)
+    """
+    if request.method == "POST":
+        data = request.get_json()
+        if not data:
+            return None  # signal: missing JSON body
+        bbox = data.get("bbox", {})
+        return (
+            float(bbox.get("south", 0)),
+            float(bbox.get("west", 0)),
+            float(bbox.get("north", 0)),
+            float(bbox.get("east", 0)),
+            int(data.get("max_locations", 30)),
+            float(data.get("min_height_diff", 100.0)),
+            float(data.get("road_radius_km", 10.0)),
+            data.get("network_type", "drive"),
+        )
+    # GET request from URL query args
+    return (
+        float(request.args.get("south", 0)),
+        float(request.args.get("west", 0)),
+        float(request.args.get("north", 0)),
+        float(request.args.get("east", 0)),
+        int(request.args.get("max_locations", 30)),
+        float(request.args.get("min_height_diff", 100.0)),
+        float(request.args.get("road_radius_km", 10.0)),
+        request.args.get("network_type", "drive"),
+    )
+
+
+def _location_to_dict(loc) -> dict:
+    """Convert a StargazingLocation to a JSON-compatible dictionary."""
+    return {
+        "name": loc.name,
+        "latitude": loc.latitude,
+        "longitude": loc.longitude,
+        "elevation": loc.elevation,
+        "prominence": loc.prominence,
+        "distance_to_nearest_town": loc.distance_to_nearest_town,
+        "nearest_town_name": loc.nearest_town_name,
+        "height_difference": loc.height_difference,
+        "light_pollution_rgb": loc.light_pollution_rgb,
+        "light_pollution_hex": loc.light_pollution_hex,
+        "light_pollution_brightness": loc.light_pollution_brightness,
+        "light_pollution_level": loc.light_pollution_level,
+        "light_pollution_overlay": loc.light_pollution_overlay,
+        "road_accessible": loc.road_accessible,
+        "distance_to_road_km": loc.distance_to_road_km,
+        "road_network_type": loc.road_network_type,
+        "road_check_error": loc.road_check_error,
+        "stargazing_score": loc.stargazing_score,
+        "recommendation_level": loc.recommendation_level,
+        "analysis_notes": loc.analysis_notes,
+    }
+
+
+def _build_stargazing_response(locations, south: float, west: float, north: float, east: float):
+    """Build jsonify response from analyzed locations and bounding box."""
+    locations_data = [_location_to_dict(loc) for loc in locations]
+    logger.info("✅ Successfully analyzed %s stargazing locations", len(locations_data))
+    return jsonify(
+        {
+            "success": True,
+            "count": len(locations_data),
+            "locations": locations_data,
+            "bounds": {"south": south, "west": west, "north": north, "east": east},
+        }
+    )
+
+
 @app.route("/api/analyze_stargazing_area", methods=["GET", "POST", "OPTIONS"])
 def analyze_stargazing_area_endpoint():
     """
@@ -670,32 +755,11 @@ def analyze_stargazing_area_endpoint():
         return "", 200
 
     try:
-        # 根据请求方法获取参数
-        if request.method == "POST":
-            # POST请求从JSON body获取参数
-            data = request.get_json()
-            if not data:
-                return jsonify({"success": False, "error": "Missing JSON data", "message": "缺少JSON数据"}), 400
+        params = _parse_stargazing_params()
+        if params is None:
+            return jsonify({"success": False, "error": "Missing JSON data", "message": "缺少JSON数据"}), 400
 
-            bbox = data.get("bbox", {})
-            south = float(bbox.get("south", 0))
-            west = float(bbox.get("west", 0))
-            north = float(bbox.get("north", 0))
-            east = float(bbox.get("east", 0))
-            max_locations = int(data.get("max_locations", 30))
-            min_height_diff = float(data.get("min_height_diff", 100.0))
-            road_radius_km = float(data.get("road_radius_km", 10.0))
-            network_type = data.get("network_type", "drive")
-        else:
-            # GET请求从URL参数获取
-            south = float(request.args.get("south", 0))
-            west = float(request.args.get("west", 0))
-            north = float(request.args.get("north", 0))
-            east = float(request.args.get("east", 0))
-            max_locations = int(request.args.get("max_locations", 30))
-            min_height_diff = float(request.args.get("min_height_diff", 100.0))
-            road_radius_km = float(request.args.get("road_radius_km", 10.0))
-            network_type = request.args.get("network_type", "drive")
+        south, west, north, east, max_locations, min_height_diff, road_radius_km, network_type = params
 
         logger.info("Analyzing stargazing area: North%s° South%s° East%s° West%s°", north, south, east, west)
 
@@ -709,7 +773,6 @@ def analyze_stargazing_area_endpoint():
         if db_config_path:
             logger.info("Using DB config from: %s", db_config_path)
 
-        # 调用分析函数
         locations = analyze_stargazing_area(
             south=south,
             west=west,
@@ -723,43 +786,7 @@ def analyze_stargazing_area_endpoint():
             db_config_path=db_config_path,
         )
 
-        # 转换为JSON格式
-        locations_data = []
-        for loc in locations:
-            loc_dict = {
-                "name": loc.name,
-                "latitude": loc.latitude,
-                "longitude": loc.longitude,
-                "elevation": loc.elevation,
-                "prominence": loc.prominence,
-                "distance_to_nearest_town": loc.distance_to_nearest_town,
-                "nearest_town_name": loc.nearest_town_name,
-                "height_difference": loc.height_difference,
-                "light_pollution_rgb": loc.light_pollution_rgb,
-                "light_pollution_hex": loc.light_pollution_hex,
-                "light_pollution_brightness": loc.light_pollution_brightness,
-                "light_pollution_level": loc.light_pollution_level,
-                "light_pollution_overlay": loc.light_pollution_overlay,
-                "road_accessible": loc.road_accessible,
-                "distance_to_road_km": loc.distance_to_road_km,
-                "road_network_type": loc.road_network_type,
-                "road_check_error": loc.road_check_error,
-                "stargazing_score": loc.stargazing_score,
-                "recommendation_level": loc.recommendation_level,
-                "analysis_notes": loc.analysis_notes,
-            }
-            locations_data.append(loc_dict)
-
-        logger.info("✅ Successfully analyzed %s stargazing locations", len(locations_data))
-
-        return jsonify(
-            {
-                "success": True,
-                "count": len(locations_data),
-                "locations": locations_data,
-                "bounds": {"south": south, "west": west, "north": north, "east": east},
-            }
-        )
+        return _build_stargazing_response(locations, south, west, north, east)
 
     except DataError as e:
         logger.error("❌ Stargazing area analysis failed: %s", e)
