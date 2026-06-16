@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1 (2026-06-16)
+
+- Bug 修复: Overpass API 主站 406 Not Acceptable — 添加 `User-Agent` 和 `Accept: application/json` 请求头
+- 性能优化: 道路连通性分析从 N 次独立路网下载降为 1 次
+  - `RoadConnectivityChecker` 新增 `preload_network_for_bbox()`，对整个 bbox 预加载路网
+  - `StargazingLocationAnalyzer.analyze_area()` 在并行分析前调用预加载
+  - `_get_road_network()` 优先复用共享路网，N 个地点共享同一张图
+
 ## 0.6.0 (2026-06-15)
 
 - 性能优化: Phase 1 完成 — 50 点 analysis_area 从 200-500s 降至 ~3-5s

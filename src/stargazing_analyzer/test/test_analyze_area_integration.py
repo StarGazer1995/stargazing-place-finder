@@ -129,6 +129,7 @@ def analyzer(mock_peak_data, mock_observatory_data, mock_viewpoint_data, mock_to
             "max_score": 10.0,
         }
     )
+    a.road_checker.preload_network_for_bbox = MagicMock()
     a.light_pollution_analyzer = None
     return a
 

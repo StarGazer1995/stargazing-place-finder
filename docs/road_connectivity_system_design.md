@@ -635,32 +635,32 @@ class NetworkCacheManager:
     """
     Intelligent caching system for road network data
     """
-    
+
     def __init__(self, cache_size_limit: int = 100, cache_ttl_hours: int = 24):
         self.cache = {}
         self.cache_size_limit = cache_size_limit
         self.cache_ttl = timedelta(hours=cache_ttl_hours)
         self.access_times = {}
-    
-    def get_cached_network(self, center_coord: Tuple[float, float], 
-                          search_radius: float, 
+
+    def get_cached_network(self, center_coord: Tuple[float, float],
+                          search_radius: float,
                           network_type: str) -> Optional[NetworkGraph]:
         """
         Retrieve cached network data if available and fresh
-        
+
         Args:
             center_coord (tuple): Network center coordinate
             search_radius (float): Search radius
             network_type (str): Network type
-        
+
         Returns:
             Optional[NetworkGraph]: Cached network or None
         """
         cache_key = self._generate_cache_key(center_coord, search_radius, network_type)
-        
+
         if cache_key in self.cache:
             cached_data = self.cache[cache_key]
-            
+
             # Check if cache is still fresh
             if datetime.now() - cached_data['timestamp'] < self.cache_ttl:
                 self.access_times[cache_key] = datetime.now()
@@ -670,16 +670,16 @@ class NetworkCacheManager:
                 del self.cache[cache_key]
                 if cache_key in self.access_times:
                     del self.access_times[cache_key]
-        
+
         return None
-    
-    def cache_network(self, network: NetworkGraph, 
+
+    def cache_network(self, network: NetworkGraph,
                      center_coord: Tuple[float, float],
-                     search_radius: float, 
+                     search_radius: float,
                      network_type: str):
         """
         Store network data in cache with intelligent eviction
-        
+
         Args:
             network (NetworkGraph): Network to cache
             center_coord (tuple): Network center
@@ -689,17 +689,17 @@ class NetworkCacheManager:
         # Check cache size limit
         if len(self.cache) >= self.cache_size_limit:
             self._evict_least_recently_used()
-        
+
         cache_key = self._generate_cache_key(center_coord, search_radius, network_type)
-        
+
         self.cache[cache_key] = {
             'network': network,
             'timestamp': datetime.now()
         }
         self.access_times[cache_key] = datetime.now()
-    
-    def _generate_cache_key(self, center_coord: Tuple[float, float], 
-                           search_radius: float, 
+
+    def _generate_cache_key(self, center_coord: Tuple[float, float],
+                           search_radius: float,
                            network_type: str) -> str:
         """
         Generate unique cache key for network parameters
@@ -708,9 +708,9 @@ class NetworkCacheManager:
         lat_rounded = round(center_coord[0], 4)
         lon_rounded = round(center_coord[1], 4)
         radius_rounded = round(search_radius, 0)
-        
+
         return f"{lat_rounded},{lon_rounded},{radius_rounded},{network_type}"
-    
+
     def _evict_least_recently_used(self):
         """
         Remove least recently used cache entry
@@ -718,6 +718,21 @@ class NetworkCacheManager:
         if self.access_times:
             lru_key = min(self.access_times.keys(), key=lambda k: self.access_times[k])
             del self.cache[lru_key]
+```
+
+### 2. Bbox-Level Graph Preloading (v0.6.1+)
+在批量分析 N 个地点时，原实现每个地点独立下载 10km 半径路网（共 N 次 OSM 请求）。
+v0.6.1 新增 `RoadConnectivityChecker.preload_network_for_bbox()`，对整个 bbox 预加载一次路网，
+所有 N 个地点复用同一张图。`StargazingLocationAnalyzer.analyze_area()` 在并行循环前自动调用预加载。
+
+```python
+checker = RoadConnectivityChecker()
+# 一次下载覆盖整个区域的完整路网
+checker.preload_network_for_bbox(
+    bbox=(39.5, 115.5, 40.5, 117.5),  # (south, west, north, east)
+    network_type="drive",
+)
+# 后续所有 _get_road_network() 调用复用该图
             del self.access_times[lru_key]
 ```
 
