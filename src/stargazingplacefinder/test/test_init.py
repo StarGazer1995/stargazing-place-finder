@@ -3,10 +3,8 @@
 Tests for stargazingplacefinder top-level package re-exports.
 """
 
-import sys
 import os
-
-import pytest
+import sys
 
 # Ensure src is on path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
@@ -18,12 +16,12 @@ class TestPackageExports:
     def test_import_all_symbols(self):
         """Verify all __all__ symbols are importable."""
         from stargazingplacefinder import (
-            init_stargazing_analyzer,
             analyze_area,
             analyze_area_simple,
-            init_light_pollution_analyzer,
-            get_light_pollution_grid,
             analyze_coordinate,
+            get_light_pollution_grid,
+            init_light_pollution_analyzer,
+            init_stargazing_analyzer,
         )
 
         assert callable(init_stargazing_analyzer)

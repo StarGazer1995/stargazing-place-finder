@@ -6,26 +6,23 @@ Covers conversion utilities, grid helpers, and public API functions
 using mocked LightPollutionAnalyzer to avoid GeoTIFF dependency.
 """
 
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 # Ensure src is on path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
 from light_pollution.public_api import (
-    brightness_to_bortle,
+    _calculate_grid_dims,
+    _grid_resolution_from_zoom,
+    analyze_coordinate,
     bortle_to_sqm,
+    brightness_to_bortle,
     radiance_to_bortle,
     radiance_to_brightness,
     radiance_to_pollution_level,
-    _grid_resolution_from_zoom,
-    _calculate_grid_dims,
-    analyze_coordinate,
 )
-
 
 # ── Conversion utilities ────────────────────────────────────────────
 

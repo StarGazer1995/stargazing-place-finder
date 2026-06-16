@@ -4,8 +4,8 @@ Tests for stargazing_location_analyzer scoring and filtering pipeline.
 Uses mocked mountain_finder to exercise analyze_area with no data.
 """
 
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,8 +13,8 @@ import pytest
 # Ensure src is on path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
-from stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer
 from models import StargazingLocation
+from stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer
 
 
 @pytest.fixture
@@ -245,8 +245,8 @@ class TestFilterByRoadDistance:
     def test_filter_no_op_when_no_limits(self, analyzer):
         """With no min/max, all locations pass through."""
         locs = [MagicMock(spec=StargazingLocation) for _ in range(3)]
-        for l in locs:
-            l.distance_to_road_km = 0.5
+        for loc in locs:
+            loc.distance_to_road_km = 0.5
         result = analyzer._filter_by_road_distance(locs, None, None)
         assert len(result) == 3
 
@@ -346,7 +346,6 @@ class TestProcessOneLocation:
 
     def test_basic_processing(self, analyzer):
         """Basic location processing with light pollution and road data."""
-        from models import GeoCoordinate
 
         loc = MagicMock()
         loc.name = "Test"
@@ -393,7 +392,6 @@ class TestProcessOneLocation:
 
     def test_road_check_failure(self, analyzer):
         """When road check raises an error, road_check_error is set."""
-        from models import GeoCoordinate
 
         loc = MagicMock()
         loc.name = "Test"

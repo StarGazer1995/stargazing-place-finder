@@ -5,8 +5,8 @@ Tests for stargazing_analyzer.cli module.
 Uses argparse directly to test argument parsing and helper functions.
 """
 
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,7 +14,7 @@ import pytest
 # Ensure src is on path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
-from stargazing_analyzer.cli import _deg_per_km, _bbox_from_center, create_parser
+from stargazing_analyzer.cli import _bbox_from_center, _deg_per_km, create_parser
 
 
 class TestDegPerKm:
@@ -202,6 +202,7 @@ class TestMainFunction:
     def test_main_with_db_config(self, mock_create_parser, mock_analyze_area, mock_init):
         """main() with --db-config should call init_stargazing_analyzer."""
         from pathlib import Path
+
         from stargazing_analyzer.cli import main
 
         mock_parser = MagicMock()

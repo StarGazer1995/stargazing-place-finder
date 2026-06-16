@@ -6,20 +6,18 @@ Covers init, analyze_area, and analyze_area_simple functions
 using mocked StargazingLocationAnalyzer.
 """
 
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 # Ensure src is on path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
 from stargazing_analyzer.public_api import (
-    init_stargazing_analyzer,
     _require_analyzer,
     analyze_area,
     analyze_area_simple,
+    init_stargazing_analyzer,
 )
 
 
@@ -41,7 +39,7 @@ class TestInit:
 
     @patch("stargazing_analyzer.public_api.StargazingLocationAnalyzer")
     def test_init_custom_params(self, MockAnalyzer):
-        analyzer = init_stargazing_analyzer(
+        init_stargazing_analyzer(
             geotiff_path="/custom/path.tif",
             min_height_difference=200.0,
             road_search_radius_km=15.0,

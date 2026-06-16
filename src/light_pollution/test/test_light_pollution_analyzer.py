@@ -6,22 +6,20 @@ Tests conversion functions and edge cases in LightPollutionAnalyzer
 without requiring the actual GeoTIFF file.
 """
 
-import sys
 import os
-from unittest.mock import MagicMock, patch, PropertyMock
+import sys
 
 import pytest
-import numpy as np
 
 # Ensure src is on path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
 from light_pollution.light_pollution_analyzer import (
-    radiance_to_brightness,
+    LightPollutionAnalyzer,
     radiance_to_bortle,
+    radiance_to_brightness,
     radiance_to_false_color,
     radiance_to_pollution_level,
-    LightPollutionAnalyzer,
 )
 
 

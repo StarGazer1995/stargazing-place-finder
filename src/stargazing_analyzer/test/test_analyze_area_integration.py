@@ -10,9 +10,9 @@ This is NOT a unit test of individual private methods — it tests what the func
 actually does end-to-end.
 """
 
-import sys
 import os
-from unittest.mock import MagicMock, patch
+import sys
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -20,14 +20,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
 from models import (
     LatLonBox,
-    Location,
-    Peak,
     Observatory,
-    Viewpoint,
+    Peak,
     StargazingLocation,
+    Viewpoint,
 )
 from stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer
-
 
 # ── Helpers ────────────────────────────────────────────────────────────
 

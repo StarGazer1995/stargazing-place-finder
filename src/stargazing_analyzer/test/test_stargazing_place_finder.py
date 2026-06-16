@@ -10,14 +10,14 @@ import json
 import os
 import sys
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 # Ensure src is on path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
-from models import GeoCoordinate, LatLonBox, Peak, Observatory, Viewpoint
+from models import GeoCoordinate, LatLonBox, Observatory, Peak, Viewpoint
 from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
 
 
