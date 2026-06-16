@@ -167,7 +167,7 @@ class RoadConnectivityChecker:
         self.max_distance_to_road_km = max_distance_to_road_km
         self.graph_cache = {}  # Cache downloaded road networks
         self.gis_service = gis_service  # Optional GisQueryService for PostGIS fast path
-        self.geo_fence = geo_fence or GeoFence()
+        self.geo_fence = geo_fence  # 仅当上游显式传入时才使用
         # Set OSMnx cache directory
         setup_osmnx_cache()
 
@@ -194,9 +194,10 @@ class RoadConnectivityChecker:
             self.location_cache.save_road_access_info_to_cache(f"accessible_{network_type}", [road_info])
             return res
 
-        fence_result = self.geo_fence.check_road_accessible(lat, lon)
-        if fence_result is not None:
-            return process_and_return(fence_result)
+        if self.geo_fence is not None:
+            fence_result = self.geo_fence.check_road_accessible(lat, lon)
+            if fence_result is not None:
+                return process_and_return(fence_result)
         try:
             # Try to get road network around this point
             cached_results = self.location_cache.get_cached_result(f"accessible_{network_type}")
@@ -358,20 +359,21 @@ class RoadConnectivityChecker:
         }
 
         try:
-            fence_result = self.geo_fence.get_fake_accessibility_info(lat, lon)
-            if fence_result is not None:
-                result.update(fence_result)
-                cache = RoadAccessInfo(
-                    is_road_accessible=result["accessible"],
-                    distance_to_road_km=result["distance_to_road_km"],
-                    nearest_road_type=result["nearest_road_type"],
-                    network_nodes_count=result["network_nodes_count"],
-                    error=result["error"],
-                    latitude=lat,
-                    longitude=lon,
-                )
-                self.location_cache.save_road_access_info_to_cache(f"access_info_{network_type}", [cache])
-                return result
+            if self.geo_fence is not None:
+                fence_result = self.geo_fence.get_fake_accessibility_info(lat, lon)
+                if fence_result is not None:
+                    result.update(fence_result)
+                    cache = RoadAccessInfo(
+                        is_road_accessible=result["accessible"],
+                        distance_to_road_km=result["distance_to_road_km"],
+                        nearest_road_type=result["nearest_road_type"],
+                        network_nodes_count=result["network_nodes_count"],
+                        error=result["error"],
+                        latitude=lat,
+                        longitude=lon,
+                    )
+                    self.location_cache.save_road_access_info_to_cache(f"access_info_{network_type}", [cache])
+                    return result
             cached_res = self.location_cache.get_cached_result(f"access_info_{network_type}")
             cache = self.location_cache.get_location_by_coordinates(cached_res, lat, lon)
             if cache is not None:

@@ -61,7 +61,7 @@ class SimpleRoadChecker:
         self._inner = RoadConnectivityChecker(
             search_radius_km=search_radius_km,
             max_distance_to_road_km=max_distance_to_road_km,
-            geo_fence=geo_fence,
+            geo_fence=geo_fence,  # 可 None，RoadConnectivityChecker 内部不再 fallback
         )
 
     def is_connected(self, lat: float, lon: float) -> bool:
