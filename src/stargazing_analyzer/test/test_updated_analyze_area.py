@@ -16,6 +16,7 @@
 import os
 import sys
 import unittest
+from unittest.mock import patch
 
 # 添加 src 目录到Python路径，加载顶层包
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../src"))
@@ -33,6 +34,18 @@ class TestUpdatedAnalyzeArea(unittest.TestCase):
         """设置测试环境"""
         self.analyzer = StargazingLocationAnalyzer()
         self.test_bbox = (39.8, 116.2, 40.0, 116.6)  # 北京周边
+        # Mock mountain_finder to avoid real Overpass API calls
+        self._mf_patchers = [
+            patch.object(self.analyzer.mountain_finder, "find_peaks_in_area", return_value=[]),
+            patch.object(self.analyzer.mountain_finder, "find_observatories_in_area", return_value=[]),
+            patch.object(self.analyzer.mountain_finder, "find_viewpoints_in_area", return_value=[]),
+        ]
+        for p in self._mf_patchers:
+            p.start()
+
+    def tearDown(self):
+        for p in self._mf_patchers:
+            p.stop()
 
     def test_analyze_area_with_multiple_location_types(self):
         """

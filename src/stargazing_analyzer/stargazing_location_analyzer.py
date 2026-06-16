@@ -175,6 +175,8 @@ class StargazingLocationAnalyzer:
         Returns:
             List of stargazing locations
         """
+        if isinstance(bbox, (tuple, list)):
+            bbox = LatLonBox(south=bbox[0], west=bbox[1], north=bbox[2], east=bbox[3])
         logger.info("Starting area analysis: (%s, %s, %s, %s)", bbox.south, bbox.west, bbox.north, bbox.east)
         if location_types is None:
             location_types = ["mountain_peak", "observatory", "viewpoint"]
