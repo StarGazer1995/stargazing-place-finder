@@ -6,9 +6,10 @@ All PostGIS and Overpass API calls are mocked so tests run
 fast, offline, and without external dependencies.
 """
 
+import sys
 import unittest
 from typing import Any, Dict
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from models import LatLonBox, NetworkError
 
@@ -220,6 +221,239 @@ class TestGisQueryService(unittest.TestCase):
             self.assertEqual(results, [0.0, 0.0])
 
 
+class TestOverpassBackendFallback(unittest.TestCase):
+    """Tests for OverpassBackend._request with multi-URL fallback + retry."""
+
+    def setUp(self):
+        self.req_patcher = patch("gis_service.backends.overpass_backend.requests.post")
+        self.time_patcher = patch("gis_service.backends.overpass_backend.time.sleep")
+        self.mock_post = self.req_patcher.start()
+        self.mock_sleep = self.time_patcher.start()
+        from gis_service.backends.overpass_backend import OverpassBackend
+        self.backend = OverpassBackend(
+            url="https://primary.example.com/api",
+            timeout=5,
+            max_retries=2,
+        )
+        self.assertEqual(len(self.backend.urls), 2)
+        self.assertEqual(self.backend.urls[0], "https://primary.example.com/api")
+
+    def tearDown(self):
+        self.req_patcher.stop()
+        self.time_patcher.stop()
+
+    def test_request_primary_success(self):
+        """Primary URL succeeds on first try → returns elements immediately."""
+        mock_resp = self.mock_post.return_value
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"elements": [{"id": 1, "tags": {"name": "Peak"}}]}
+
+        result = self.backend._request("[out:json];node;out;", "peak")
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["id"], 1)
+        # POST body format: data={"data": query}
+        _, kwargs = self.mock_post.call_args
+        self.assertEqual(kwargs["data"], {"data": "[out:json];node;out;"})
+        self.assertEqual(kwargs["timeout"], 5)
+
+    def test_request_primary_fails_fallback_succeeds(self):
+        """Primary URL fails (all retries) → fallback URL succeeds."""
+        mock_resp = self.mock_post.return_value
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"elements": [{"id": 2}]}
+
+        def side_effect(url, *args, **kwargs):
+            if "primary" in url:
+                from requests.exceptions import Timeout
+                raise Timeout("timed out")
+            return mock_resp
+
+        self.mock_post.side_effect = side_effect
+
+        result = self.backend._request("[out:json];node;out;", "town")
+        self.assertEqual(len(result), 1)
+        # 2 retries on primary (fail) + 1 call on fallback (success) = 3 total calls
+        self.assertEqual(self.mock_post.call_count, 3)
+
+    def test_request_all_urls_fail(self):
+        """All URLs fail → returns empty list."""
+        from requests.exceptions import HTTPError
+
+        mock_resp = self.mock_post.return_value
+        mock_resp.raise_for_status.side_effect = HTTPError("500 Server Error")
+
+        result = self.backend._request("[out:json];node;out;", "town")
+        self.assertEqual(result, [])
+        # 2 URLs × 2 retries = 4 calls
+        self.assertEqual(self.mock_post.call_count, 4)
+
+    def test_request_timeout_retry_then_success(self):
+        """First attempt times out, retry succeeds on primary URL."""
+        mock_resp = self.mock_post.return_value
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"elements": [{"id": 3}]}
+
+        call_count = [0]
+
+        def side_effect(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                from requests.exceptions import Timeout
+                raise Timeout("timed out")
+            return mock_resp
+
+        self.mock_post.side_effect = side_effect
+
+        result = self.backend._request("[out:json];node;out;", "peak")
+        self.assertEqual(len(result), 1)
+        # First attempt timeout + retry success = 2 calls
+        self.assertEqual(self.mock_post.call_count, 2)
+        # Sleep should have been called once for retry delay
+        self.mock_sleep.assert_called_once()
+
+    def test_request_network_error_fallback(self):
+        """NetworkError on primary → retries exhausted → fallback succeeds."""
+        class FakeNetworkError(Exception):
+            pass
+
+        from models import NetworkError as NetExc
+
+        mock_resp = self.mock_post.return_value
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"elements": [{"id": 4}]}
+
+        def side_effect(url, *args, **kwargs):
+            if "primary" in url:
+                raise NetExc("DNS failure")
+            return mock_resp
+
+        self.mock_post.side_effect = side_effect
+
+        result = self.backend._request("[out:json];node;out;", "viewpoint")
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["id"], 4)
+        # 2 retries on primary + 1 on fallback = 3 calls
+        self.assertEqual(self.mock_post.call_count, 3)
+
+
+class TestPostgisBackendElevation(unittest.TestCase):
+    """Tests for PostgisBackend batch elevation query + find_elevation_at_point."""
+
+    def setUp(self):
+        # psycopg2 is imported inside method bodies, so we inject a mock into sys.modules
+        self.psycopg2_patcher = patch.dict("sys.modules", {"psycopg2": MagicMock()})
+        self.psycopg2_patcher.start()
+        self.mock_psycopg2 = sys.modules["psycopg2"]
+        self.mock_conn = self.mock_psycopg2.connect.return_value
+        self.mock_cursor = self.mock_conn.cursor.return_value
+
+    def tearDown(self):
+        self.psycopg2_patcher.stop()
+
+    def test_batch_query_empty_coords(self):
+        """Empty coordinates → returns [] without calling psycopg2."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend._query_single_batch([], [])
+        self.assertEqual(result, [])
+        self.mock_psycopg2.connect.assert_not_called()
+
+    def test_batch_query_single_point(self):
+        """Single coordinate → VALUES query built and results parsed."""
+        from gis_service.backends.postgis_backend import PostgisBackend, ElevationResult
+
+        self.mock_cursor.fetchall.return_value = [
+            (1, 39.9, 116.4, "TestPt", 1200.0, "Mt Foo", 150.0, "natural=peak"),
+        ]
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        results = backend._query_single_batch([(39.9, 116.4)], ["TestPt"])
+        self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], ElevationResult)
+        self.assertEqual(results[0].latitude, 39.9)
+        self.assertEqual(results[0].longitude, 116.4)
+        self.assertEqual(results[0].elevation, 1200.0)
+        self.assertEqual(results[0].source_name, "Mt Foo")
+        self.assertEqual(results[0].feature_type, "natural=peak")
+
+        # Verify the VALUES query was used
+        call_sql = self.mock_cursor.execute.call_args[0][0]
+        self.assertIn("VALUES", call_sql)
+        self.assertIn("CROSS JOIN LATERAL", call_sql)
+
+    def test_batch_query_multiple_points(self):
+        """Multiple coordinates → all results returned in order."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = [
+            (1, 39.9, 116.4, "A", 500.0, "S1", 100.0, "natural=peak"),
+            (2, 40.0, 117.0, "B", None, "S2", 200.0, "unknown"),
+        ]
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        results = backend._query_single_batch([(39.9, 116.4), (40.0, 117.0)], ["A", "B"])
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].elevation, 500.0)
+        self.assertIsNone(results[1].elevation)
+        self.assertEqual(results[1].feature_type, "unknown")
+
+    def test_batch_query_psycopg2_parameters(self):
+        """Verify SQL params match VALUES placeholders."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = []
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        backend._query_single_batch([(39.9, 116.4), (40.0, 117.0)], ["P1", "P2"])
+
+        call_args = self.mock_cursor.execute.call_args
+        sql, params = call_args[0]
+        self.assertIn("%s::float", sql)
+        self.assertIn("%s::text", sql)
+        self.assertEqual(params, [39.9, 116.4, "P1", 40.0, 117.0, "P2"])
+
+    def test_batch_query_propagates_exception(self):
+        """DB error in _query_single_batch raises DataError."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+        from models import DataError
+
+        self.mock_cursor.execute.side_effect = Exception("connection lost")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        with self.assertRaises(DataError):
+            backend._query_single_batch([(39.9, 116.4)], ["P1"])
+
+        # cursor and conn should still be closed
+        self.mock_cursor.close.assert_called_once()
+        self.mock_conn.close.assert_called_once()
+
+    def test_find_elevation_at_point_returns_value(self):
+        """find_elevation_at_point returns elevation from first matching row."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchone.return_value = (1200.0,)
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.find_elevation_at_point(39.9, 116.4)
+        self.assertEqual(result, 1200.0)
+
+        # Verify the optimized ORDER BY (way <-> ... not ST_Transform(way, 4326) <-> ...)
+        call_sql = self.mock_cursor.execute.call_args[0][0]
+        self.assertIn("ORDER BY way <->", call_sql)
+        self.assertNotIn("ST_Transform(way, 4326) <->", call_sql)
+
+    def test_find_elevation_at_point_returns_none(self):
+        """When no row found, returns None."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchone.return_value = None
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.find_elevation_at_point(39.9, 116.4)
+        self.assertIsNone(result)
+
+
 class TestPostgisBackendFormatRow(unittest.TestCase):
     """Direct tests for PostgisBackend._format_location_row."""
 
@@ -250,4 +484,29 @@ class TestPostgisBackendFormatRow(unittest.TestCase):
         self.assertEqual(result["lat"], 39.9)
         self.assertEqual(result["lon"], 116.4)
         self.assertEqual(result["tags"]["name"], "Test Peak")
+        self.assertEqual(result["tags"]["natural"], "peak")
+
+    def test_format_location_row_with_ele_tag(self):
+        """_format_location_row captures ele from column index 13."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={})
+        row = (
+            67890,  # osm_id
+            "High Peak",  # name
+            117.0,  # longitude
+            40.0,  # latitude
+            None,  # amenity
+            None,  # tourism
+            None,  # shop
+            None,  # highway
+            None,  # place
+            None,  # man_made
+            None,  # tower:type
+            None,  # leisure
+            "peak",  # natural
+            "2500",  # ele
+        )
+        result = backend._format_location_row(row)
+        self.assertEqual(result["tags"]["ele"], "2500")
         self.assertEqual(result["tags"]["natural"], "peak")
