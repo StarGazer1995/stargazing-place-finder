@@ -8,7 +8,6 @@ and sorting by light pollution.
 """
 
 import math
-import time
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from models import GeoCoordinate, Observatory, Peak, TownInfo, Viewpoint
