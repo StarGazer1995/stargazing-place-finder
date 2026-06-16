@@ -192,5 +192,37 @@ class TestGisQueryService(unittest.TestCase):
             self.assertEqual(elev, 0.0)
 
 
+class TestPostgisBackendFormatRow(unittest.TestCase):
+    """Direct tests for PostgisBackend._format_location_row."""
+
+    def test_format_location_row_returns_correct_dict(self):
+        """_format_location_row formats a SQL row into an OSM-compatible dict."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={})
+        row = (
+            12345,  # osm_id
+            "Test Peak",  # name
+            116.4,  # longitude
+            39.9,  # latitude
+            None,  # amenity
+            None,  # tourism
+            None,  # shop
+            None,  # highway
+            None,  # place
+            None,  # man_made
+            None,  # tower:type
+            None,  # leisure
+            "peak",  # natural
+        )
+        result = backend._format_location_row(row)
+        self.assertEqual(result["type"], "node")
+        self.assertEqual(result["id"], 12345)
+        self.assertEqual(result["lat"], 39.9)
+        self.assertEqual(result["lon"], 116.4)
+        self.assertEqual(result["tags"]["name"], "Test Peak")
+        self.assertEqual(result["tags"]["natural"], "peak")
+
+
 if __name__ == "__main__":
     unittest.main(argv=sys.argv[:1])

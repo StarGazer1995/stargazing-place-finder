@@ -5,12 +5,12 @@ GIS 服务统一配置模块
 
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from models import ConfigError
 
 
-def load_db_config(path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def load_db_config(path: Optional[str] = None) -> Optional[Dict[str, object]]:
     """
     从文件路径（JSON 或 TOML）加载数据库配置。
 

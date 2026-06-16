@@ -8,7 +8,7 @@ Overpass API 查询后端封装。
 import logging
 import random
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import requests
 
@@ -49,7 +49,7 @@ class OverpassBackend:
         lat_max: float,
         location_type: str,
         filters: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, object]]:
         """
         在 bounding box 内查询 OSM 位置。
 
@@ -73,7 +73,7 @@ class OverpassBackend:
 
     # ── Overpass QL 查询构造 ──────────────────────────────────
 
-    def _query_peaks(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
+    def _query_peaks(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, object]]:
         q = (
             "[out:json][timeout:25];\n"
             f'(node["natural"="peak"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
@@ -82,7 +82,7 @@ class OverpassBackend:
         )
         return self._request(q, "peaks")
 
-    def _query_towns(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
+    def _query_towns(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, object]]:
         q = (
             "[out:json][timeout:25];\n"
             f'(node["place"~"^(city|town|village|hamlet)$"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
@@ -92,7 +92,7 @@ class OverpassBackend:
         )
         return self._request(q, "towns")
 
-    def _query_observatories(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
+    def _query_observatories(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, object]]:
         q = (
             "[out:json][timeout:25];\n"
             f'(node["man_made"="observatory"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
@@ -106,7 +106,7 @@ class OverpassBackend:
         )
         return self._request(q, "observatories")
 
-    def _query_viewpoints(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
+    def _query_viewpoints(self, bbox: Tuple[float, float, float, float]) -> List[Dict[str, object]]:
         q = (
             "[out:json][timeout:25];\n"
             f'(node["tourism"="viewpoint"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});\n'
@@ -124,7 +124,7 @@ class OverpassBackend:
 
     # ── 请求执行 ──────────────────────────────────────────────
 
-    def _request(self, query: str, data_type: str) -> List[Dict[str, Any]]:
+    def _request(self, query: str, data_type: str) -> List[Dict[str, object]]:
         for attempt in range(self.max_retries):
             try:
                 if attempt > 0:

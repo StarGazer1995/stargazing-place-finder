@@ -7,7 +7,7 @@ GisQueryService — 统一的 GIS 查询服务入口。
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from config import StargazingConfig
 from models import LatLonBox
@@ -38,7 +38,7 @@ class GisQueryService:
 
     def __init__(
         self,
-        db_config: Optional[Dict[str, Any]] = None,
+        db_config: Optional[Dict[str, object]] = None,
         db_config_path: Optional[str] = None,
         enable_cache: bool = True,
         cache_expiry_hours: int = 24,
@@ -78,7 +78,7 @@ class GisQueryService:
         bbox: LatLonBox,
         location_type: str = "peak",
         filters: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, object]]:
         """
         在 bbox(south, west, north, east) 内查询位置。
 
@@ -115,19 +115,19 @@ class GisQueryService:
 
         return results
 
-    def query_towns(self, bbox: LatLonBox) -> List[Dict[str, Any]]:
+    def query_towns(self, bbox: LatLonBox) -> List[Dict[str, object]]:
         """查询城镇。"""
         return self.query_locations(bbox, "town")
 
-    def query_peaks(self, bbox: LatLonBox) -> List[Dict[str, Any]]:
+    def query_peaks(self, bbox: LatLonBox) -> List[Dict[str, object]]:
         """查询山峰。"""
         return self.query_locations(bbox, "peak")
 
-    def query_observatories(self, bbox: LatLonBox) -> List[Dict[str, Any]]:
+    def query_observatories(self, bbox: LatLonBox) -> List[Dict[str, object]]:
         """查询天文台。"""
         return self.query_locations(bbox, "observatory")
 
-    def query_viewpoints(self, bbox: LatLonBox) -> List[Dict[str, Any]]:
+    def query_viewpoints(self, bbox: LatLonBox) -> List[Dict[str, object]]:
         """查询观景点。"""
         return self.query_locations(bbox, "viewpoint")
 
@@ -139,7 +139,7 @@ class GisQueryService:
         lon: float,
         radius_km: float = 10.0,
         network_type: str = "drive",
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, object]:
         """
         查询坐标点的道路连通性。
 
@@ -177,7 +177,7 @@ class GisQueryService:
         self,
         lat: float,
         lon: float,
-        osm_tags: Optional[Dict[str, Any]] = None,
+        osm_tags: Optional[Dict[str, str]] = None,
     ) -> float:
         """
         查询坐标海拔（含 fallback 链）。
@@ -190,7 +190,7 @@ class GisQueryService:
     def batch_find_elevations(
         self,
         coordinates: List[Tuple[float, float]],
-        osm_tags_list: Optional[List[Optional[Dict[str, Any]]]] = None,
+        osm_tags_list: Optional[List[Optional[Dict[str, str]]]] = None,
     ) -> List[float]:
         """批量查询海拔。"""
         return self._elevation.batch_find_elevations(coordinates, osm_tags_list)
@@ -205,7 +205,7 @@ class GisQueryService:
 
     # ── 统计 ──────────────────────────────────────────────────
 
-    def get_elevation_statistics(self) -> Dict[str, Any]:
+    def get_elevation_statistics(self) -> Dict[str, object]:
         """返回数据库海拔统计信息（仅 PostGIS 可用时）。"""
         if self._postgis:
             return self._postgis.get_elevation_statistics()

@@ -7,7 +7,7 @@ elevation_batch_query.py 中的 BatchElevationQuery 统一到此模块。
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from models import DataError, ElevationResult, NetworkError
 
@@ -22,7 +22,7 @@ class PostgisBackend:
     允许上层在 PostGIS 与 Overpass 间透明切换。
     """
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, object]):
         """
         Args:
             config: psycopg2 连接参数字典 (host, port, database, user, password)
@@ -39,7 +39,7 @@ class PostgisBackend:
         lat_max: float,
         location_type: Optional[str] = None,
         filters: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, object]]:
         """
         在 bounding box 内查询 OSM 位置，返回 Overpass 兼容的 dict 列表。
 
@@ -97,9 +97,9 @@ class PostgisBackend:
             return base + " AND " + " AND ".join(conditions)
         return base
 
-    def _format_location_row(self, row: tuple) -> Dict[str, Any]:
+    def _format_location_row(self, row: tuple) -> Dict[str, object]:
         """将 SQL 查询行格式化为 Overpass 兼容 dict。"""
-        elem: Dict[str, Any] = {"type": "node", "id": row[0], "lat": row[3], "lon": row[2], "tags": {}}
+        elem: Dict[str, object] = {"type": "node", "id": row[0], "lat": row[3], "lon": row[2], "tags": {}}
         tag_mappings = [
             ("name", 1),
             ("amenity", 4),
@@ -290,7 +290,7 @@ class PostgisBackend:
         lon: float,
         radius_km: float = 10.0,
         network_type: str = "drive",
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, object]:
         """
         使用 PostGIS kNN 算子查询最近道路，替代 OSMnx HTTP 下载。
 
@@ -358,7 +358,7 @@ class PostgisBackend:
             cursor.close()
             conn.close()
 
-    def _build_road_connectivity_result(self, row: Optional[tuple], radius_km: float) -> Dict[str, Any]:
+    def _build_road_connectivity_result(self, row: Optional[tuple], radius_km: float) -> Dict[str, object]:
         """将 kNN 查询行格式化为道路连通性结果。"""
         if row is None:
             return {
@@ -382,7 +382,7 @@ class PostgisBackend:
 
     # ── 统计信息 ──────────────────────────────────────────────
 
-    def get_elevation_statistics(self) -> Dict[str, Any]:
+    def get_elevation_statistics(self) -> Dict[str, object]:
         """返回 OSM 中海拔数据的统计信息。"""
         import psycopg2
 

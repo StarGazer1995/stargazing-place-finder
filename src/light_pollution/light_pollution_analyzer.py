@@ -13,7 +13,7 @@ import logging
 import math
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 
@@ -492,7 +492,7 @@ class LightPollutionAnalyzer:
                 }
         return results
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> Dict[str, object]:
         """Return metadata about the loaded GeoTIFF."""
         if self._src is None:
             return {"backend": "geotiff", "error": "not initialised"}
