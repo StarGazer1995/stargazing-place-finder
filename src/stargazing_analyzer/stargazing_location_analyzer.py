@@ -25,6 +25,8 @@ from models import (
     GeoCoordinate,
     GeoError,
     LatLonBox,
+    LightPollutionInfo,
+    Location,
     NetworkError,
     NoDataError,
     StargazingLocation,
@@ -211,7 +213,7 @@ class StargazingLocationAnalyzer:
         bbox: LatLonBox,
         max_locations: int,
         location_types: List[str],
-    ) -> List[Any]:
+    ) -> List[Location]:
         """Search for locations by type and collect results."""
         all_locations = []
         for location_type in location_types:
@@ -240,7 +242,7 @@ class StargazingLocationAnalyzer:
         logger.info("Total %s locations found, starting detailed analysis...", len(all_locations))
         return all_locations
 
-    def _fetch_towns_data(self, bbox: LatLonBox) -> List[Any]:
+    def _fetch_towns_data(self, bbox: LatLonBox) -> List[Dict]:
         """Fetch towns data for town density computation (optional)."""
         try:
             return self.mountain_finder.get_towns_from_overpass(bbox)
@@ -249,11 +251,11 @@ class StargazingLocationAnalyzer:
 
     def _batch_light_pollution(
         self,
-        locations: List[Any],
+        locations: List[Location],
         include_light_pollution: bool,
-    ) -> Dict[Tuple[float, float], Any]:
+    ) -> Dict[Tuple[float, float], LightPollutionInfo]:
         """Batch light pollution analysis: one GeoTIFF read instead of N per-point reads."""
-        batch: Dict[Tuple[float, float], Any] = {}
+        batch: Dict[Tuple[float, float], LightPollutionInfo] = {}
         if not include_light_pollution or not self.light_pollution_analyzer:
             return batch
         try:
@@ -269,9 +271,9 @@ class StargazingLocationAnalyzer:
 
     def _parallel_analyze_locations(
         self,
-        locations: List[Any],
-        towns_data: List[Any],
-        light_pollution_batch: Dict[Tuple[float, float], Any],
+        locations: List[Location],
+        towns_data: List[Dict],
+        light_pollution_batch: Dict[Tuple[float, float], LightPollutionInfo],
         include_road_connectivity: bool,
         network_type: str,
     ) -> List[StargazingLocation]:

@@ -9,9 +9,12 @@ and sorting by light pollution.
 
 import math
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from models import GeoCoordinate, Observatory, Peak, TownInfo, Viewpoint
+
+if TYPE_CHECKING:
+    from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 
 
 def extract_coordinates(data: Dict) -> Optional[GeoCoordinate]:
@@ -111,7 +114,7 @@ def find_nearest_town(
 
 def sort_places_by_lightpollution(
     places: List[Dict],
-    light_pollution_analyzer: Any,
+    light_pollution_analyzer: "LightPollutionAnalyzer",
 ) -> List[Dict]:
     """
     Sort places by light pollution level (ascending brightness).
