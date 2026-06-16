@@ -103,8 +103,8 @@ class RoadAccessInfoCache:
                 # Delete corrupted cache file
                 try:
                     cache_file.unlink()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("Failed to delete corrupted cache file %s: %s", cache_file, e)
 
         return None
 
