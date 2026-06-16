@@ -340,11 +340,36 @@ class StargazingLocationAnalyzer:
         """
         Process a single location for comprehensive analysis.
         Designed for parallel execution via ThreadPoolExecutor.
+        Delegates to explicit pipeline stages: Build → Enrich → Score.
         """
         logger.info("Analyzing location %s/%s: %s (%s)", index, total, location.name, location.location_type)
 
-        # Create stargazing location object
-        stargazing_location = StargazingLocation(
+        # Stage 1 — Build the stargazing location object from the raw location
+        stargazing_location = self._build_stargazing_object(location)
+
+        # Stage 2 — Enrich with town density, light pollution, and road data
+        self._enrich_town_density(stargazing_location, location, towns_data)
+        self._enrich_light_pollution(stargazing_location, location, light_pollution_batch)
+        self._enrich_road_connectivity(
+            stargazing_location,
+            location,
+            include_road_connectivity,
+            network_type,
+        )
+
+        # Stage 3 — Compute final scores, recommendation level, and notes
+        self._finalize_scores(stargazing_location)
+
+        return stargazing_location
+
+    # ------------------------------------------------------------------
+    # Pipeline sub-stages (used by _process_one_location)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_stargazing_object(location: Location) -> StargazingLocation:
+        """Build a StargazingLocation from a raw Location (Stage 1)."""
+        return StargazingLocation(
             name=location.name,
             latitude=location.latitude,
             longitude=location.longitude,
@@ -357,43 +382,66 @@ class StargazingLocationAnalyzer:
             description=location.description,
         )
 
-        # Compute nearby town density
+    def _enrich_town_density(
+        self,
+        stargazing_loc: StargazingLocation,
+        raw_location: Location,
+        towns_data: List[Dict],
+    ) -> None:
+        """Enrich with nearby town count (Stage 2a)."""
         if towns_data:
-            stargazing_location.nearby_town_count = self._count_nearby_towns(
-                GeoCoordinate(latitude=location.latitude, longitude=location.longitude), towns_data, radius_km=20.0
+            stargazing_loc.nearby_town_count = self._count_nearby_towns(
+                GeoCoordinate(latitude=raw_location.latitude, longitude=raw_location.longitude),
+                towns_data,
+                radius_km=20.0,
             )
 
-        # Light pollution analysis (from pre-batched results)
-        if light_pollution_batch:
-            light_info = light_pollution_batch.get((location.latitude, location.longitude))
-            if light_info:
-                stargazing_location.light_pollution_rgb = light_info.rgb
-                stargazing_location.light_pollution_hex = light_info.hex
-                stargazing_location.light_pollution_brightness = light_info.brightness
-                stargazing_location.light_pollution_level = light_info.pollution_level
-                stargazing_location.light_pollution_bortle = light_info.bortle
-                stargazing_location.light_pollution_overlay = light_info.overlay_name
+    def _enrich_light_pollution(
+        self,
+        stargazing_loc: StargazingLocation,
+        raw_location: Location,
+        light_pollution_batch: Dict[Tuple[float, float], LightPollutionInfo],
+    ) -> None:
+        """Enrich with light pollution data from pre-batched results (Stage 2b)."""
+        if not light_pollution_batch:
+            return
+        light_info = light_pollution_batch.get((raw_location.latitude, raw_location.longitude))
+        if light_info:
+            stargazing_loc.light_pollution_rgb = light_info.rgb
+            stargazing_loc.light_pollution_hex = light_info.hex
+            stargazing_loc.light_pollution_brightness = light_info.brightness
+            stargazing_loc.light_pollution_level = light_info.pollution_level
+            stargazing_loc.light_pollution_bortle = light_info.bortle
+            stargazing_loc.light_pollution_overlay = light_info.overlay_name
 
-        # Road connectivity analysis
-        if include_road_connectivity:
-            try:
-                road_info = self.road_checker.get_accessibility_info(
-                    GeoCoordinate(latitude=location.latitude, longitude=location.longitude), network_type=network_type
-                )
-                stargazing_location.road_accessible = road_info["accessible"]
-                stargazing_location.distance_to_road_km = road_info["distance_to_road_km"]
-                stargazing_location.road_network_type = network_type
-                stargazing_location.road_check_error = road_info.get("error")
-            except (NetworkError, NoDataError) as e:
-                logger.error("  Road connectivity analysis failed: %s", e)
-                stargazing_location.road_check_error = str(e)
+    def _enrich_road_connectivity(
+        self,
+        stargazing_loc: StargazingLocation,
+        raw_location: Location,
+        include_road_connectivity: bool,
+        network_type: str,
+    ) -> None:
+        """Enrich with road accessibility info (Stage 2c)."""
+        if not include_road_connectivity:
+            return
+        try:
+            road_info = self.road_checker.get_accessibility_info(
+                GeoCoordinate(latitude=raw_location.latitude, longitude=raw_location.longitude),
+                network_type=network_type,
+            )
+            stargazing_loc.road_accessible = road_info["accessible"]
+            stargazing_loc.distance_to_road_km = road_info["distance_to_road_km"]
+            stargazing_loc.road_network_type = network_type
+            stargazing_loc.road_check_error = road_info.get("error")
+        except (NetworkError, NoDataError) as e:
+            logger.error("  Road connectivity analysis failed: %s", e)
+            stargazing_loc.road_check_error = str(e)
 
-        # Calculate comprehensive score
-        stargazing_location.stargazing_score = self._calculate_stargazing_score(stargazing_location)
-        stargazing_location.recommendation_level = self._get_recommendation_level_with_warning(stargazing_location)
-        stargazing_location.analysis_notes = self._generate_analysis_notes(stargazing_location)
-
-        return stargazing_location
+    def _finalize_scores(self, stargazing_loc: StargazingLocation) -> None:
+        """Compute final score, recommendation level, and analysis notes (Stage 3)."""
+        stargazing_loc.stargazing_score = self._calculate_stargazing_score(stargazing_loc)
+        stargazing_loc.recommendation_level = self._get_recommendation_level_with_warning(stargazing_loc)
+        stargazing_loc.analysis_notes = self._generate_analysis_notes(stargazing_loc)
 
     def _count_nearby_towns(self, point: GeoCoordinate, towns: List[Dict], radius_km: float = 20.0) -> int:
         """Count additional towns within a given radius (excluding the nearest).
