@@ -231,3 +231,11 @@ class TestCacheAndUtils:
             assert len(data["peaks"]) == 2
             assert data["peaks"][0]["name"] == "P1"
             os.unlink(f.name)
+
+    def test_resolve_elevation_with_invalid_ele_tag(self, finder):
+        """_resolve_elevation logs warning on invalid ele tag and falls through to gis_service."""
+        point = GeoCoordinate(latitude=40.0, longitude=116.0)
+        tags = {"ele": "not_a_number", "name": "Test"}
+        result = finder._resolve_elevation(tags, point)
+        assert result == 500.0  # Falls through to mocked gis_service.find_elevation
+        finder.gis_service.find_elevation.assert_called_once_with(40.0, 116.0)

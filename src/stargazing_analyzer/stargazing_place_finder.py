@@ -148,8 +148,8 @@ class StarGazingPlaceFinder:
         if "ele" in tags:
             try:
                 return float(tags["ele"])
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.warning("Invalid elevation value in tags: %s", e)
         elevation = self.gis_service.find_elevation(point.latitude, point.longitude)
         return elevation if elevation is not None else 0.0
 
