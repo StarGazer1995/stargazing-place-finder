@@ -11,7 +11,7 @@ import unittest
 from typing import Any, Dict
 from unittest.mock import patch
 
-from models import LatLonBox
+from models import LatLonBox, NetworkError
 
 
 class TestGisQueryService(unittest.TestCase):
@@ -190,6 +190,35 @@ class TestGisQueryService(unittest.TestCase):
             service = self._make_service(db_config=None)
             elev = service.find_elevation(39.9, 116.4)
             self.assertEqual(elev, 0.0)
+
+    def test_find_elevation_invalid_osm_tags(self):
+        """Invalid ele tag logs warning and falls through."""
+        with patch("gis_service.backends.elevation_backend.requests.get") as mock_get:
+            mock_get.side_effect = Exception("API unavailable")
+            service = self._make_service(db_config=None)
+            elev = service.find_elevation(39.9, 116.4, osm_tags={"ele": "not_a_number"})
+            self.assertEqual(elev, 0.0)
+
+    def test_batch_find_elevations_invalid_osm_tags(self):
+        """Invalid ele tag in batch logs warning and falls through."""
+        with patch("gis_service.backends.elevation_backend.requests.get") as mock_get:
+            mock_get.side_effect = NetworkError("API unavailable")
+            service = self._make_service(db_config=None)
+            results = service.batch_find_elevations(
+                [(39.9, 116.4), (40.0, 116.5)],
+                osm_tags_list=[{"ele": "bad"}, {"ele": "invalid"}],
+            )
+            self.assertEqual(results, [0.0, 0.0])
+
+    def test_batch_find_elevations_api_failure(self):
+        """Open-Elevation API failure in batch logs debug and returns default."""
+        with patch("gis_service.backends.elevation_backend.requests.get") as mock_get:
+            mock_get.side_effect = NetworkError("API unavailable")
+            service = self._make_service(db_config=None)
+            results = service.batch_find_elevations(
+                [(39.9, 116.4), (40.0, 116.5)],
+            )
+            self.assertEqual(results, [0.0, 0.0])
 
 
 class TestPostgisBackendFormatRow(unittest.TestCase):
