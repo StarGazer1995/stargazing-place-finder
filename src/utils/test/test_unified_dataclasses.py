@@ -11,6 +11,7 @@ import sys
 # 添加 src 目录到Python路径以加载顶层包
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
+import pytest
 from models import Location, Observatory, Peak, Viewpoint
 
 
@@ -185,8 +186,48 @@ def test_type_checking_methods():
         print()
 
 
-if __name__ == "__main__":
-    test_unified_location_class()
-    test_backward_compatibility()
-    test_type_checking_methods()
-    print("All tests completed!")
+# ── Parametrized tests ────────────────────────────────────────────
+@pytest.mark.parametrize(
+    "name, lat, lon, elevation, loc_type, expected_type_check",
+    [
+        ("Mountain", 40.0, 116.0, 1500.0, "mountain_peak", "is_mountain_peak"),
+        ("Obs", 39.0, 115.0, 1200.0, "observatory", "is_observatory"),
+        ("View", 38.0, 114.0, 800.0, "viewpoint", "is_viewpoint"),
+    ],
+)
+def test_location_type_dispatch(name, lat, lon, elevation, loc_type, expected_type_check):
+    """Verify ``Location`` type-checking methods dispatch correctly."""
+    loc = Location(
+        name=name,
+        latitude=lat,
+        longitude=lon,
+        elevation=elevation,
+        distance_to_nearest_town=10.0,
+        nearest_town_name="Town",
+        location_type=loc_type,
+    )
+    # The expected method should return True
+    assert getattr(loc, expected_type_check)()
+    # The other two methods should return False
+    other_methods = [m for m in ("is_mountain_peak", "is_observatory", "is_viewpoint") if m != expected_type_check]
+    for method in other_methods:
+        assert not getattr(loc, method)()
+
+
+@pytest.mark.parametrize(
+    "alias_cls, loc_type",
+    [
+        (Peak, "mountain_peak"),
+        (Observatory, "observatory"),
+        (Viewpoint, "viewpoint"),
+    ],
+)
+def test_backward_compatible_aliases(alias_cls, loc_type):
+    """Verify backward-compatible aliases produce valid ``Location`` instances."""
+    loc = alias_cls(name="Test", latitude=40.0, longitude=116.0, elevation=1000.0,
+                    distance_to_nearest_town=5.0, nearest_town_name="Town",
+                    location_type=loc_type)
+    assert isinstance(loc, Location)
+    assert loc.location_type == loc_type
+
+

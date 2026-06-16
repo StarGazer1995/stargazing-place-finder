@@ -253,5 +253,3 @@ class TestPostgisBackendFormatRow(unittest.TestCase):
         self.assertEqual(result["tags"]["natural"], "peak")
 
 
-if __name__ == "__main__":
-    unittest.main(argv=sys.argv[:1])
