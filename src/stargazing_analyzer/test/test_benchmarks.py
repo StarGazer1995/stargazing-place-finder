@@ -12,7 +12,7 @@ Dependencies IO-bound (road network downloads, GeoTIFF reads) are mocked so
 benchmarks measure CPU-bound logic, not network latency.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
