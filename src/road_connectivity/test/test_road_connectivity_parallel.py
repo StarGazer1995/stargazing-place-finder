@@ -9,7 +9,7 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from models import GeoCoordinate
+from models import GeoCoordinate, LatLonBox, NetworkError
 
 
 class TestBatchCheckAccessibilityParallel(unittest.TestCase):
@@ -174,3 +174,70 @@ class TestCheckViaPostgis(unittest.TestCase):
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
         result = checker._check_via_postgis(GeoCoordinate(latitude=39.9, longitude=116.4))
         self.assertIsNone(result)
+
+
+class TestPreloadNetwork(unittest.TestCase):
+    """Test preload_network_for_bbox and shared graph in _get_road_network."""
+
+    def setUp(self):
+        self.ox_patcher = patch("road_connectivity.road_connectivity_checker.ox.graph_from_bbox")
+        self.mock_ox = self.ox_patcher.start()
+        self.addCleanup(self.ox_patcher.stop)
+
+    def _make_checker(self):
+        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+
+        return RoadConnectivityChecker(search_radius_km=10.0)
+
+    def test_preload_with_tuple_bbox(self):
+        """Tuple bbox (south, west, north, east) → success."""
+        mock_graph = MagicMock()
+        mock_graph.nodes.return_value = [1, 2, 3]
+        self.mock_ox.return_value = mock_graph
+
+        checker = self._make_checker()
+        checker.preload_network_for_bbox((39.0, 115.0, 41.0, 117.0))
+
+        self.mock_ox.assert_called_once()
+        _, kwargs = self.mock_ox.call_args
+        self.assertEqual(kwargs["bbox"], (115.0, 39.0, 117.0, 41.0))
+        self.assertEqual(kwargs["network_type"], "drive")
+        self.assertIs(checker._shared_graph, mock_graph)
+
+    def test_preload_with_latlonbox(self):
+        """LatLonBox object → unpacks .south/.west/.north/.east."""
+        mock_graph = MagicMock()
+        mock_graph.nodes.return_value = [1, 2]
+        self.mock_ox.return_value = mock_graph
+
+        checker = self._make_checker()
+        checker.preload_network_for_bbox(LatLonBox(south=39.0, west=115.0, north=41.0, east=117.0))
+
+        self.mock_ox.assert_called_once()
+        _, kwargs = self.mock_ox.call_args
+        self.assertEqual(kwargs["bbox"], (115.0, 39.0, 117.0, 41.0))
+        self.assertIs(checker._shared_graph, mock_graph)
+
+    def test_preload_with_network_error(self):
+        """ox.graph_from_bbox raises NetworkError → _shared_graph set to None."""
+        self.mock_ox.side_effect = NetworkError("OSM timeout")
+
+        checker = self._make_checker()
+        checker.preload_network_for_bbox((39.0, 115.0, 41.0, 117.0))
+
+        self.mock_ox.assert_called_once()
+        self.assertIsNone(checker._shared_graph)
+
+    def test_get_road_network_uses_shared_graph(self):
+        """_get_road_network returns _shared_graph when it is set."""
+        mock_graph = MagicMock()
+        checker = self._make_checker()
+        checker._shared_graph = mock_graph
+
+        result = checker._get_road_network(
+            GeoCoordinate(latitude=39.9, longitude=116.4),
+            network_type="drive",
+        )
+        self.assertIs(result, mock_graph)
+        # ox.graph_from_bbox should NOT be called when shared graph is used
+        self.mock_ox.assert_not_called()
