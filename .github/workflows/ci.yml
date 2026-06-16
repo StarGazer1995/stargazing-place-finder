@@ -72,7 +72,18 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Run test suite
-        run: uv run python src/test/run_src_tests.py
+      - name: Run test suite with coverage
+        run: uv run pytest --cov=src --cov-report=xml --cov-report=term --no-header
         env:
           FAST_TESTS: "1"  # Skip slow geospatial network queries
+
+      - name: Fetch base branch for diff coverage (PR only)
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} --depth=1
+
+      - name: Check new code coverage with diff-cover
+        if: github.event_name == 'pull_request'
+        run: |
+          uv pip install diff-cover -q
+          uv run diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} --fail-under=100
+          echo "✅ New/modified lines have 100% test coverage!"
