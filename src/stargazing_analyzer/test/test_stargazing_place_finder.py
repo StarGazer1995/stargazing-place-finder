@@ -304,12 +304,12 @@ class TestElevationPreFetch:
     def test_trigger_batch_when_missing_ele(self, mock_gis_with_batch):
         """When some locations lack 'ele' tag, batch_find_elevations is called."""
         locations = [
-            self._build_location_row(40.0, 116.0, "P1", ele=1200),   # has ele → skip
-            self._build_location_row(40.1, 116.1, "P2", ele=None),    # no ele → batch
+            self._build_location_row(40.0, 116.0, "P1", ele=1200),  # has ele → skip
+            self._build_location_row(40.1, 116.1, "P2", ele=None),  # no ele → batch
         ]
         mock_gis_with_batch.query_locations.side_effect = [
             locations,  # peak query
-            [],         # town query (empty)
+            [],  # town query (empty)
         ]
         mock_gis_with_batch.batch_find_elevations.return_value = [1500.0]
 

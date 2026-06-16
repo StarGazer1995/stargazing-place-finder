@@ -230,6 +230,7 @@ class TestOverpassBackendFallback(unittest.TestCase):
         self.mock_post = self.req_patcher.start()
         self.mock_sleep = self.time_patcher.start()
         from gis_service.backends.overpass_backend import OverpassBackend
+
         self.backend = OverpassBackend(
             url="https://primary.example.com/api",
             timeout=5,
@@ -265,6 +266,7 @@ class TestOverpassBackendFallback(unittest.TestCase):
         def side_effect(url, *args, **kwargs):
             if "primary" in url:
                 from requests.exceptions import Timeout
+
                 raise Timeout("timed out")
             return mock_resp
 
@@ -299,6 +301,7 @@ class TestOverpassBackendFallback(unittest.TestCase):
             call_count[0] += 1
             if call_count[0] == 1:
                 from requests.exceptions import Timeout
+
                 raise Timeout("timed out")
             return mock_resp
 
@@ -313,6 +316,7 @@ class TestOverpassBackendFallback(unittest.TestCase):
 
     def test_request_network_error_fallback(self):
         """NetworkError on primary → retries exhausted → fallback succeeds."""
+
         class FakeNetworkError(Exception):
             pass
 
@@ -361,7 +365,7 @@ class TestPostgisBackendElevation(unittest.TestCase):
 
     def test_batch_query_single_point(self):
         """Single coordinate → VALUES query built and results parsed."""
-        from gis_service.backends.postgis_backend import PostgisBackend, ElevationResult
+        from gis_service.backends.postgis_backend import ElevationResult, PostgisBackend
 
         self.mock_cursor.fetchall.return_value = [
             (1, 39.9, 116.4, "TestPt", 1200.0, "Mt Foo", 150.0, "natural=peak"),
