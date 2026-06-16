@@ -251,5 +251,3 @@ class TestPostgisBackendFormatRow(unittest.TestCase):
         self.assertEqual(result["lon"], 116.4)
         self.assertEqual(result["tags"]["name"], "Test Peak")
         self.assertEqual(result["tags"]["natural"], "peak")
-
-

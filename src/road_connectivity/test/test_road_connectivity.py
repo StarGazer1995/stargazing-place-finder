@@ -228,5 +228,3 @@ def run_all_tests():
     except Exception as e:
         print(f"\n❌ Error occurred during testing: {e}")
         print("Please check if dependencies are correctly installed")
-
-

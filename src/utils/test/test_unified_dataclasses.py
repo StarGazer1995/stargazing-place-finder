@@ -224,10 +224,14 @@ def test_location_type_dispatch(name, lat, lon, elevation, loc_type, expected_ty
 )
 def test_backward_compatible_aliases(alias_cls, loc_type):
     """Verify backward-compatible aliases produce valid ``Location`` instances."""
-    loc = alias_cls(name="Test", latitude=40.0, longitude=116.0, elevation=1000.0,
-                    distance_to_nearest_town=5.0, nearest_town_name="Town",
-                    location_type=loc_type)
+    loc = alias_cls(
+        name="Test",
+        latitude=40.0,
+        longitude=116.0,
+        elevation=1000.0,
+        distance_to_nearest_town=5.0,
+        nearest_town_name="Town",
+        location_type=loc_type,
+    )
     assert isinstance(loc, Location)
     assert loc.location_type == loc_type
-
-

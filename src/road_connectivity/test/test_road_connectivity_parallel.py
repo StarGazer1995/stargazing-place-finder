@@ -175,5 +175,3 @@ class TestCheckViaPostgis(unittest.TestCase):
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
         result = checker._check_via_postgis(GeoCoordinate(latitude=39.9, longitude=116.4))
         self.assertIsNone(result)
-
-

@@ -162,9 +162,7 @@ class TestLightPollutionSorting(unittest.TestCase):
 def test_sort_places_parametrized(places, analyzer, expected_len):
     """Verify ``sort_places_by_lightpollution`` handles diverse inputs as a standalone function."""
     if analyzer is not None and places:
-        analyzer.batch_analyze_coordinates.return_value = [
-            {"index": 0, "pollution_info": Mock(brightness=0.5)}
-        ]
+        analyzer.batch_analyze_coordinates.return_value = [{"index": 0, "pollution_info": Mock(brightness=0.5)}]
     result = sort_places_by_lightpollution(places, analyzer)
     assert len(result or []) == expected_len
 
@@ -205,5 +203,3 @@ def run_light_pollution_tests():
     else:
         print("⚠️ Some tests failed, please check code logic")
         return False
-
-

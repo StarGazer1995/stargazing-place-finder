@@ -279,5 +279,3 @@ def run_tests():
             print(f"Error: {error[0]}")
             print(f"Reason: {error[1]}")
     print("=" * 60)
-
-

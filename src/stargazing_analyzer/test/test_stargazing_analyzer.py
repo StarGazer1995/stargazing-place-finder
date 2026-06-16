@@ -514,5 +514,3 @@ def run_all_tests():
         print(f"\n⚠️  {failed} tests failed, please check related functions.")
 
     return failed == 0
-
-
