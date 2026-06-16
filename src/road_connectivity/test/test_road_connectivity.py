@@ -55,31 +55,17 @@ def test_quick_check():
 
 def test_batch_check():
     """
-    测试批量道路连通性检测功能
-
-    同时检测多个不同类型的地点，验证
-    batch_road_check函数的批处理能力和准确性
-
-    测试地点类型：
-    - 城市中心（应该可达）
-    - 郊区地点（应该可达）
-    - 海洋区域（应该不可达）
-
-    验证要点：
-    - 批量处理效率
-    - 结果准确性
-    - 不同地形的识别能力
-
-    Returns:
-        list: 各地点的连通性检测结果列表
+    测试批量道路连通性检测功能（使用 GeoFence 模拟数据，无需真实网络请求）
     """
-    print("\n=== Testing Batch Detection Function ===")
+    print("\n=== Testing Batch Detection Function (GeoFence) ===")
 
-    # 测试多个地点
+    from road_connectivity.geo_fence import GeoFence
+
+    geo_fence = GeoFence(enabled=True)
     test_locations = [
-        (39.9042, 116.4074),  # 天安门广场（应该可达）
-        (40.3242, 116.6312),  # 北京怀柔（应该可达）
-        (30.0, 125.0),  # 海上某点（应该不可达）
+        (39.9042, 116.4074),  # 北京（围栏返回可达）
+        (40.3242, 116.6312),  # 北京怀柔（围栏返回可达）
+        (25.0, 125.0),  # 海上（围栏返回不可达）
     ]
 
     location_names = ["天安门广场", "北京怀柔", "海上某点"]
@@ -87,7 +73,7 @@ def test_batch_check():
     print(f"Batch testing {len(test_locations)} locations...")
 
     start_time = time.time()
-    results = batch_road_check(test_locations, search_radius_km=5.0)
+    results = batch_road_check(test_locations, search_radius_km=5.0, geo_fence=geo_fence)
     end_time = time.time()
 
     print(f"Batch detection results (total time: {end_time - start_time:.2f} seconds):")
@@ -107,10 +93,7 @@ def test_batch_check():
 
 def test_detailed_checker():
     """
-    测试详细道路连通性检测器功能
-
-    使用RoadConnectivityChecker类进行深度检测，
-    获取更详细的道路连通性信息和分析数据
+    测试详细道路连通性检测器功能（使用 GeoFence 模拟数据，无需真实网络请求）
 
     测试内容：
     - 可达性判断的准确性
@@ -122,31 +105,39 @@ def test_detailed_checker():
     Returns:
         bool: 详细检测功能是否正常工作
     """
-    print("\n=== Testing Detailed Detector Functions ===")
+    print("\n=== Testing Detailed Detector Functions (GeoFence) ===")
 
-    checker = RoadConnectivityChecker(search_radius_km=8.0)
+    from road_connectivity.geo_fence import GeoFence
 
-    # 测试一个具体地点
-    lat, lon = 40.3242, 116.6312  # 北京怀柔
+    geo_fence = GeoFence(enabled=True)
+    checker = RoadConnectivityChecker(search_radius_km=8.0, geo_fence=geo_fence)
+
+    # 测试一个具体地点（北京怀柔，围栏返回可达）
+    lat, lon = 40.3242, 116.6312
     print(f"Detailed test: Beijing Huairou ({lat}, {lon})")
 
     # 获取详细信息
     point = GeoCoordinate(latitude=lat, longitude=lon)
     info = checker.get_accessibility_info(point)
 
-    print(f"Accessibility: {'✅ Accessible' if info.is_accessible else '❌ Not accessible'}")
-    if info.is_accessible:
-        print(f"Distance to road: {info.distance_km:.2f} km")
-        print(f"Network nodes count: {info.node_count}")
-        if info.nearest_road_type:
-            print(f"Nearest road type: {info.nearest_road_type}")
+    accessible = info.get("accessible", False)
+    print(f"Accessibility: {'✅ Accessible' if accessible else '❌ Not accessible'}")
+    if accessible:
+        dist = info.get("distance_to_road_km")
+        if dist is not None:
+            print(f"Distance to road: {dist:.2f} km")
+        print(f"Network nodes count: {info.get('network_nodes_count', 0)}")
+        road_type = info.get("nearest_road_type")
+        if road_type:
+            print(f"Nearest road type: {road_type}")
     else:
-        if info.error:
-            print(f"Error message: {info.error}")
+        err = info.get("error")
+        if err:
+            print(f"Error message: {err}")
 
-    assert hasattr(info, "is_accessible"), "RoadAccessInfo should have 'is_accessible' attribute"
-    assert isinstance(info.is_accessible, bool), "Accessibility should be a boolean value"
-    return info.is_accessible
+    assert "accessible" in info, "RoadAccessInfo should have 'accessible' key"
+    assert isinstance(info["accessible"], bool), "Accessibility should be a boolean value"
+    return info["accessible"]
 
 
 def test_error_handling():

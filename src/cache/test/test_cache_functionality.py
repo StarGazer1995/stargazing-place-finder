@@ -30,7 +30,10 @@ class TestGisQueryCache(unittest.TestCase):
         self.cache = GisQueryCache(cache_expiry_hours=1)
 
     def tearDown(self):
-        self.cache.clear()
+        # Only clear memory cache — self.cache.clear() uses shutil.rmtree on the
+        # entire CACHE_ROOT which destroys subdirectories (images, temp, road_networks)
+        # needed by other tests in the same process.
+        self.cache._memory.clear()
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 

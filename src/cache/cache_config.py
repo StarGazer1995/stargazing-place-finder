@@ -49,7 +49,10 @@ def get_cache_dir(cache_type: str = "default") -> Path:
         "default": CACHE_ROOT,
     }
 
-    return cache_dirs.get(cache_type, CACHE_ROOT)
+    cache_dir = cache_dirs.get(cache_type, CACHE_ROOT)
+    # Ensure the directory exists (it may have been deleted by another module)
+    cache_dir.mkdir(exist_ok=True)
+    return cache_dir
 
 
 def setup_osmnx_cache():
@@ -143,6 +146,8 @@ def get_cache_info() -> dict:
         ("osmnx", OSMNX_CACHE_DIR),
         ("temp", TEMP_CACHE_DIR),
     ]:
+        # Ensure the directory exists (may have been deleted by another module)
+        cache_dir.mkdir(exist_ok=True)
         cache_info["subdirs"][cache_type] = {
             "path": str(cache_dir),
             "size": format_size(get_dir_size(cache_dir)),

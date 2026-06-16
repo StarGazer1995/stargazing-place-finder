@@ -9,11 +9,14 @@
 
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import requests
 
 from models import DataError, NetworkError
+
+if TYPE_CHECKING:
+    from gis_service.backends.postgis_backend import PostgisBackend
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +28,7 @@ class ElevationBackend:
     支持从 OSM tags、PostGIS、HTTP API 等多级来源获取海拔，自动 fallback。
     """
 
-    def __init__(self, postgis_backend: Optional[Any] = None):
+    def __init__(self, postgis_backend: Optional["PostgisBackend"] = None):
         """
         Args:
             postgis_backend: PostgisBackend 实例（可选），用于 PostGIS 高程回退查询。

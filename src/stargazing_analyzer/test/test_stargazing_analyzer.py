@@ -15,6 +15,7 @@ import json
 import os
 import sys
 from datetime import datetime
+from unittest.mock import patch
 
 # 添加 src 目录到路径以加载顶层包
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
@@ -64,7 +65,10 @@ def test_analyzer_initialization():
     print("⚠️  Note: Light pollution data is mandatory in production environment")
 
 
-def test_basic_analysis():
+@patch("stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.find_viewpoints_in_area", return_value=[])
+@patch("stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.find_observatories_in_area", return_value=[])
+@patch("stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.find_peaks_in_area", return_value=[])
+def test_basic_analysis(mock_peaks, mock_obs, mock_viewpoints):
     """
     测试观星地点的基础分析功能
 
@@ -76,8 +80,6 @@ def test_basic_analysis():
     2. 检测道路连通性
     3. 计算基础评分
     4. 验证结果数据结构
-
-    测试区域：北京香山地区
     """
     print("\n=== Test 2: Basic Analysis Functions ===")
 
@@ -351,7 +353,10 @@ def test_top_recommendations():
     print("✓ Recommendation sorting test passed")
 
 
-def test_convenience_function():
+@patch("stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.find_viewpoints_in_area", return_value=[])
+@patch("stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.find_observatories_in_area", return_value=[])
+@patch("stargazing_analyzer.stargazing_place_finder.StarGazingPlaceFinder.find_peaks_in_area", return_value=[])
+def test_convenience_function(mock_peaks, mock_obs, mock_viewpoints):
     """
     测试观星地点分析的便捷函数接口
 
