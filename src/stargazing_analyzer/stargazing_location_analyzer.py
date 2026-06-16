@@ -190,6 +190,11 @@ class StargazingLocationAnalyzer:
         towns_data = self._fetch_towns_data(bbox)
         light_pollution_batch = self._batch_light_pollution(all_locations, include_light_pollution)
 
+        # Pre-load one road network for the entire area so all parallel workers
+        # share it instead of each downloading their own (30x → 1x download).
+        if include_road_connectivity:
+            self.road_checker.preload_network_for_bbox(bbox, network_type=network_type)
+
         stargazing_locations = self._parallel_analyze_locations(
             all_locations,
             towns_data,

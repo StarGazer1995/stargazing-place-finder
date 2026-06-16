@@ -167,6 +167,7 @@ class RoadConnectivityChecker:
         self.search_radius_km = search_radius_km
         self.max_distance_to_road_km = max_distance_to_road_km
         self.graph_cache = {}  # Cache downloaded road networks
+        self._shared_graph = None  # Pre-loaded graph for batch checking (set via preload_network_for_bbox)
         self.gis_service = gis_service  # Optional GisQueryService for PostGIS fast path
         self.geo_fence = geo_fence  # 仅当上游显式传入时才使用
         # Set OSMnx cache directory
@@ -275,9 +276,50 @@ class RoadConnectivityChecker:
         self.location_cache.save_road_access_info_to_cache(f"accessible_{network_type}", [road_info])
         return accessible
 
+    def preload_network_for_bbox(
+        self,
+        bbox,
+        network_type: str = "drive",
+    ) -> None:
+        """
+        Pre-download a single road network for the entire bounding box.
+        All subsequent _get_road_network calls will reuse this graph instead of
+        downloading per-location.
+
+        Args:
+            bbox: LatLonBox or tuple/list (south, west, north, east)
+            network_type: Network type ('drive', 'walk', 'bike', 'all')
+        """
+        if isinstance(bbox, (tuple, list)):
+            south, west, north, east = bbox
+        else:
+            south, west, north, east = bbox.south, bbox.west, bbox.north, bbox.east
+
+        logger.info(
+            "Pre-loading road network for bbox (%.4f, %.4f, %.4f, %.4f)",
+            south,
+            west,
+            north,
+            east,
+        )
+        try:
+            # OSMnx >=1.6 uses bbox tuple (left, bottom, right, top)
+            graph = ox.graph_from_bbox(
+                bbox=(west, south, east, north),
+                network_type=network_type,
+                simplify=True,
+            )
+            self._shared_graph = graph
+            logger.info("Pre-loaded road network with %d nodes", len(graph.nodes()))
+        except NetworkError as e:
+            logger.error("Failed to pre-load road network: %s", e)
+            self._shared_graph = None
+
     def _get_road_network(self, point: GeoCoordinate, network_type: str) -> Optional[nx.MultiDiGraph]:
         """
-        Get road network around specified coordinates
+        Get road network around specified coordinates.
+        If a shared graph was pre-loaded via preload_network_for_bbox, uses that
+        instead of downloading a per-location graph.
 
         Args:
             point: Geographic coordinate.
@@ -286,6 +328,10 @@ class RoadConnectivityChecker:
         Returns:
             Road network graph, returns None if failed to get
         """
+        # Use the pre-loaded shared graph if available (much faster — 1 download vs N)
+        if self._shared_graph is not None:
+            return self._shared_graph
+
         lat, lon = point.latitude, point.longitude
         cache_key = f"{lat:.4f}_{lon:.4f}_{network_type}_{self.search_radius_km}"
 

@@ -155,6 +155,10 @@ class OverpassBackend:
                         url,
                         data={"data": query},
                         timeout=self.timeout,
+                        headers={
+                            "User-Agent": "stargazing-place-finder/0.6.0 (+https://github.com/StarGazer1995/stargazing-place-finder)",
+                            "Accept": "application/json",
+                        },
                     )
                     resp.raise_for_status()
                     elements = resp.json().get("elements", [])
