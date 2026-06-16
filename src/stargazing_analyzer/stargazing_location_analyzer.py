@@ -187,12 +187,17 @@ class StargazingLocationAnalyzer:
         light_pollution_batch = self._batch_light_pollution(all_locations, include_light_pollution)
 
         stargazing_locations = self._parallel_analyze_locations(
-            all_locations, towns_data, light_pollution_batch,
-            include_road_connectivity, network_type,
+            all_locations,
+            towns_data,
+            light_pollution_batch,
+            include_road_connectivity,
+            network_type,
         )
 
         stargazing_locations = self._filter_by_road_distance(
-            stargazing_locations, min_distance_to_road_km, max_distance_to_road_km,
+            stargazing_locations,
+            min_distance_to_road_km,
+            max_distance_to_road_km,
         )
 
         stargazing_locations.sort(key=lambda x: x.stargazing_score or 0, reverse=True)
@@ -466,17 +471,22 @@ class StargazingLocationAnalyzer:
             if b < 150:
                 return 14  # ~Bortle 5
             if b < 180:
-                return 8   # ~Bortle 6
+                return 8  # ~Bortle 6
             if b < 210:
-                return 3   # ~Bortle 7
+                return 3  # ~Bortle 7
             if b < 240:
-                return 1   # ~Bortle 8
-            return 0        # ~Bortle 9
+                return 1  # ~Bortle 8
+            return 0  # ~Bortle 9
 
         if location.light_pollution_level:
             legacy = {
-                "Extremely Low": 35, "Very Low": 31, "Low": 26,
-                "Medium": 20, "High": 14, "Very High": 8, "Extremely High": 3,
+                "Extremely Low": 35,
+                "Very Low": 31,
+                "Low": 26,
+                "Medium": 20,
+                "High": 14,
+                "Very High": 8,
+                "Extremely High": 3,
             }
             return legacy.get(location.light_pollution_level, 18)
 
@@ -511,7 +521,7 @@ class StargazingLocationAnalyzer:
         if location.road_accessible is None:
             return 10  # Unknown status
         if not location.road_accessible:
-            return 0   # Not accessible (>200m from road)
+            return 0  # Not accessible (>200m from road)
         if location.distance_to_road_km is None:
             return 12  # Accessible but distance unknown
         d = location.distance_to_road_km
@@ -519,7 +529,7 @@ class StargazingLocationAnalyzer:
             return 14  # ≤50m — convenient but potential road noise/light
         if d <= 0.2:
             return 20  # 50-200m — ideal
-        return 10      # Beyond threshold, should not happen by logic
+        return 10  # Beyond threshold, should not happen by logic
 
     def _score_elevation_terrain(self, location: StargazingLocation) -> float:
         """Elevation + Terrain (0-15 points). Combines altitude and height above towns."""
