@@ -12,7 +12,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from config import StargazingConfig
 
@@ -125,7 +125,7 @@ class StargazingLocationAnalyzer:
         )
         logger.info("Stargazing location analyzer initialization completed")
 
-    def _load_db_config(self, path: str) -> Dict[str, Any]:
+    def _load_db_config(self, path: str) -> Dict[str, object]:
         """
         Load database configuration from a file path (JSON or TOML).
 

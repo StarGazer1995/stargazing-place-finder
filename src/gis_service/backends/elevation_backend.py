@@ -9,7 +9,7 @@
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import requests
 
@@ -41,7 +41,7 @@ class ElevationBackend:
         self,
         lat: float,
         lon: float,
-        osm_tags: Optional[Dict[str, Any]] = None,
+        osm_tags: Optional[Dict[str, str]] = None,
     ) -> float:
         """
         查找坐标海拔，带完整 fallback 链。
@@ -94,7 +94,7 @@ class ElevationBackend:
     def batch_find_elevations(
         self,
         coordinates: List[Tuple[float, float]],
-        osm_tags_list: Optional[List[Optional[Dict[str, Any]]]] = None,
+        osm_tags_list: Optional[List[Optional[Dict[str, str]]]] = None,
     ) -> List[float]:
         """
         批量查找海拔。优先使用 PostGIS 批量查询，再对未找到的逐个 fallback。

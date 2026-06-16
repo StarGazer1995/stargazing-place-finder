@@ -1,7 +1,7 @@
 import importlib.resources as res
 import math
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from models import DataError
 
@@ -167,7 +167,7 @@ def _calculate_grid_dims(lat_range: float, lng_range: float, grid_resolution: fl
 
 def _query_grid_point(
     analyzer: LightPollutionAnalyzer, lat: float, lng: float, point_index: int
-) -> Optional[Dict[str, Any]]:
+) -> Optional[Dict[str, object]]:
     """查询单点光污染数据，成功返回数据字典，失败返回 None"""
     try:
         pollution_info = analyzer.get_light_pollution_color(lat, lng)
@@ -194,7 +194,7 @@ def _query_grid_point(
         return None
 
 
-def _grid_default_point(lat: float, lng: float, point_index: int) -> Dict[str, Any]:
+def _grid_default_point(lat: float, lng: float, point_index: int) -> Dict[str, object]:
     """返回默认数据点"""
     return {
         "name": f"数据点 {point_index + 1}",
@@ -210,7 +210,7 @@ def _grid_default_point(lat: float, lng: float, point_index: int) -> Dict[str, A
     }
 
 
-def get_light_pollution_grid(north: float, south: float, east: float, west: float, zoom: int = 10) -> Dict[str, Any]:
+def get_light_pollution_grid(north: float, south: float, east: float, west: float, zoom: int = 10) -> Dict[str, object]:
     """
     生成指定边界范围内的光污染网格数据，返回结构与HTTP接口一致。
 
@@ -231,7 +231,7 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
     lng_range = east - west
     grid_rows, grid_cols = _calculate_grid_dims(lat_range, lng_range, grid_resolution)
 
-    data: List[Dict[str, Any]] = []
+    data: List[Dict[str, object]] = []
     point_index = 0
     for row in range(grid_rows):
         for col in range(grid_cols):
@@ -260,7 +260,7 @@ def get_light_pollution_grid(north: float, south: float, east: float, west: floa
     }
 
 
-def analyze_coordinate(lat: float, lng: float) -> Dict[str, Any]:
+def analyze_coordinate(lat: float, lng: float) -> Dict[str, object]:
     """
     分析单点坐标光污染指标，返回与HTTP接口一致的结构。
 

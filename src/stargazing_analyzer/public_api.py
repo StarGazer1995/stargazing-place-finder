@@ -1,6 +1,6 @@
 import importlib.resources as res
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from config import StargazingConfig
 
@@ -83,7 +83,7 @@ def analyze_area(
     min_distance_to_road_km: Optional[float] = None,
     max_distance_to_road_km: Optional[float] = None,
     config: Optional[StargazingConfig] = None,
-) -> List[Dict[str, Any]]:
+) -> List[Dict[str, object]]:
     """
     在给定边界内进行天文观测位置综合分析，返回列表结果。
 
@@ -117,7 +117,7 @@ def analyze_area(
         min_distance_to_road_km=min_distance_to_road_km,
         max_distance_to_road_km=max_distance_to_road_km,
     )
-    serialized: List[Dict[str, Any]] = []
+    serialized: List[Dict[str, object]] = []
     for r in results:
         serialized.append(r.model_dump(exclude_none=True))
     return serialized
@@ -135,7 +135,7 @@ def analyze_area_simple(
     min_distance_to_road_km: Optional[float] = None,
     max_distance_to_road_km: Optional[float] = None,
     config: Optional[StargazingConfig] = None,
-) -> List[Dict[str, Any]]:
+) -> List[Dict[str, object]]:
     """
     便捷区域分析封装，调用底层函数并返回序列化列表。
 
@@ -178,7 +178,7 @@ def analyze_area_simple(
         max_distance_to_road_km=max_distance_to_road_km,
         config=config,
     )
-    serialized: List[Dict[str, Any]] = []
+    serialized: List[Dict[str, object]] = []
     for r in results:
         serialized.append(r.model_dump(exclude_none=True))
     return serialized
