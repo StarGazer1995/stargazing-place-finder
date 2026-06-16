@@ -263,12 +263,12 @@ class PostgisBackend:
         finally:
             try:
                 cursor.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to close cursor: %s", e)
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to close connection: %s", e)
 
     # ── 道路连通性查询 ────────────────────────────────────────
 
@@ -414,9 +414,9 @@ class PostgisBackend:
         finally:
             try:
                 cursor.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to close cursor: %s", e)
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to close connection: %s", e)
