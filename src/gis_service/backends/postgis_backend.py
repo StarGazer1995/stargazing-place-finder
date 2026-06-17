@@ -9,6 +9,9 @@ elevation_batch_query.py 中的 BatchElevationQuery 统一到此模块。
 import logging
 from typing import Dict, List, Optional, Tuple
 
+import psycopg2
+from psycopg2.pool import SimpleConnectionPool
+
 from models import DataError, ElevationResult, NetworkError
 
 logger = logging.getLogger(__name__)
@@ -20,6 +23,8 @@ class PostgisBackend:
 
     提供统一的 OSM 空间数据查询，查询结果格式兼容 Overpass API 响应，
     允许上层在 PostGIS 与 Overpass 间透明切换。
+
+    Uses a connection pool internally to avoid per-query TCP handshakes.
     """
 
     def __init__(self, config: Dict[str, object]):
@@ -28,6 +33,28 @@ class PostgisBackend:
             config: psycopg2 连接参数字典 (host, port, database, user, password)
         """
         self.config = config
+        self._pool: Optional[SimpleConnectionPool] = None
+
+    def _ensure_pool(self) -> SimpleConnectionPool:
+        """Create the connection pool on first use (lazy init)."""
+        if self._pool is None:
+            self._pool = SimpleConnectionPool(1, 4, **self.config)
+        return self._pool
+
+    def close(self) -> None:
+        """Release the connection pool.  Must be called before discarding the instance."""
+        if self._pool is not None:
+            self._pool.closeall()
+            self._pool = None
+
+    def _get_conn(self):
+        """Borrow a connection from the pool."""
+        return self._ensure_pool().getconn()
+
+    def _put_conn(self, conn, close_flag: bool = False):
+        """Return a connection to the pool."""
+        if self._pool is not None:
+            self._pool.putconn(conn, close=close_flag)
 
     # ── OSM 位置查询 ──────────────────────────────────────────
 
@@ -51,9 +78,7 @@ class PostgisBackend:
         Returns:
             Overpass 兼容的 element dict 列表
         """
-        import psycopg2
-
-        conn = psycopg2.connect(**self.config)
+        conn = self._get_conn()
         cursor = conn.cursor()
         try:
             query = self._build_location_query(location_type, filters)
@@ -62,7 +87,7 @@ class PostgisBackend:
             return [self._format_location_row(row) for row in results]
         finally:
             cursor.close()
-            conn.close()
+            self._put_conn(conn)
 
     def _build_location_query(self, location_type: Optional[str], filters: Optional[str]) -> str:
         """构建位置查询 SQL。"""
@@ -158,8 +183,6 @@ class PostgisBackend:
         names: List[str],
     ) -> List[ElevationResult]:
         """执行单批海拔查询（使用 VALUES 表达式，避免临时表造成 PG catalog 冲突）。"""
-        import psycopg2
-
         if not coordinates:
             return []
 
@@ -199,7 +222,7 @@ class PostgisBackend:
             ORDER BY t.id;
         """
 
-        conn = psycopg2.connect(**self.config)
+        conn = self._get_conn()
         cursor = conn.cursor()
         try:
             cursor.execute(sql, params)
@@ -224,12 +247,12 @@ class PostgisBackend:
                 sum(1 for r in results if r.elevation is not None),
             )
             return results
-        except Exception as e:
+        except (psycopg2.Error, DataError) as e:
             logger.error("PostGIS batch elevation query failed: %s", e)
             raise DataError(f"PostGIS batch elevation query failed: {e}") from e
         finally:
             cursor.close()
-            conn.close()
+            self._put_conn(conn)
 
     # ── 单点高程查询 ──────────────────────────────────────────
 
@@ -240,11 +263,9 @@ class PostgisBackend:
         Returns:
             海拔（米），未找到则返回 None
         """
-        import psycopg2
-
+        conn = self._get_conn()
+        cursor = conn.cursor()
         try:
-            conn = psycopg2.connect(**self.config)
-            cursor = conn.cursor()
             cursor.execute(
                 """
                 SELECT ele::float FROM planet_osm_point
@@ -258,17 +279,14 @@ class PostgisBackend:
             )
             row = cursor.fetchone()
             return row[0] if row else None
-        except DataError:
+        except (psycopg2.Error, DataError):
             return None
         finally:
             try:
                 cursor.close()
-            except Exception as e:
-                logger.warning("Failed to close cursor: %s", e)
-            try:
-                conn.close()
-            except Exception as e:
-                logger.warning("Failed to close connection: %s", e)
+            except (psycopg2.Error, AttributeError):
+                pass
+            self._put_conn(conn)
 
     # ── 道路连通性查询 ────────────────────────────────────────
 
@@ -330,9 +348,7 @@ class PostgisBackend:
 
     def _execute_road_knn_query(self, lat: float, lon: float, highway_filter: str) -> Optional[tuple]:
         """执行 kNN 道路查询，返回原始行。"""
-        import psycopg2
-
-        conn = psycopg2.connect(**self.config)
+        conn = self._get_conn()
         cursor = conn.cursor()
         try:
             cursor.execute(
@@ -356,7 +372,7 @@ class PostgisBackend:
             return cursor.fetchone()
         finally:
             cursor.close()
-            conn.close()
+            self._put_conn(conn)
 
     def _build_road_connectivity_result(self, row: Optional[tuple], radius_km: float) -> Dict[str, object]:
         """将 kNN 查询行格式化为道路连通性结果。"""
@@ -384,11 +400,9 @@ class PostgisBackend:
 
     def get_elevation_statistics(self) -> Dict[str, object]:
         """返回 OSM 中海拔数据的统计信息。"""
-        import psycopg2
-
+        conn = self._get_conn()
+        cursor = conn.cursor()
         try:
-            conn = psycopg2.connect(**self.config)
-            cursor = conn.cursor()
             cursor.execute("""
                 SELECT
                     COUNT(*) as total,
@@ -408,15 +422,12 @@ class PostgisBackend:
                     "median_elevation": float(row[4]) if row[4] else None,
                 }
             return {}
-        except DataError as e:
+        except (psycopg2.Error, DataError) as e:
             logger.error("Elevation stats query failed: %s", e)
             return {"error": str(e)}
         finally:
             try:
                 cursor.close()
-            except Exception as e:
-                logger.warning("Failed to close cursor: %s", e)
-            try:
-                conn.close()
-            except Exception as e:
-                logger.warning("Failed to close connection: %s", e)
+            except (psycopg2.Error, AttributeError):
+                pass
+            self._put_conn(conn)

@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple
 
 import psycopg2
 
-from models import ElevationResult
+from models import ElevationResult, NetworkError
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class BatchElevationQuery:
             logger.info("查询完成: %d/%d 成功, 耗时: %.2f秒", ok, len(coordinates), elapsed)
             return results
 
-        except Exception as e:  # noqa: BLE001
+        except (psycopg2.Error, NetworkError, ValueError, KeyError) as e:
             logger.error("批量查询失败: %s", e)
             return [ElevationResult(latitude=lat, longitude=lon, error=str(e)) for lat, lon in coordinates]
 

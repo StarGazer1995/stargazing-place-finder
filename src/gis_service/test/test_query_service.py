@@ -6,10 +6,11 @@ All PostGIS and Overpass API calls are mocked so tests run
 fast, offline, and without external dependencies.
 """
 
-import sys
 import unittest
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
+
+import requests
 
 from models import LatLonBox, NetworkError
 
@@ -186,7 +187,7 @@ class TestGisQueryService(unittest.TestCase):
         """Without PostGIS, elevation falls through to ElevationBackend chain."""
         with patch("gis_service.backends.elevation_backend.requests.get") as mock_get:
             # Simulate API failure → fallback to 0.0
-            mock_get.side_effect = Exception("API unavailable")
+            mock_get.side_effect = requests.RequestException("API unavailable")
             service = self._make_service(db_config=None)
             elev = service.find_elevation(39.9, 116.4)
             self.assertEqual(elev, 0.0)
@@ -194,7 +195,7 @@ class TestGisQueryService(unittest.TestCase):
     def test_find_elevation_invalid_osm_tags(self):
         """Invalid ele tag logs warning and falls through."""
         with patch("gis_service.backends.elevation_backend.requests.get") as mock_get:
-            mock_get.side_effect = Exception("API unavailable")
+            mock_get.side_effect = requests.RequestException("API unavailable")
             service = self._make_service(db_config=None)
             elev = service.find_elevation(39.9, 116.4, osm_tags={"ele": "not_a_number"})
             self.assertEqual(elev, 0.0)
@@ -344,15 +345,25 @@ class TestPostgisBackendElevation(unittest.TestCase):
     """Tests for PostgisBackend batch elevation query + find_elevation_at_point."""
 
     def setUp(self):
-        # psycopg2 is imported inside method bodies, so we inject a mock into sys.modules
-        self.psycopg2_patcher = patch.dict("sys.modules", {"psycopg2": MagicMock()})
-        self.psycopg2_patcher.start()
-        self.mock_psycopg2 = sys.modules["psycopg2"]
-        self.mock_conn = self.mock_psycopg2.connect.return_value
+        # Patch the top-level imports in the backend module
+        self.psycopg2_patcher = patch("gis_service.backends.postgis_backend.psycopg2")
+        self.mock_psycopg2 = self.psycopg2_patcher.start()
+        self.pool_patcher = patch("gis_service.backends.postgis_backend.SimpleConnectionPool")
+        self.mock_pool_cls = self.pool_patcher.start()
+
+        # Wire up connection pool → connection → cursor chain
+        self.mock_conn = MagicMock()
         self.mock_cursor = self.mock_conn.cursor.return_value
+        self.mock_pool = MagicMock()
+        self.mock_pool.getconn.return_value = self.mock_conn
+        self.mock_pool_cls.return_value = self.mock_pool
+
+        # Make psycopg2.Error a real exception class so it can be caught
+        self.mock_psycopg2.Error = type("Error", (Exception,), {})
 
     def tearDown(self):
         self.psycopg2_patcher.stop()
+        self.pool_patcher.stop()
 
     def test_batch_query_empty_coords(self):
         """Empty coordinates → returns [] without calling psycopg2."""
@@ -361,7 +372,8 @@ class TestPostgisBackendElevation(unittest.TestCase):
         backend = PostgisBackend(config={"host": "localhost"})
         result = backend._query_single_batch([], [])
         self.assertEqual(result, [])
-        self.mock_psycopg2.connect.assert_not_called()
+        # Pool is lazy — never created when there are no coordinates
+        self.mock_pool_cls.assert_not_called()
 
     def test_batch_query_single_point(self):
         """Single coordinate → VALUES query built and results parsed."""
@@ -422,15 +434,15 @@ class TestPostgisBackendElevation(unittest.TestCase):
         from gis_service.backends.postgis_backend import PostgisBackend
         from models import DataError
 
-        self.mock_cursor.execute.side_effect = Exception("connection lost")
+        self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("connection lost")
 
         backend = PostgisBackend(config={"host": "localhost"})
         with self.assertRaises(DataError):
             backend._query_single_batch([(39.9, 116.4)], ["P1"])
 
-        # cursor and conn should still be closed
+        # cursor should be closed; conn returned to pool (not closed)
         self.mock_cursor.close.assert_called_once()
-        self.mock_conn.close.assert_called_once()
+        self.mock_pool.putconn.assert_called_once()
 
     def test_find_elevation_at_point_returns_value(self):
         """find_elevation_at_point returns elevation from first matching row."""

@@ -134,8 +134,8 @@ class StargazingLocationAnalyzer:
         if self.light_pollution_analyzer is not None:
             try:
                 self.light_pollution_analyzer.close()
-            except Exception:
-                logger.exception("Error closing light pollution analyzer")
+            except (OSError, RuntimeError, AttributeError) as e:
+                logger.warning("Error closing light pollution analyzer: %s", e)
             self.light_pollution_analyzer = None
 
     def analyze_area(

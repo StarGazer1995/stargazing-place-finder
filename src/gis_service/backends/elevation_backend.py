@@ -83,7 +83,7 @@ class ElevationBackend:
             val = self._query_open_elevation(lat, lon)
             if val is not None:
                 return val
-        except Exception as e:
+        except (requests.RequestException, ValueError, KeyError) as e:
             logger.debug("Open-Elevation API failed: %s", e)
 
         # Level 4: default

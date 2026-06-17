@@ -738,4 +738,6 @@ class TestAnalyzerClose:
 
         mock_lpa.close.assert_called_once()
         assert a.light_pollution_analyzer is None
-        mock_log.exception.assert_called_once_with("Error closing light pollution analyzer")
+        # close() logs the error — check the call appeared (init also logs warnings)
+        close_calls = [c for c in mock_log.warning.call_args_list if "Error closing" in str(c)]
+        assert len(close_calls) == 1, f"Expected 1 close-error log, got {len(close_calls)}"

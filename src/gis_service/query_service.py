@@ -203,6 +203,13 @@ class GisQueryService:
             self._cache.clear()
             logger.info("GIS query cache cleared")
 
+    def close(self) -> None:
+        """Release internal resources (PostGIS connection pool, etc.)."""
+        if self._postgis is not None:
+            self._postgis.close()
+            self._postgis = None
+            logger.info("PostGIS backend closed")
+
     # ── 统计 ──────────────────────────────────────────────────
 
     def get_elevation_statistics(self) -> Dict[str, object]:
