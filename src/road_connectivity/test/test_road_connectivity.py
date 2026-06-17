@@ -168,6 +168,29 @@ def test_error_handling():
                 print(f"  Caught exception: {e}")
 
 
+def test_cache_unlink_error_is_logged():
+    """When deleting a corrupted cache file fails, it logs and continues."""
+    import pickle
+    from unittest.mock import MagicMock, mock_open, patch
+
+    from road_connectivity.road_connectivity_checker import RoadAccessInfoCache
+
+    cache = RoadAccessInfoCache(cache_expiry_hours=1)
+    fake_path = MagicMock()
+    fake_path.unlink.side_effect = OSError("permission denied")
+    with (
+        patch.object(cache, "_is_cache_valid", return_value=True),
+        patch.object(cache, "_get_cache_file_path", return_value=fake_path),
+        patch("builtins.open", mock_open()),
+        patch("pickle.load", side_effect=pickle.PickleError("corrupt data")),
+        patch("road_connectivity.road_connectivity_checker.logger") as mock_log,
+    ):
+        result = cache.get_cached_result("test_type")
+        assert result is None
+        # Verify the OSError was caught and logged
+        assert any("Failed to delete" in str(c) for c in mock_log.warning.call_args_list)
+
+
 def run_all_tests():
     """
     运行所有道路连通性检测测试用例

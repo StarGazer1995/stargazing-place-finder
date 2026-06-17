@@ -6,10 +6,11 @@ All PostGIS and Overpass API calls are mocked so tests run
 fast, offline, and without external dependencies.
 """
 
-import sys
 import unittest
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
+
+import requests
 
 from models import LatLonBox, NetworkError
 
@@ -186,7 +187,7 @@ class TestGisQueryService(unittest.TestCase):
         """Without PostGIS, elevation falls through to ElevationBackend chain."""
         with patch("gis_service.backends.elevation_backend.requests.get") as mock_get:
             # Simulate API failure → fallback to 0.0
-            mock_get.side_effect = Exception("API unavailable")
+            mock_get.side_effect = requests.RequestException("API unavailable")
             service = self._make_service(db_config=None)
             elev = service.find_elevation(39.9, 116.4)
             self.assertEqual(elev, 0.0)
@@ -194,7 +195,7 @@ class TestGisQueryService(unittest.TestCase):
     def test_find_elevation_invalid_osm_tags(self):
         """Invalid ele tag logs warning and falls through."""
         with patch("gis_service.backends.elevation_backend.requests.get") as mock_get:
-            mock_get.side_effect = Exception("API unavailable")
+            mock_get.side_effect = requests.RequestException("API unavailable")
             service = self._make_service(db_config=None)
             elev = service.find_elevation(39.9, 116.4, osm_tags={"ele": "not_a_number"})
             self.assertEqual(elev, 0.0)
@@ -219,6 +220,19 @@ class TestGisQueryService(unittest.TestCase):
                 [(39.9, 116.4), (40.0, 116.5)],
             )
             self.assertEqual(results, [0.0, 0.0])
+
+    def test_close_with_postgis(self):
+        """close() releases the PostGIS backend pool."""
+        service = self._make_service(db_config={"host": "localhost"})
+        # close should call the backend's close method
+        self.mock_postgis.close.assert_not_called()
+        service.close()
+        self.mock_postgis.close.assert_called_once()
+
+    def test_close_without_postgis_does_not_raise(self):
+        """close() when PostGIS was never enabled is a no-op."""
+        service = self._make_service(db_config=None)
+        service.close()  # should not raise
 
 
 class TestOverpassBackendFallback(unittest.TestCase):
@@ -344,15 +358,25 @@ class TestPostgisBackendElevation(unittest.TestCase):
     """Tests for PostgisBackend batch elevation query + find_elevation_at_point."""
 
     def setUp(self):
-        # psycopg2 is imported inside method bodies, so we inject a mock into sys.modules
-        self.psycopg2_patcher = patch.dict("sys.modules", {"psycopg2": MagicMock()})
-        self.psycopg2_patcher.start()
-        self.mock_psycopg2 = sys.modules["psycopg2"]
-        self.mock_conn = self.mock_psycopg2.connect.return_value
+        # Patch the top-level imports in the backend module
+        self.psycopg2_patcher = patch("gis_service.backends.postgis_backend.psycopg2")
+        self.mock_psycopg2 = self.psycopg2_patcher.start()
+        self.pool_patcher = patch("gis_service.backends.postgis_backend.SimpleConnectionPool")
+        self.mock_pool_cls = self.pool_patcher.start()
+
+        # Wire up connection pool → connection → cursor chain
+        self.mock_conn = MagicMock()
         self.mock_cursor = self.mock_conn.cursor.return_value
+        self.mock_pool = MagicMock()
+        self.mock_pool.getconn.return_value = self.mock_conn
+        self.mock_pool_cls.return_value = self.mock_pool
+
+        # Make psycopg2.Error a real exception class so it can be caught
+        self.mock_psycopg2.Error = type("Error", (Exception,), {})
 
     def tearDown(self):
         self.psycopg2_patcher.stop()
+        self.pool_patcher.stop()
 
     def test_batch_query_empty_coords(self):
         """Empty coordinates → returns [] without calling psycopg2."""
@@ -361,7 +385,8 @@ class TestPostgisBackendElevation(unittest.TestCase):
         backend = PostgisBackend(config={"host": "localhost"})
         result = backend._query_single_batch([], [])
         self.assertEqual(result, [])
-        self.mock_psycopg2.connect.assert_not_called()
+        # Pool is lazy — never created when there are no coordinates
+        self.mock_pool_cls.assert_not_called()
 
     def test_batch_query_single_point(self):
         """Single coordinate → VALUES query built and results parsed."""
@@ -422,15 +447,15 @@ class TestPostgisBackendElevation(unittest.TestCase):
         from gis_service.backends.postgis_backend import PostgisBackend
         from models import DataError
 
-        self.mock_cursor.execute.side_effect = Exception("connection lost")
+        self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("connection lost")
 
         backend = PostgisBackend(config={"host": "localhost"})
         with self.assertRaises(DataError):
             backend._query_single_batch([(39.9, 116.4)], ["P1"])
 
-        # cursor and conn should still be closed
+        # cursor should be closed; conn returned to pool (not closed)
         self.mock_cursor.close.assert_called_once()
-        self.mock_conn.close.assert_called_once()
+        self.mock_pool.putconn.assert_called_once()
 
     def test_find_elevation_at_point_returns_value(self):
         """find_elevation_at_point returns elevation from first matching row."""
@@ -456,6 +481,156 @@ class TestPostgisBackendElevation(unittest.TestCase):
         backend = PostgisBackend(config={"host": "localhost"})
         result = backend.find_elevation_at_point(39.9, 116.4)
         self.assertIsNone(result)
+
+    def test_query_locations_in_bbox_uses_pool(self):
+        """query_locations_in_bbox uses pool get/put."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = [
+            (1, "TestPeak", 116.0, 40.0, None, None, None, None, None, None, None, None, "peak", 1200),
+        ]
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        results = backend.query_locations_in_bbox(115.0, 39.0, 117.0, 41.0, location_type="peak")
+        self.assertEqual(len(results), 1)
+        # Verify pool was used, not direct connect
+        self.mock_pool.getconn.assert_called()
+        self.mock_pool.putconn.assert_called()
+
+    def test_get_elevation_statistics_uses_pool(self):
+        """get_elevation_statistics uses pool and formats results."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchone.return_value = (5000, 10.0, 8848.0, 1200.0, 800.0)
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        stats = backend.get_elevation_statistics()
+        self.assertEqual(stats["total_points"], 5000)
+        self.assertEqual(stats["max_elevation"], 8848.0)
+        self.mock_pool.getconn.assert_called()
+        self.mock_pool.putconn.assert_called()
+
+    def test_query_road_connectivity_uses_pool(self):
+        """query_road_connectivity → _execute_road_knn_query uses pool."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchone.return_value = ("residential", "Main St", 45.0, 39.905, 116.408)
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.query_road_connectivity(39.9, 116.4)
+        self.assertTrue(result["accessible"])
+        self.assertEqual(result["distance_meters"], 45.0)
+        self.mock_pool.getconn.assert_called()
+        self.mock_pool.putconn.assert_called()
+
+    def test_find_elevation_close_cursor_failure_is_silent(self):
+        """When cursor.close() fails in find_elevation_at_point, it is silently ignored."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchone.return_value = (1200.0,)
+        self.mock_cursor.close.side_effect = self.mock_psycopg2.Error("close failed")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.find_elevation_at_point(39.9, 116.4)
+        self.assertEqual(result, 1200.0)
+        # Cursor close was attempted (and silently failed)
+        self.mock_cursor.close.assert_called()
+
+    def test_find_elevation_at_point_handles_execution_error(self):
+        """find_elevation_at_point catches psycopg2.Error during query and returns None."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("query failed")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.find_elevation_at_point(39.9, 116.4)
+        self.assertIsNone(result)
+
+    def test_query_single_batch_handles_db_error(self):
+        """_query_single_batch wraps psycopg2.Error in DataError."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+        from models import DataError
+
+        self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("db error")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        with self.assertRaises(DataError):
+            backend._query_single_batch([(39.9, 116.4)], ["P1"])
+
+    def test_get_elevation_statistics_handles_exception(self):
+        """get_elevation_statistics catches psycopg2.Error and returns error dict."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("stats failed")
+        self.mock_cursor.close.side_effect = self.mock_psycopg2.Error("close failed")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.get_elevation_statistics()
+        self.assertIn("error", result)
+        self.assertEqual(result["error"], "stats failed")
+
+
+class TestPostgisBackendPool(unittest.TestCase):
+    """Tests for PostgisBackend connection pool lifecycle."""
+
+    def setUp(self):
+        self.psycopg2_patcher = patch("gis_service.backends.postgis_backend.psycopg2")
+        self.mock_psycopg2 = self.psycopg2_patcher.start()
+        self.pool_patcher = patch("gis_service.backends.postgis_backend.SimpleConnectionPool")
+        self.mock_pool_cls = self.pool_patcher.start()
+
+    def tearDown(self):
+        self.psycopg2_patcher.stop()
+        self.pool_patcher.stop()
+
+    def test_ensure_pool_creates_pool_once(self):
+        """_ensure_pool creates pool on first call; subsequent calls return same pool."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        pool1 = backend._ensure_pool()
+        pool2 = backend._ensure_pool()
+        self.mock_pool_cls.assert_called_once_with(1, 4, host="localhost")
+        self.assertIs(pool1, pool2)
+
+    def test_get_conn_borrows_from_pool(self):
+        """_get_conn delegates to pool.getconn()."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        conn = backend._get_conn()
+        backend._pool.getconn.assert_called_once()
+        self.assertIs(conn, backend._pool.getconn.return_value)
+
+    def test_put_conn_returns_to_pool(self):
+        """_put_conn delegates to pool.putconn()."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        conn = MagicMock()
+        backend._ensure_pool()
+        backend._put_conn(conn)
+        backend._pool.putconn.assert_called_once_with(conn, close=False)
+
+    def test_close_releases_pool(self):
+        """close() calls closeall on pool and sets it to None."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        backend._ensure_pool()
+        pool = backend._pool
+        self.assertIsNotNone(pool)
+        backend.close()
+        pool.closeall.assert_called_once()
+        self.assertIsNone(backend._pool)
+
+    def test_close_idempotent(self):
+        """Calling close() twice does not raise."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        backend.close()
+        backend.close()  # should not raise
 
 
 class TestPostgisBackendFormatRow(unittest.TestCase):

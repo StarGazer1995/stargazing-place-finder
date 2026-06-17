@@ -449,7 +449,7 @@ class LightPollutionAnalyzer:
                 row, col = self._src.index(lon, lat)
                 if 0 <= row < self._src.height and 0 <= col < self._src.width:
                     row_groups.setdefault(row, []).append((i, col, lat, lon))
-            except Exception as e:
+            except (IndexError, ValueError) as e:
                 logger.warning("Coordinate (%s, %s) out of GeoTIFF bounds: %s", lat, lon, e)
 
         results = [None] * len(coordinates_list)
