@@ -1246,7 +1246,11 @@ function initializeSearch() {
 async function searchLocation(query) {
     try {
         // 使用Nominatim API进行地理编码
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
+            headers: {
+                'User-Agent': 'StargazingPlaceFinder/0.6 (zhao.gong@outlook.com)'
+            }
+        });
         const results = await response.json();
         
         if (results && results.length > 0) {
@@ -1320,9 +1324,9 @@ function initializeApp() {
         console.log('语言切换按钮事件已绑定');
     }
     
-    // 添加键盘快捷键支持 (Ctrl+L 或 Cmd+L 切换语言)
+    // 添加键盘快捷键支持 (Ctrl+J 或 Cmd+J 切换语言)
     document.addEventListener('keydown', (event) => {
-        if ((event.ctrlKey || event.metaKey) && event.key === 'l') {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'j') {
             event.preventDefault();
             toggleLanguage();
         }

@@ -6,16 +6,12 @@ These tests create a LightPollutionAnalyzer and replace _src with a
 properly mocked rasterio dataset to exercise all the getter methods.
 """
 
-import os
-import sys
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
 # Ensure src is on path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
-
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 
 

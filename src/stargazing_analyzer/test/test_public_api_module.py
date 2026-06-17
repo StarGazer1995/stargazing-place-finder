@@ -6,13 +6,9 @@ Covers init, analyze_area, and analyze_area_simple functions
 using mocked StargazingLocationAnalyzer.
 """
 
-import os
-import sys
 from unittest.mock import MagicMock, patch
 
 # Ensure src is on path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
-
 from stargazing_analyzer.public_api import (
     _require_analyzer,
     analyze_area,

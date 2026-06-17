@@ -6,14 +6,9 @@ Tests conversion functions and edge cases in LightPollutionAnalyzer
 without requiring the actual GeoTIFF file.
 """
 
-import os
-import sys
-
 import pytest
 
 # Ensure src is on path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
-
 from light_pollution.light_pollution_analyzer import (
     LightPollutionAnalyzer,
     radiance_to_bortle,

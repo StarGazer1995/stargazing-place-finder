@@ -3,6 +3,11 @@ import math
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+from gis_service.parsers import (  # noqa: F401 — re-exported for backward compatibility
+    bortle_to_sqm,
+    brightness_to_bortle,
+    get_pollution_level_description,
+)
 from models import DataError
 
 from .light_pollution_analyzer import (
@@ -80,47 +85,8 @@ def _require_analyzer() -> LightPollutionAnalyzer:
 # ---------------------------------------------------------------------------
 
 
-def brightness_to_bortle(brightness: int) -> int:
-    """
-    将亮度值(0-255)映射到波特尔等级(1-9)
-    保留用于向后兼容。
-    """
-    if brightness <= 28:
-        return 1
-    elif brightness <= 56:
-        return 2
-    elif brightness <= 84:
-        return 3
-    elif brightness <= 112:
-        return 4
-    elif brightness <= 140:
-        return 5
-    elif brightness <= 168:
-        return 6
-    elif brightness <= 196:
-        return 7
-    elif brightness <= 224:
-        return 8
-    else:
-        return 9
-
-
-def bortle_to_sqm(bortle: int) -> float:
-    """
-    将波特尔等级转换为SQM（每平方角秒星等）
-    """
-    sqm_values = {
-        1: 21.9,
-        2: 21.6,
-        3: 21.3,
-        4: 20.4,
-        5: 19.5,
-        6: 18.5,
-        7: 17.5,
-        8: 16.5,
-        9: 15.5,
-    }
-    return float(sqm_values.get(bortle, 20.0))
+# brightness_to_bortle / bortle_to_sqm / get_pollution_level_description
+# are imported from gis_service.parsers (single source of truth).
 
 
 def radiance_to_bortle(radiance: float) -> int:
@@ -280,17 +246,6 @@ def analyze_coordinate(lat: float, lng: float) -> Dict[str, object]:
         bortle = pollution_info.bortle
         brightness = pollution_info.brightness
         sqm = bortle_to_sqm(bortle)
-        description_map = {
-            1: "优秀暗空",
-            2: "典型暗空",
-            3: "乡村天空",
-            4: "乡村/郊区过渡",
-            5: "郊区天空",
-            6: "明亮郊区",
-            7: "郊区/城市过渡",
-            8: "城市天空",
-            9: "内城天空",
-        }
         result = {
             "success": True,
             "data": {
@@ -300,7 +255,7 @@ def analyze_coordinate(lat: float, lng: float) -> Dict[str, object]:
                     "sqm_value": float(f"{sqm:.1f}"),
                     "intensity": brightness / 255.0,
                     "brightness": brightness,
-                    "description": description_map.get(bortle, "未知等级"),
+                    "description": get_pollution_level_description(bortle),
                     "radiance": pollution_info.radiance,
                 },
                 "color_info": {

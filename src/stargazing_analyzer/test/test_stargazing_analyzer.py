@@ -13,13 +13,10 @@
 
 import json
 import os
-import sys
 from datetime import datetime
 from unittest.mock import patch
 
 # 添加 src 目录到路径以加载顶层包
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
-
 from cache.cache_config import get_temp_file
 from models import StargazingLocation
 from stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer, analyze_stargazing_area

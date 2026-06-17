@@ -5,15 +5,11 @@ Tests for stargazing_analyzer.cli module.
 Uses argparse directly to test argument parsing and helper functions.
 """
 
-import os
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 # Ensure src is on path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
-
 from stargazing_analyzer.cli import _bbox_from_center, _deg_per_km, create_parser
 
 

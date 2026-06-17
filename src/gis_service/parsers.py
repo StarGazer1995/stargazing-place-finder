@@ -12,6 +12,89 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from models import GeoCoordinate, Observatory, Peak, TownInfo, Viewpoint
 
+# ═══════════════════════════════════════════════════════════════════════
+#  Shared conversion utilities (single source of truth)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def brightness_to_bortle(brightness: int) -> int:
+    """
+    Map a 0-255 brightness value to the Bortle scale (1-9).
+
+    Args:
+        brightness: Brightness value (0-255). Lower = darker sky.
+
+    Returns:
+        Bortle class (1 = pristine dark sky, 9 = inner-city sky).
+    """
+    if brightness <= 28:
+        return 1
+    elif brightness <= 56:
+        return 2
+    elif brightness <= 84:
+        return 3
+    elif brightness <= 112:
+        return 4
+    elif brightness <= 140:
+        return 5
+    elif brightness <= 168:
+        return 6
+    elif brightness <= 196:
+        return 7
+    elif brightness <= 224:
+        return 8
+    else:
+        return 9
+
+
+def bortle_to_sqm(bortle: int) -> float:
+    """
+    Convert a Bortle class to SQM (magnitudes per square arcsecond).
+
+    Args:
+        bortle: Bortle class (1-9).
+
+    Returns:
+        Approximate SQM value.
+    """
+    sqm_values = {
+        1: 21.9,
+        2: 21.6,
+        3: 21.3,
+        4: 20.4,
+        5: 19.5,
+        6: 18.5,
+        7: 17.5,
+        8: 16.5,
+        9: 15.5,
+    }
+    return float(sqm_values.get(bortle, 20.0))
+
+
+def get_pollution_level_description(bortle: int) -> str:
+    """
+    Return a human-readable Chinese description for a Bortle class.
+
+    Args:
+        bortle: Bortle class (1-9).
+
+    Returns:
+        Description string.
+    """
+    descriptions = {
+        1: "优秀暗空",
+        2: "典型暗空",
+        3: "乡村天空",
+        4: "乡村/郊区过渡",
+        5: "郊区天空",
+        6: "明亮郊区",
+        7: "郊区/城市过渡",
+        8: "城市天空",
+        9: "内城天空",
+    }
+    return descriptions.get(bortle, "未知等级")
+
+
 if TYPE_CHECKING:
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 

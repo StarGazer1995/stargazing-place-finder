@@ -5,15 +5,10 @@
 用于验证道路连通性检测代码是否正常工作
 """
 
-import os
-import sys
+# 添加 src 目录到Python路径以加载顶层包
+import time
 import warnings
 from unittest.mock import patch
-
-# 添加 src 目录到Python路径以加载顶层包
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
-
-import time
 
 from models import GeoCoordinate
 from road_connectivity.road_connectivity_checker import RoadConnectivityChecker

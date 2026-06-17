@@ -8,13 +8,10 @@ GIS query cache 功能测试脚本
 
 import os
 import shutil
-import sys
 import tempfile
 import unittest
 
 # 添加项目根目录到Python路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
-
 from gis_service.caching import GisQueryCache
 
 
@@ -101,5 +98,3 @@ def run_tests():
     print(f"💥 Errors: {len(result.errors)}")
 
     return result.wasSuccessful()
-
-

@@ -3,14 +3,10 @@
 Tests for gis_service.config database config loading helpers.
 """
 
-import os
-import sys
 import types
 from unittest.mock import patch
 
 # Ensure src is on path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
-
 from gis_service.config import load_db_config
 
 
