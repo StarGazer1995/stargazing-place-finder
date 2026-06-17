@@ -51,6 +51,9 @@ def init_light_pollution_analyzer(
 
     if geotiff_path is None:
         geotiff_path = _default_geotiff_path()
+    # Close old instance before creating a new one to prevent resource leaks
+    if _lp_analyzer is not None:
+        _lp_analyzer.close()
     _lp_analyzer = LightPollutionAnalyzer(
         geotiff_path=str(geotiff_path),
         skyglow_sigma_km=15.0,

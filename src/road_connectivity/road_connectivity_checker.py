@@ -14,6 +14,7 @@ from typing import List, Optional
 
 import networkx as nx
 import osmnx as ox
+import requests
 from geopy.distance import geodesic
 
 from cache.cache_config import get_cache_dir, setup_osmnx_cache
@@ -244,7 +245,7 @@ class RoadConnectivityChecker:
             logger.info(f"Coordinates ({lat}, {lon}) accessible, distance to nearest road {distance_km:.2f}km")
             return process_and_return(True)
 
-        except (NetworkError, NoDataError) as e:
+        except (NetworkError, NoDataError, requests.exceptions.RequestException) as e:
             logger.error(f"Error detecting accessibility for coordinates ({lat}, {lon}): {str(e)}")
             return False
 
@@ -311,7 +312,7 @@ class RoadConnectivityChecker:
             )
             self._shared_graph = graph
             logger.info("Pre-loaded road network with %d nodes", len(graph.nodes()))
-        except NetworkError as e:
+        except (NetworkError, requests.exceptions.RequestException) as e:
             logger.error("Failed to pre-load road network: %s", e)
             self._shared_graph = None
 
@@ -357,7 +358,7 @@ class RoadConnectivityChecker:
 
             return graph
 
-        except NetworkError as e:
+        except (NetworkError, requests.exceptions.RequestException) as e:
             logger.error(f"Failed to download road network: {str(e)}")
             return None
 

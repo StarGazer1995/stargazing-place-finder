@@ -197,6 +197,15 @@ class OverpassBackend:
                         self.max_retries,
                         e,
                     )
+                except requests.exceptions.RequestException as e:
+                    logger.warning(
+                        "%sOverpass request failed (%s, attempt %d/%d): %s",
+                        prefix,
+                        data_type,
+                        attempt + 1,
+                        self.max_retries,
+                        e,
+                    )
 
             if url_idx < len(self.urls) - 1:
                 logger.info(

@@ -228,6 +228,18 @@ class TestPreloadNetwork(unittest.TestCase):
         self.mock_ox.assert_called_once()
         self.assertIsNone(checker._shared_graph)
 
+    def test_preload_with_request_exception(self):
+        """ox.graph_from_bbox raises ConnectionError → _shared_graph set to None."""
+        import requests
+
+        self.mock_ox.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+        checker = self._make_checker()
+        checker.preload_network_for_bbox((39.0, 115.0, 41.0, 117.0))
+
+        self.mock_ox.assert_called_once()
+        self.assertIsNone(checker._shared_graph)
+
     def test_get_road_network_uses_shared_graph(self):
         """_get_road_network returns _shared_graph when it is set."""
         mock_graph = MagicMock()

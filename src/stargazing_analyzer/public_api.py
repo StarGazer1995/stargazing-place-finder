@@ -50,6 +50,9 @@ def init_stargazing_analyzer(
     global _sa_analyzer
     if geotiff_path is None:
         geotiff_path = _default_geotiff_path()
+    # Close old instance before creating a new one to prevent resource leaks
+    if _sa_analyzer is not None:
+        _sa_analyzer.close()
     _sa_analyzer = StargazingLocationAnalyzer(
         geotiff_path=str(geotiff_path),
         min_height_difference=min_height_difference,

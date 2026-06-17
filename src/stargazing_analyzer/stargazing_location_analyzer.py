@@ -17,6 +17,7 @@ from typing import Dict, List, Optional, Tuple
 from config import StargazingConfig
 
 # Import related modules
+from gis_service.config import load_db_config as _load_gis_db_config
 from gis_service.query_service import GisQueryService
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 from models import (
@@ -80,10 +81,9 @@ class StargazingLocationAnalyzer:
 
         # Initialize GIS service
         gis_service = None
-        cfg_path = db_config_path or os.environ.get("DB_CONFIG_PATH")
-        if cfg_path and os.path.exists(cfg_path):
+        db_cfg = _load_gis_db_config(db_config_path)
+        if db_cfg is not None:
             try:
-                db_cfg = self._load_db_config(cfg_path)
                 gis_service = GisQueryService(db_config=db_cfg)
                 logger.info("GIS query service initialized")
             except (ConfigError, NetworkError) as e:
@@ -125,6 +125,19 @@ class StargazingLocationAnalyzer:
         )
         logger.info("Stargazing location analyzer initialization completed")
 
+    def close(self) -> None:
+        """
+        Release internal resources.
+
+        Currently closes the underlying LightPollutionAnalyzer (GeoTIFF file handle).
+        """
+        if self.light_pollution_analyzer is not None:
+            try:
+                self.light_pollution_analyzer.close()
+            except Exception:
+                logger.exception("Error closing light pollution analyzer")
+            self.light_pollution_analyzer = None
+
     def _load_db_config(self, path: str) -> Dict[str, object]:
         """
         Load database configuration from a file path (JSON or TOML).
@@ -141,7 +154,10 @@ class StargazingLocationAnalyzer:
                 return json.load(f)
         elif ext == ".toml":
             try:
-                import tomllib  # Python 3.11+
+                try:
+                    import tomllib  # Python 3.11+
+                except ImportError:
+                    import tomli as tomllib  # Python 3.9/3.10
 
                 with open(path, "rb") as f:
                     return tomllib.load(f)
