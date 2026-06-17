@@ -10,27 +10,25 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 
-# 添加项目根目录到Python路径
 from gis_service.caching import GisQueryCache
 
 
 class TestGisQueryCache(unittest.TestCase):
-    """
-    测试 GisQueryCache 类的功能
-    """
+    """Tests for GisQueryCache — each test gets an isolated temp directory."""
 
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
-        # GisQueryCache 使用 get_cache_dir()，此处 patch 不方便直接注入，
-        # 改用实际配置的临时目录路径。只需要测试缓存语义即可。
+        # Re-route cache to isolated temp directory so tests don't share disk state
+        from pathlib import Path
+
+        self._cache_dir_patcher = patch("gis_service.caching.get_cache_dir", return_value=Path(self.temp_dir))
+        self._cache_dir_patcher.start()
         self.cache = GisQueryCache(cache_expiry_hours=1)
 
     def tearDown(self):
-        # Only clear memory cache — self.cache.clear() uses shutil.rmtree on the
-        # entire CACHE_ROOT which destroys subdirectories (images, temp, road_networks)
-        # needed by other tests in the same process.
-        self.cache._memory.clear()
+        self._cache_dir_patcher.stop()
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
@@ -79,22 +77,3 @@ class TestGisQueryCache(unittest.TestCase):
 
         self.assertEqual(self.cache.get(key1), "value_a")
         self.assertEqual(self.cache.get(key2), "value_b")
-
-
-def run_tests():
-    """运行所有测试"""
-    print("🧪 Starting GIS query cache tests...")
-    print("=" * 50)
-
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TestGisQueryCache))
-
-    runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
-
-    print("\n" + "=" * 50)
-    print(f"✅ Success: {result.testsRun - len(result.failures) - len(result.errors)}")
-    print(f"❌ Failed: {len(result.failures)}")
-    print(f"💥 Errors: {len(result.errors)}")
-
-    return result.wasSuccessful()
