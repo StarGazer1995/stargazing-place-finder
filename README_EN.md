@@ -16,6 +16,76 @@ This is an application designed specifically for Chinese stargazing enthusiasts,
 - 📈 **Smart Sorting**: Automatically sort by light pollution level, prioritizing locations with better stargazing conditions
 - 🚗 **Road Connectivity Detection**: Analyze road accessibility to ensure recommended locations are convenient for transportation
 
+## Quick Start
+
+### Install Dependencies
+
+Run the following command from the project root:
+
+```bash
+uv sync
+```
+
+### Start the Web UI
+
+The repository now includes a runnable static frontend and Flask API. The recommended way to start both is:
+
+```bash
+bash start.sh
+```
+
+After startup, the default URLs are:
+
+- Web UI: [http://localhost:8000/src/source/template.html](http://localhost:8000/src/source/template.html)
+- API health check: [http://localhost:5001/api/health](http://localhost:5001/api/health)
+
+If you need the frontend to talk to a different API base URL, append a query parameter:
+
+```text
+http://localhost:8000/src/source/template.html?apiBaseUrl=http://127.0.0.1:5001
+```
+
+The frontend resolves the API base URL in the following order:
+
+1. URL query parameter `apiBaseUrl`
+2. Global config `window.APP_CONFIG.apiBaseUrl`
+3. Current page hostname with default API port `:5001`
+4. Local default `http://127.0.0.1:5001`
+
+### Start the API Only
+
+If you only need the backend API, run the following command from the project root:
+
+```bash
+uv run python -m light_pollution.light_pollution_api
+```
+
+## Web UI and API
+
+### Frontend Asset Locations
+
+The current Web frontend is not a separate frontend project. It is shipped as static assets in the repository:
+
+- `src/source/template.html`
+- `src/source/assets/js/app.js`
+- `src/source/assets/css/styles.css`
+
+### Main API Endpoints
+
+The current frontend mainly depends on these API endpoints:
+
+- `GET /api/health`: Health check
+- `GET /api/light_pollution`: Get light pollution data for the current viewport
+- `GET /api/light_pollution/tiles/{z}/{x}/{y}.png`: Get light pollution raster tiles
+- `GET /api/coordinate_analysis`: Analyze a single coordinate
+- `GET/POST /api/analyze_stargazing_area`: Analyze a stargazing area
+
+### Current Implementation Notes
+
+- The Web UI, CLI, and Python API all exist today, but the usage documentation is still being consolidated.
+- `start.sh` now matches the current repository layout and serves `src/source/template.html` directly.
+- The frontend API base URL is now configurable, which makes local development, reverse proxying, and remote deployment easier.
+
 ## Technical Architecture
 
 ### Core Data Model

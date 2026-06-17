@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Web 启动链路: `start.sh` 对齐当前仓库结构，直接服务 `src/source/template.html`，并改为使用模块方式启动 `light_pollution.light_pollution_api`
+- 前端配置: `src/source/assets/js/app.js` 新增 API 基地址解析逻辑，支持 `apiBaseUrl` 查询参数和 `window.APP_CONFIG.apiBaseUrl`
+- 文档更新: `README.md` 与 `README_EN.md` 新增 Quick Start / Web UI / API 说明，明确当前静态前端入口、启动方式和主要接口
+- 文档清理: 移除单独的项目评审文档，改为把关键信息收口到 README 中
+
 ## 0.6.2 (2026-06-17)
 
 - Bug 修复: Overpass 后端网络异常捕获面过窄 — 新增 `requests.exceptions.RequestException` 兜底
