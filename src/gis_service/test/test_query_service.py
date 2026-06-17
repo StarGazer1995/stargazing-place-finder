@@ -482,6 +482,34 @@ class TestPostgisBackendElevation(unittest.TestCase):
         result = backend.find_elevation_at_point(39.9, 116.4)
         self.assertIsNone(result)
 
+    def test_query_locations_in_bbox_uses_pool(self):
+        """query_locations_in_bbox uses pool get/put."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = [
+            (1, "TestPeak", 116.0, 40.0, None, None, None, None, None, None, None, None, "peak", 1200),
+        ]
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        results = backend.query_locations_in_bbox(115.0, 39.0, 117.0, 41.0, location_type="peak")
+        self.assertEqual(len(results), 1)
+        # Verify pool was used, not direct connect
+        self.mock_pool.getconn.assert_called()
+        self.mock_pool.putconn.assert_called()
+
+    def test_get_elevation_statistics_uses_pool(self):
+        """get_elevation_statistics uses pool and formats results."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchone.return_value = (5000, 10.0, 8848.0, 1200.0, 800.0)
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        stats = backend.get_elevation_statistics()
+        self.assertEqual(stats["total_points"], 5000)
+        self.assertEqual(stats["max_elevation"], 8848.0)
+        self.mock_pool.getconn.assert_called()
+        self.mock_pool.putconn.assert_called()
+
 
 class TestPostgisBackendPool(unittest.TestCase):
     """Tests for PostgisBackend connection pool lifecycle."""
