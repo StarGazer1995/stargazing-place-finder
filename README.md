@@ -16,6 +16,76 @@
 - 📈 **智能排序**: 根据光污染程度自动排序，优先显示观星条件更好的地点
 - 🚗 **道路连通性检测**: 分析地点的道路可达性，确保推荐地点交通便利
 
+## 快速开始
+
+### 安装依赖
+
+请在项目根目录执行:
+
+```bash
+uv sync
+```
+
+### 启动 Web UI
+
+当前仓库已内置可运行的静态前端和 Flask API，推荐直接使用根目录启动脚本:
+
+```bash
+bash start.sh
+```
+
+启动成功后默认可访问:
+
+- Web UI: [http://localhost:8000/src/source/template.html](http://localhost:8000/src/source/template.html)
+- API 健康检查: [http://localhost:5001/api/health](http://localhost:5001/api/health)
+
+如果需要把前端连接到其他 API 地址，可在页面 URL 中追加查询参数:
+
+```text
+http://localhost:8000/src/source/template.html?apiBaseUrl=http://127.0.0.1:5001
+```
+
+前端 API 基地址解析优先级如下:
+
+1. URL 查询参数 `apiBaseUrl`
+2. 全局配置 `window.APP_CONFIG.apiBaseUrl`
+3. 当前页面主机名自动推导到 `:5001`
+4. 本地默认值 `http://127.0.0.1:5001`
+
+### 启动 API
+
+如果只需要启动后端 API，可在项目根目录执行:
+
+```bash
+uv run python -m light_pollution.light_pollution_api
+```
+
+## Web UI 与 API
+
+### 前端资源位置
+
+当前 Web 前端不是独立前端工程，而是随仓库提供的一套静态资源，位于:
+
+- `src/source/template.html`
+- `src/source/assets/js/app.js`
+- `src/source/assets/css/styles.css`
+
+### 主要 API 端点
+
+当前前端主要依赖以下后端接口:
+
+- `GET /api/health`: 健康检查
+- `GET /api/light_pollution`: 获取视窗范围内的光污染数据
+- `GET /api/light_pollution/tiles/{z}/{x}/{y}.png`: 获取光污染瓦片图层
+- `GET /api/coordinate_analysis`: 分析单点坐标
+- `GET/POST /api/analyze_stargazing_area`: 分析观星区域
+
+### 当前实现状态说明
+
+- Web UI、CLI 和 Python API 都已存在，但使用说明仍在持续收口中。
+- `start.sh` 已对齐当前仓库结构，直接服务 `src/source/template.html`，不再依赖历史生成脚本。
+- 前端 API 地址现已支持覆盖配置，便于本地联调、反向代理和远程部署场景。
+
 ## 技术架构
 
 ### 架构总览
