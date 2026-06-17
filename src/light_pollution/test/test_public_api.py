@@ -6,13 +6,9 @@ Covers conversion utilities, grid helpers, and public API functions
 using mocked LightPollutionAnalyzer to avoid GeoTIFF dependency.
 """
 
-import os
-import sys
 from unittest.mock import MagicMock, patch
 
 # Ensure src is on path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
-
 from light_pollution.public_api import (
     _calculate_grid_dims,
     _grid_resolution_from_zoom,

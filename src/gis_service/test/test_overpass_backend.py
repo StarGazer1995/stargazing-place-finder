@@ -4,13 +4,9 @@ Tests for gis_service.backends.overpass_backend request handling,
 including retry, fallback, and exception coverage.
 """
 
-import os
-import sys
 from unittest.mock import patch
 
 # Ensure src is on path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
-
 import requests
 
 from gis_service.backends.overpass_backend import OVERPASS_FALLBACK_URLS, OverpassBackend

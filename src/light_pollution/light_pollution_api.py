@@ -17,6 +17,7 @@ from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from PIL import Image
 
+from gis_service.parsers import bortle_to_sqm, brightness_to_bortle, get_pollution_level_description
 from models import ConfigError, DataError
 from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
 
@@ -273,7 +274,6 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     Returns:
         距离（公里）
     """
-    # 使用Haversine公式计算距离
     R = 6371  # 地球半径（公里）
 
     lat1_rad = math.radians(lat1)
@@ -285,88 +285,6 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     return R * c
-
-
-def get_pollution_level_description(bortle: int) -> str:
-    """
-    根据波特尔等级获取描述
-
-    Args:
-        bortle: 波特尔等级 (1-9)
-
-    Returns:
-        等级描述
-    """
-    descriptions = {
-        1: "优秀暗空",
-        2: "典型暗空",
-        3: "乡村天空",
-        4: "乡村/郊区过渡",
-        5: "郊区天空",
-        6: "明亮郊区",
-        7: "郊区/城市过渡",
-        8: "城市天空",
-        9: "内城天空",
-    }
-    return descriptions.get(bortle, "未知等级")
-
-
-def brightness_to_bortle(brightness: int) -> int:
-    """
-    将亮度值转换为波特尔等级
-
-    Args:
-        brightness: 亮度值 (0-255)
-
-    Returns:
-        波特尔等级 (1-9)
-    """
-    # 将0-255的亮度值映射到1-9的波特尔等级
-    # 亮度越高，光污染越严重，波特尔等级越高
-    if brightness <= 28:  # 0-28
-        return 1
-    elif brightness <= 56:  # 29-56
-        return 2
-    elif brightness <= 84:  # 57-84
-        return 3
-    elif brightness <= 112:  # 85-112
-        return 4
-    elif brightness <= 140:  # 113-140
-        return 5
-    elif brightness <= 168:  # 141-168
-        return 6
-    elif brightness <= 196:  # 169-196
-        return 7
-    elif brightness <= 224:  # 197-224
-        return 8
-    else:  # 225-255
-        return 9
-
-
-def bortle_to_sqm(bortle: int) -> float:
-    """
-    将波特尔等级转换为SQM值（每平方角秒星等）
-    根据标准的波特尔-SQM对应关系
-
-    Args:
-        bortle: 波特尔等级 (1-9)
-
-    Returns:
-        SQM值
-    """
-    # 波特尔等级与SQM值的标准对应关系
-    sqm_values = {
-        1: 21.9,  # 优秀暗空 (21.7-22.0)
-        2: 21.6,  # 典型暗空 (21.5-21.6)
-        3: 21.3,  # 乡村天空 (21.3-21.4)
-        4: 20.4,  # 乡村/郊区过渡 (20.4-21.2)
-        5: 19.5,  # 郊区天空 (19.1-20.3)
-        6: 18.5,  # 明亮郊区 (18.0-19.0)
-        7: 17.5,  # 郊区/城市过渡 (17.0-18.0)
-        8: 16.5,  # 城市天空 (16.0-17.0)
-        9: 15.5,  # 内城天空 (<16.0)
-    }
-    return sqm_values.get(bortle, 20.0)
 
 
 def _parse_pollution_request():

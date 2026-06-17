@@ -4,16 +4,12 @@ Tests for stargazing_location_analyzer scoring and filtering pipeline.
 Uses mocked mountain_finder to exercise analyze_area with no data.
 """
 
-import os
-import sys
 import types
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 # Ensure src is on path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
-
 from models import StargazingLocation
 from stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer
 
@@ -600,30 +596,33 @@ class TestAnalyzeAreaWithMockData:
 
 
 class TestLoadDbConfig:
-    """Test _load_db_config with temp files."""
+    """Test load_db_config from gis_service.config (single source of truth)."""
 
     def test_load_json_config(self, tmp_path):
         """JSON config loads correctly."""
+        from gis_service.config import load_db_config
+
         cfg = {"host": "localhost", "port": 5432}
         cfg_file = tmp_path / "config.json"
         cfg_file.write_text('{"host": "localhost", "port": 5432}')
-        a = StargazingLocationAnalyzer()
-        result = a._load_db_config(str(cfg_file))
+        result = load_db_config(str(cfg_file))
         assert result == cfg
 
     def test_load_toml_config(self, tmp_path):
         """TOML config loads correctly across supported Python versions."""
+        from gis_service.config import load_db_config
+
         cfg_file = tmp_path / "config.toml"
         cfg_file.write_text('host = "localhost"\nport = 5432\n')
-        a = StargazingLocationAnalyzer()
-        result = a._load_db_config(str(cfg_file))
+        result = load_db_config(str(cfg_file))
         assert result == {"host": "localhost", "port": 5432}
 
     def test_load_toml_config_falls_back_to_tomli(self, tmp_path):
         """When tomllib is unavailable, the loader falls back to tomli."""
+        from gis_service.config import load_db_config
+
         cfg_file = tmp_path / "config.toml"
         cfg_file.write_text('host = "localhost"\nport = 5432\n')
-        analyzer = StargazingLocationAnalyzer()
         fake_tomli = types.ModuleType("tomli")
 
         def fake_load(file_obj):
@@ -640,17 +639,18 @@ class TestLoadDbConfig:
             return real_import(name, globals, locals, fromlist, level)
 
         with patch("builtins.__import__", side_effect=fake_import):
-            result = analyzer._load_db_config(str(cfg_file))
+            result = load_db_config(str(cfg_file))
 
         assert result == {"host": "localhost", "port": 5432, "loaded_by": "tomli"}
 
     def test_invalid_format_raises(self, tmp_path):
         """Unsupported extension raises ValueError."""
+        from gis_service.config import load_db_config
+
         cfg_file = tmp_path / "config.yaml"
         cfg_file.write_text("")
-        a = StargazingLocationAnalyzer()
         with pytest.raises(ValueError, match="Unsupported config format"):
-            a._load_db_config(str(cfg_file))
+            load_db_config(str(cfg_file))
 
 
 class TestBatchLightPollution:

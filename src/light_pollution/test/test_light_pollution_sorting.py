@@ -5,11 +5,8 @@
 专门测试 parsers 中光污染分析和排序功能
 """
 
-import os
-import sys
 
 # 添加 src 目录到Python路径以加载顶层包
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
 import unittest
 from unittest.mock import Mock

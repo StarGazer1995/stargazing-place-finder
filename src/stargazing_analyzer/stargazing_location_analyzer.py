@@ -138,34 +138,6 @@ class StargazingLocationAnalyzer:
                 logger.exception("Error closing light pollution analyzer")
             self.light_pollution_analyzer = None
 
-    def _load_db_config(self, path: str) -> Dict[str, object]:
-        """
-        Load database configuration from a file path (JSON or TOML).
-
-        Args:
-            path: File path to configuration
-
-        Returns:
-            Parsed configuration dictionary
-        """
-        ext = os.path.splitext(path)[1].lower()
-        if ext in (".json", ""):
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        elif ext == ".toml":
-            try:
-                try:
-                    import tomllib  # Python 3.11+
-                except ImportError:
-                    import tomli as tomllib  # Python 3.9/3.10
-
-                with open(path, "rb") as f:
-                    return tomllib.load(f)
-            except ConfigError as e:
-                raise RuntimeError(f"Failed to parse TOML config: {e}")
-        else:
-            raise ValueError(f"Unsupported config format: {ext}")
-
     def analyze_area(
         self,
         bbox: LatLonBox,

@@ -115,11 +115,8 @@ class StarGazingPlaceFinder:
             for loc in locations_data:
                 if "ele" not in loc.get("tags", {}):
                     try:
-                        if loc["type"] == "node":
-                            pass
-                        elif "center" in loc:
-                            pass
-                        else:
+                        # Skip locations that lack a usable coordinate structure
+                        if loc["type"] != "node" and "center" not in loc:
                             continue
                     except (KeyError, TypeError):
                         continue

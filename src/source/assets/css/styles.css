@@ -318,6 +318,8 @@ body {
     box-shadow: 0 8px 32px rgba(13, 71, 161, 0.4);
     min-width: 280px;
     max-width: 320px;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 .popup-content h4 {
@@ -397,9 +399,9 @@ body {
 }
 
 /* 波特尔等级颜色定义 */
-.bortle-1 { background-color: #000000; }
-.bortle-2 { background-color: #1a1a1a; }
-.bortle-3 { background-color: #2d2d2d; }
+.bortle-1 { background-color: #0a0a2e; }
+.bortle-2 { background-color: #1a2a5a; }
+.bortle-3 { background-color: #2d4a7a; }
 .bortle-4 { background-color: #4a4a00; }
 .bortle-5 { background-color: #666600; }
 .bortle-6 { background-color: #cc6600; }
@@ -731,36 +733,6 @@ body {
     color: #e74c3c;
 }
 
-/* 结果面板 */
-.results-panel {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    background: rgba(26, 26, 46, 0.95);
-    border: 2px solid #27ae60;
-    border-radius: 12px;
-    padding: 15px;
-    max-width: 350px;
-    max-height: 400px;
-    overflow-y: auto;
-    z-index: 1000;
-    display: none;
-    backdrop-filter: blur(10px);
-}
-
-.results-panel h4 {
-    color: #27ae60;
-    margin-bottom: 10px;
-    text-align: center;
-}
-
-.summary-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 15px;
-    font-size: 12px;
-}
 
 .stat-item {
     background: rgba(255, 255, 255, 0.1);
@@ -773,20 +745,6 @@ body {
     font-size: 16px;
     font-weight: bold;
     color: #4a90e2;
-}
-
-.location-item {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    padding: 10px;
-    margin-bottom: 8px;
-    font-size: 12px;
-}
-
-.location-name {
-    font-weight: bold;
-    color: #4a90e2;
-    margin-bottom: 4px;
 }
 
 .location-score {
@@ -916,11 +874,6 @@ body {
 
 .score-badge.poor {
     background: linear-gradient(135deg, #e74c3c, #cb4335);
-}
-
-.popup-content {
-    max-height: 300px;
-    overflow-y: auto;
 }
 
 .info-section {
