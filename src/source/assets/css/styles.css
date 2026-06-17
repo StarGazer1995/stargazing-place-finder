@@ -13,6 +13,46 @@ body {
     height: 100vh;
 }
 
+/* ── Toast notifications ──────────────────────────────────────────── */
+
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    max-width: 80vw;
+    text-align: center;
+}
+
+.toast-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.toast-info {
+    background: rgba(74, 144, 226, 0.95);
+    box-shadow: 0 4px 16px rgba(74, 144, 226, 0.3);
+}
+
+.toast-error {
+    background: rgba(231, 76, 60, 0.95);
+    box-shadow: 0 4px 16px rgba(231, 76, 60, 0.3);
+}
+
+.toast-success {
+    background: rgba(39, 174, 96, 0.95);
+    box-shadow: 0 4px 16px rgba(39, 174, 96, 0.3);
+}
+
 /* 辅助类 */
 .sr-only {
     position: absolute;
