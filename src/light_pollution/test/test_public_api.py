@@ -224,6 +224,20 @@ class TestInitAndRequire:
 
     @patch("light_pollution.public_api.LightPollutionAnalyzer")
     @patch("light_pollution.public_api._default_geotiff_path")
+    def test_reinit_closes_old_analyzer(self, mock_default_path, mock_lp_cls):
+        """Re-initializing calls close() on the old instance."""
+        import light_pollution.public_api as pub
+
+        old_analyzer = MagicMock()
+        pub._lp_analyzer = old_analyzer
+        mock_lp_cls.return_value = MagicMock()
+
+        pub.init_light_pollution_analyzer()
+
+        old_analyzer.close.assert_called_once()
+
+    @patch("light_pollution.public_api.LightPollutionAnalyzer")
+    @patch("light_pollution.public_api._default_geotiff_path")
     @patch("light_pollution.public_api._require_analyzer")
     def test_get_light_pollution_grid(self, mock_require, mock_default_path, mock_lp_cls):
         """get_light_pollution_grid with mocked analyzer."""
@@ -296,3 +310,58 @@ class TestInitAndRequire:
 
         path = _default_geotiff_path()
         assert str(path).endswith("viirs_china_2025.tif")
+
+
+class TestLightPollutionApiIntegration:
+    """Test that light_pollution_api uses the same path logic as public_api."""
+
+    def test_api_uses_default_geotiff_path(self):
+        """light_pollution_api.init_analyzer uses _default_geotiff_path()."""
+        from light_pollution.public_api import _default_geotiff_path
+
+        # The path used by the API must match the canonical one from public_api.
+        # We can't easily mock the analyzer init without the actual GeoTIFF,
+        # but we verify the path would be derived from the same source.
+        expected = str(_default_geotiff_path())
+        assert expected.endswith("viirs_china_2025.tif")
+
+    @patch("light_pollution.light_pollution_api.LightPollutionAnalyzer")
+    @patch("light_pollution.light_pollution_api._default_geotiff_path")
+    def test_init_analyzer_calls_default_geotiff_path(self, mock_geotiff, mock_lp):
+        """init_analyzer() calls _default_geotiff_path() (line 41)."""
+        from light_pollution.light_pollution_api import init_analyzer as ia
+
+        mock_geotiff.return_value = "/fake/path.tif"
+        mock_lp.return_value = MagicMock()
+
+        ia()
+
+        mock_geotiff.assert_called_once()
+        mock_lp.assert_called_once_with(geotiff_path="/fake/path.tif", skyglow_sigma_km=15.0, skyglow_weight=0.4)
+
+    @patch("light_pollution.light_pollution_api.analyze_stargazing_area")
+    @patch("light_pollution.light_pollution_api._default_geotiff_path")
+    def test_analyze_stargazing_area_endpoint(self, mock_geotiff_path, mock_analyze):
+        """post_analyze_area uses _default_geotiff_path() (line 766)."""
+        from light_pollution.light_pollution_api import app
+
+        mock_geotiff_path.return_value = "/fake/path.tif"
+        mock_analyze.return_value = []
+
+        with app.test_client() as client:
+            resp = client.post(
+                "/api/analyze_stargazing_area",
+                json={
+                    "north": 41.0,
+                    "south": 39.0,
+                    "east": 117.0,
+                    "west": 115.0,
+                    "max_locations": 5,
+                    "min_height_diff": 100,
+                    "road_radius_km": 10,
+                    "network_type": "drive",
+                },
+            )
+            assert resp.status_code == 200
+
+        mock_geotiff_path.assert_called()

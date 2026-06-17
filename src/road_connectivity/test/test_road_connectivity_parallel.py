@@ -9,6 +9,7 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
+import road_connectivity.road_connectivity_checker
 from models import GeoCoordinate, LatLonBox, NetworkError
 
 
@@ -227,6 +228,64 @@ class TestPreloadNetwork(unittest.TestCase):
 
         self.mock_ox.assert_called_once()
         self.assertIsNone(checker._shared_graph)
+
+    def test_preload_with_request_exception(self):
+        """ox.graph_from_bbox raises ConnectionError → _shared_graph set to None."""
+        import requests
+
+        self.mock_ox.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+        checker = self._make_checker()
+        checker.preload_network_for_bbox((39.0, 115.0, 41.0, 117.0))
+
+        self.mock_ox.assert_called_once()
+        self.assertIsNone(checker._shared_graph)
+
+    def test_get_road_network_request_exception(self):
+        """ox.graph_from_point raises ConnectionError → _get_road_network returns None."""
+        import requests
+
+        with patch.object(road_connectivity.road_connectivity_checker.ox, "graph_from_point") as mock_gfp:
+            mock_gfp.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+            checker = self._make_checker()
+            checker._shared_graph = None
+            result = checker._get_road_network(
+                GeoCoordinate(latitude=39.9, longitude=116.4),
+                network_type="drive",
+            )
+
+            self.assertIsNone(result)
+
+    def test_get_road_accessibility_request_exception(self):
+        """RequestException in is_road_accessible → returns False (line 248)."""
+        import requests
+
+        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+
+        mock_graph = MagicMock()
+        mock_graph.nodes.return_value = [1]
+
+        with (
+            patch.object(road_connectivity.road_connectivity_checker.ox, "distance") as mock_dist,
+            patch.object(RoadConnectivityChecker, "_check_via_postgis", return_value=None),
+        ):
+            # _get_road_network returns the shared mock graph successfully,
+            # but ox.distance.nearest_nodes raises RequestException
+            checker = self._make_checker()
+            checker._shared_graph = mock_graph
+            mock_dist.nearest_nodes.side_effect = requests.exceptions.RequestException(
+                "Connection error during nearest node lookup"
+            )
+            # Bypass disk cache
+            with patch.object(checker.location_cache, "get_cached_result", return_value=None):
+                result = checker.is_road_accessible(
+                    GeoCoordinate(latitude=39.9, longitude=116.4),
+                    network_type="drive",
+                )
+
+            self.assertFalse(result)
+            mock_dist.nearest_nodes.assert_called_once()
 
     def test_get_road_network_uses_shared_graph(self):
         """_get_road_network returns _shared_graph when it is set."""

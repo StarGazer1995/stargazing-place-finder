@@ -24,6 +24,12 @@ from stargazing_analyzer.public_api import (
 class TestInit:
     """Test init_stargazing_analyzer."""
 
+    def teardown_method(self):
+        """Reset global state after each test."""
+        import stargazing_analyzer.public_api as pub
+
+        pub._sa_analyzer = None
+
     @patch("stargazing_analyzer.public_api._default_geotiff_path")
     @patch("stargazing_analyzer.public_api.StargazingLocationAnalyzer")
     def test_init_default_path(self, MockAnalyzer, mock_geotiff):
@@ -39,6 +45,10 @@ class TestInit:
 
     @patch("stargazing_analyzer.public_api.StargazingLocationAnalyzer")
     def test_init_custom_params(self, MockAnalyzer):
+        import stargazing_analyzer.public_api as pub
+
+        pub._sa_analyzer = None
+
         init_stargazing_analyzer(
             geotiff_path="/custom/path.tif",
             min_height_difference=200.0,
@@ -53,6 +63,19 @@ class TestInit:
             db_config_path=None,
             config=None,
         )
+
+    @patch("stargazing_analyzer.public_api.StargazingLocationAnalyzer")
+    def test_reinit_closes_old_analyzer(self, MockAnalyzer):
+        """Re-initializing calls close() on the old instance."""
+        import stargazing_analyzer.public_api as pub
+
+        old_analyzer = MagicMock()
+        pub._sa_analyzer = old_analyzer
+        MockAnalyzer.return_value = MagicMock()
+
+        init_stargazing_analyzer()
+
+        old_analyzer.close.assert_called_once()
 
 
 class TestRequireAnalyzer:

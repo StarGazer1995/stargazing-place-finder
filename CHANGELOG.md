@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.2 (2026-06-17)
+
+- Bug 修复: Overpass 后端网络异常捕获面过窄 — 新增 `requests.exceptions.RequestException` 兜底
+  - `OverpassBackend._request()` 增加 `RequestException` catch，避免 `ConnectionError` / `SSLError` 等击穿重试与 fallback 链路
+  - `RoadConnectivityChecker` 所有 OSMnx 调用路径（`preload_network_for_bbox`、`_get_road_network`、`get_road_accessibility`）统一增加 `RequestException` 捕获
+- 资源生命周期: 全局单例重建前先释放旧资源，防止 GeoTIFF 句柄泄漏
+  - `light_pollution/public_api.py` — `init_light_pollution_analyzer()` 重建前调用 `close()`
+  - `stargazing_analyzer/public_api.py` — `init_stargazing_analyzer()` 重建前调用 `close()`
+  - `StargazingLocationAnalyzer` 新增 `close()` 方法，释放内部 LightPollutionAnalyzer
+
 ## 0.6.1 (2026-06-16)
 
 - Bug 修复: Overpass API 主站 406 Not Acceptable — 添加 `User-Agent` 和 `Accept: application/json` 请求头

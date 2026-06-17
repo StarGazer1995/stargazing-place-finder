@@ -21,6 +21,7 @@ from models import ConfigError, DataError
 from stargazing_analyzer.stargazing_location_analyzer import analyze_stargazing_area
 
 from .light_pollution_analyzer import LightPollutionAnalyzer
+from .public_api import _default_geotiff_path
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +38,7 @@ def init_analyzer():
     """
     global analyzer
     try:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(os.path.dirname(current_dir))
-        geotiff_file = os.path.join(project_root, "src/light_pollution/resources/viirs_china_2025.tif")
+        geotiff_file = str(_default_geotiff_path())
 
         logger.info("Initializing light pollution analyzer...")
         logger.info("GeoTIFF file path: %s", geotiff_file)
@@ -764,9 +763,7 @@ def analyze_stargazing_area_endpoint():
         logger.info("Analyzing stargazing area: North%s° South%s° East%s° West%s°", north, south, east, west)
 
         # 获取 GeoTIFF 文件路径
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(os.path.dirname(current_dir))
-        geotiff_path = os.path.join(project_root, "src/light_pollution/resources/viirs_china_2025.tif")
+        geotiff_path = str(_default_geotiff_path())
 
         # Get DB config from environment variable
         db_config_path = os.environ.get("STARGAZING_DB_CONFIG")

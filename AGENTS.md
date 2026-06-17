@@ -84,6 +84,7 @@ Run tests with `FAST_TESTS=1` for a faster test mode that skips slow geospatial 
 - Tests run standalone (can be executed directly with `python test_*.py`)
 - Use `FAST_TESTS` env var to gate slow tests
 - Environment is patched so `src/` is on `PYTHONPATH`
+- **新加代码的差异覆盖度必须达到 100%** — `diff-cover --fail-under=100` 在 CI 中强制执行，覆盖所有新增/修改行
 
 ### Naming
 - `snake_case` for files, functions, variables

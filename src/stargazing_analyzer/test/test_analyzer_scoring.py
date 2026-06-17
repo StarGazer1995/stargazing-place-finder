@@ -6,6 +6,7 @@ Uses mocked mountain_finder to exercise analyze_area with no data.
 
 import os
 import sys
+import types
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -611,16 +612,37 @@ class TestLoadDbConfig:
         assert result == cfg
 
     def test_load_toml_config(self, tmp_path):
-        """TOML config loads correctly (if tomllib available)."""
-        import sys
-
-        if sys.version_info < (3, 11):
-            pytest.skip("tomllib requires Python 3.11+")
+        """TOML config loads correctly across supported Python versions."""
         cfg_file = tmp_path / "config.toml"
         cfg_file.write_text('host = "localhost"\nport = 5432\n')
         a = StargazingLocationAnalyzer()
         result = a._load_db_config(str(cfg_file))
         assert result == {"host": "localhost", "port": 5432}
+
+    def test_load_toml_config_falls_back_to_tomli(self, tmp_path):
+        """When tomllib is unavailable, the loader falls back to tomli."""
+        cfg_file = tmp_path / "config.toml"
+        cfg_file.write_text('host = "localhost"\nport = 5432\n')
+        analyzer = StargazingLocationAnalyzer()
+        fake_tomli = types.ModuleType("tomli")
+
+        def fake_load(file_obj):
+            return {"host": "localhost", "port": 5432, "loaded_by": "tomli"}
+
+        fake_tomli.load = fake_load
+        real_import = __import__
+
+        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "tomllib":
+                raise ImportError("tomllib unavailable")
+            if name == "tomli":
+                return fake_tomli
+            return real_import(name, globals, locals, fromlist, level)
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            result = analyzer._load_db_config(str(cfg_file))
+
+        assert result == {"host": "localhost", "port": 5432, "loaded_by": "tomli"}
 
     def test_invalid_format_raises(self, tmp_path):
         """Unsupported extension raises ValueError."""
@@ -669,3 +691,51 @@ class TestBatchLightPollution:
         analyzer.light_pollution_analyzer.batch_analyze_coordinates.side_effect = GeoError("test")
         result = analyzer._batch_light_pollution([loc], True)
         assert result == {}
+
+
+class TestAnalyzerClose:
+    """Test StargazingLocationAnalyzer.close()."""
+
+    def test_close_with_light_pollution(self):
+        """close() calls the inner light_pollution_analyzer.close()."""
+        mock_lpa = MagicMock()
+        with (
+            patch("stargazing_analyzer.stargazing_location_analyzer.StarGazingPlaceFinder"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.RoadConnectivityChecker"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.LightPollutionAnalyzer"),
+        ):
+            a = StargazingLocationAnalyzer()
+            a.light_pollution_analyzer = mock_lpa
+
+        a.close()
+        mock_lpa.close.assert_called_once()
+        assert a.light_pollution_analyzer is None
+
+    def test_close_without_light_pollution(self):
+        """close() does nothing when light_pollution_analyzer is None."""
+        with (
+            patch("stargazing_analyzer.stargazing_location_analyzer.StarGazingPlaceFinder"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.RoadConnectivityChecker"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.LightPollutionAnalyzer"),
+        ):
+            a = StargazingLocationAnalyzer()
+            a.light_pollution_analyzer = None
+            a.close()  # should not raise
+
+    def test_close_handles_exception(self):
+        """When inner analyzer.close() raises, close() logs and continues (lines 137-138)."""
+        mock_lpa = MagicMock()
+        mock_lpa.close.side_effect = RuntimeError("GeoTIFF corruption")
+        with (
+            patch("stargazing_analyzer.stargazing_location_analyzer.StarGazingPlaceFinder"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.RoadConnectivityChecker"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.LightPollutionAnalyzer"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.logger") as mock_log,
+        ):
+            a = StargazingLocationAnalyzer()
+            a.light_pollution_analyzer = mock_lpa
+            a.close()
+
+        mock_lpa.close.assert_called_once()
+        assert a.light_pollution_analyzer is None
+        mock_log.exception.assert_called_once_with("Error closing light pollution analyzer")
