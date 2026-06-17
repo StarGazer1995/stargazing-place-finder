@@ -18,9 +18,47 @@ let isAnalysisMode = false;
 let statusIndicator = null;
 let resultsPanel = null;
 
+/**
+ * 删除 URL 末尾的斜杠，避免后续拼接接口路径时出现双斜杠。
+ * @param {string} url - 原始 URL
+ * @returns {string} 标准化后的 URL
+ */
+function normalizeBaseUrl(url) {
+    return url.replace(/\/+$/, '');
+}
+
+/**
+ * 解析前端应使用的 API 基地址。
+ * 优先级:
+ * 1. URL 查询参数 `apiBaseUrl`
+ * 2. 全局配置 `window.APP_CONFIG.apiBaseUrl`
+ * 3. 当前页面主机名 + 默认 API 端口
+ * 4. 本地开发默认值
+ * @returns {string} API 基地址
+ */
+function resolveApiBaseUrl() {
+    const searchParams = new URLSearchParams(window.location.search);
+    const queryBaseUrl = searchParams.get('apiBaseUrl');
+    const globalBaseUrl = window.APP_CONFIG?.apiBaseUrl;
+    const configuredBaseUrl = queryBaseUrl || globalBaseUrl;
+
+    if (configuredBaseUrl) {
+        return normalizeBaseUrl(configuredBaseUrl);
+    }
+
+    const { protocol, hostname } = window.location;
+    if (hostname) {
+        const resolvedProtocol = protocol === 'https:' ? 'https:' : 'http:';
+        const resolvedHost = hostname === 'localhost' ? '127.0.0.1' : hostname;
+        return `${resolvedProtocol}//${resolvedHost}:5001`;
+    }
+
+    return 'http://127.0.0.1:5001';
+}
+
 // API配置
 const API_CONFIG = {
-    baseUrl: 'http://127.0.0.1:5001',
+    baseUrl: resolveApiBaseUrl(),
     endpoints: {
         analyze: '/api/analyze_stargazing_area',
         health: '/api/health',
@@ -29,6 +67,8 @@ const API_CONFIG = {
         coordinateAnalysis: '/api/coordinate_analysis'
     }
 };
+
+console.info('[Stargazing] API base URL:', API_CONFIG.baseUrl);
 
 // 标记样式配置
 const MARKER_STYLES = {
