@@ -4,7 +4,6 @@ let currentOverlay = null;
 let currentImageLayers = [];
 let pollutionTileLayer = null;
 let dataCache = new Map();
-let imageCache = new Map();
 let currentLanguage = 'zh';
 let isLoading = false;
 let loadingIndicator;
@@ -17,6 +16,68 @@ let analysisResults = [];
 let isAnalysisMode = false;
 let statusIndicator = null;
 let resultsPanel = null;
+
+// ═══════════════════════════════════════════════════════════════════════
+//  UI utilities
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Show a non-blocking toast notification that auto-dismisses.
+ * @param {string} message - Message text
+ * @param {'info'|'error'|'success'} type - Toast type
+ * @param {number} duration - Auto-dismiss delay in ms (default 3000)
+ */
+function showToast(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    document.body.appendChild(toast);
+
+    // Trigger reflow for transition
+    void toast.offsetWidth;
+    toast.classList.add('toast-visible');
+
+    setTimeout(() => {
+        toast.classList.remove('toast-visible');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+/**
+ * Fetch wrapper with AbortController timeout and one automatic retry.
+ * @param {string} url - Request URL
+ * @param {Object} options - Fetch options (method, headers, body, etc.)
+ * @param {number} timeoutMs - Timeout in ms (default 10000)
+ * @returns {Promise<Response>}
+ */
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        if (!response.ok && response.status >= 500) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+        return response;
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            throw new Error('Request timed out');
+        }
+        // One retry for transient failures
+        const retryController = new AbortController();
+        const retryTimer = setTimeout(() => retryController.abort(), timeoutMs);
+        try {
+            return await fetch(url, { ...options, signal: retryController.signal });
+        } finally {
+            clearTimeout(retryTimer);
+        }
+    } finally {
+        clearTimeout(timer);
+    }
+}
 
 /**
  * 删除 URL 末尾的斜杠，避免后续拼接接口路径时出现双斜杠。
@@ -490,113 +551,6 @@ function getIntensityRadius(bortleClass) {
 }
 
 /**
- * 计算自适应方块大小
- * @param {number} zoom - 地图缩放级别
- * @returns {number} 方块大小
- */
-function getAdaptiveSquareSize(zoom) {
-    // 根据缩放级别调整方块大小
-    if (zoom <= 6) return 0.1;
-    if (zoom <= 8) return 0.05;
-    if (zoom <= 10) return 0.02;
-    if (zoom <= 12) return 0.01;
-    return 0.005;
-}
-
-/**
- * 获取光污染数据
- * @param {Object} bounds - 地图边界
- * @param {number} zoom - 缩放级别
- * @returns {Promise<Array>} 光污染数据数组
- */
-async function getLightPollutionData(bounds, zoom) {
-    const cacheKey = `${bounds.north}_${bounds.south}_${bounds.east}_${bounds.west}_${zoom}`;
-    
-    // 检查缓存
-    if (dataCache.has(cacheKey)) {
-        return dataCache.get(cacheKey);
-    }
-    
-    try {
-        // 这里应该是实际的API调用
-        // const response = await fetch(`/api/light-pollution?bounds=${JSON.stringify(bounds)}&zoom=${zoom}`);
-        // const data = await response.json();
-        
-        // 模拟API调用延迟
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // 使用模拟数据
-        const data = generateMockData(bounds, zoom);
-        
-        // 缓存数据
-        dataCache.set(cacheKey, data);
-        
-        return data;
-    } catch (error) {
-        console.error('获取光污染数据失败:', error);
-        // 返回模拟数据作为后备
-        const mockData = generateMockData(bounds, zoom);
-        dataCache.set(cacheKey, mockData);
-        return mockData;
-    }
-}
-
-/**
- * 生成模拟光污染数据
- * @param {Object} bounds - 地图边界
- * @param {number} zoom - 缩放级别
- * @returns {Array} 模拟数据数组
- */
-function generateMockData(bounds, zoom) {
-    const data = [];
-    const squareSize = getAdaptiveSquareSize(zoom);
-    const density = Math.max(1, Math.floor(20 - zoom)); // 根据缩放级别调整密度
-    
-    for (let lat = bounds.south; lat < bounds.north; lat += squareSize * density) {
-        for (let lng = bounds.west; lng < bounds.east; lng += squareSize * density) {
-            let bortleClass;
-            
-            // 根据地理位置生成不同的波特尔等级
-            if (lat >= 18 && lat <= 54 && lng >= 73 && lng <= 135) {
-                // 中国大陆范围内
-                if (lng >= 110 && lng <= 125 && lat >= 30 && lat <= 42) {
-                    // 东部发达地区（如北京、上海、广州等）
-                    bortleClass = Math.floor(Math.random() * 3) + 6; // 6-8级
-                } else if (lng >= 75 && lng <= 95 && lat >= 35 && lat <= 50) {
-                    // 西部偏远地区（如新疆、西藏等）
-                    bortleClass = Math.floor(Math.random() * 3) + 1; // 1-3级
-                } else {
-                    // 其他地区
-                    bortleClass = Math.floor(Math.random() * 5) + 3; // 3-7级
-                }
-            } else {
-                // 国外地区
-                if (lat > 60 || lat < -60) {
-                    // 极地地区
-                    bortleClass = Math.floor(Math.random() * 2) + 1; // 1-2级
-                } else if ((lng >= -125 && lng <= -65 && lat >= 25 && lat <= 50) || 
-                          (lng >= -10 && lng <= 40 && lat >= 35 && lat <= 70)) {
-                    // 北美和欧洲发达地区
-                    bortleClass = Math.floor(Math.random() * 4) + 5; // 5-8级
-                } else {
-                    // 其他地区
-                    bortleClass = Math.floor(Math.random() * 6) + 2; // 2-7级
-                }
-            }
-            
-            data.push({
-                lat: lat,
-                lng: lng,
-                bortleClass: bortleClass,
-                intensity: getIntensityRadius(bortleClass)
-            });
-        }
-    }
-    
-    return data;
-}
-
-/**
  * 清除现有图层
  */
 function clearLayers() {
@@ -759,75 +713,6 @@ function updateStatsPanel(stats = null) {
 }
 
 /**
- * 合并相邻的同色方块区域
- * @param {Array} data - 原始数据
- * @returns {Array} 合并后的区域数据
- */
-function mergeAdjacentAreas(data) {
-    if (!data || data.length === 0) return [];
-    
-    const merged = [];
-    const processed = new Set();
-    
-    data.forEach((point, index) => {
-        if (processed.has(index)) return;
-        
-        const region = {
-            bortleClass: point.bortleClass,
-            points: [point],
-            bounds: {
-                north: point.lat,
-                south: point.lat,
-                east: point.lng,
-                west: point.lng
-            }
-        };
-        
-        // 查找相邻的同等级点
-        const queue = [index];
-        processed.add(index);
-        
-        while (queue.length > 0) {
-            const currentIndex = queue.shift();
-            const currentPoint = data[currentIndex];
-            
-            // 查找相邻点
-            data.forEach((otherPoint, otherIndex) => {
-                if (processed.has(otherIndex)) return;
-                if (otherPoint.bortleClass !== point.bortleClass) return;
-                
-                const distance = Math.sqrt(
-                    Math.pow(currentPoint.lat - otherPoint.lat, 2) +
-                    Math.pow(currentPoint.lng - otherPoint.lng, 2)
-                );
-                
-                // 如果距离足够近，认为是相邻的
-                if (distance < 0.02) {
-                    region.points.push(otherPoint);
-                    processed.add(otherIndex);
-                    queue.push(otherIndex);
-                    
-                    // 更新边界
-                    region.bounds.north = Math.max(region.bounds.north, otherPoint.lat);
-                    region.bounds.south = Math.min(region.bounds.south, otherPoint.lat);
-                    region.bounds.east = Math.max(region.bounds.east, otherPoint.lng);
-                    region.bounds.west = Math.min(region.bounds.west, otherPoint.lng);
-                }
-            });
-        }
-        
-        // 计算区域中心点
-        const avgLat = region.points.reduce((sum, p) => sum + p.lat, 0) / region.points.length;
-        const avgLng = region.points.reduce((sum, p) => sum + p.lng, 0) / region.points.length;
-        
-        region.center = { lat: avgLat, lng: avgLng };
-        merged.push(region);
-    });
-    
-    return merged;
-}
-
-/**
  * 使用新数据更新图层和统计
  * @param {Array} data - 光污染数据
  */
@@ -964,30 +849,6 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
-}
-
-/**
- * 更新现有图层的大小
- * @param {number} zoom - 新的缩放级别
- */
-function updateExistingLayerSizes(zoom) {
-    if (!currentOverlay) return;
-    
-    const newSquareSize = getAdaptiveSquareSize(zoom);
-    
-    currentOverlay.eachLayer(layer => {
-        if (layer instanceof L.Rectangle) {
-            const bounds = layer.getBounds();
-            const center = bounds.getCenter();
-            
-            const newBounds = [
-                [center.lat - newSquareSize/2, center.lng - newSquareSize/2],
-                [center.lat + newSquareSize/2, center.lng + newSquareSize/2]
-            ];
-            
-            layer.setBounds(newBounds);
-        }
-    });
 }
 
 /**
@@ -1191,38 +1052,6 @@ function estimateBortleClass(lat, lng) {
 }
 
 /**
- * 预加载邻近区域的图像数据
- * @param {Object} bounds - 当前边界
- * @param {number} zoom - 缩放级别
- */
-async function preloadNearbyImageData(bounds, zoom) {
-    const latRange = bounds.north - bounds.south;
-    const lngRange = bounds.east - bounds.west;
-    
-    // 预加载周围8个区域的数据
-    const offsets = [
-        [-latRange, -lngRange], [-latRange, 0], [-latRange, lngRange],
-        [0, -lngRange], [0, lngRange],
-        [latRange, -lngRange], [latRange, 0], [latRange, lngRange]
-    ];
-    
-    const preloadPromises = offsets.map(([latOffset, lngOffset]) => {
-        const nearbyBounds = {
-            north: bounds.north + latOffset,
-            south: bounds.south + latOffset,
-            east: bounds.east + lngOffset,
-            west: bounds.west + lngOffset
-        };
-        
-        return getLightPollutionData(nearbyBounds, zoom).catch(error => {
-            console.warn('预加载邻近数据失败:', error);
-        });
-    });
-    
-    await Promise.allSettled(preloadPromises);
-}
-
-/**
  * 初始化搜索功能
  */
 function initializeSearch() {
@@ -1266,11 +1095,11 @@ async function searchLocation(query) {
                 .bindPopup(`${result.display_name}<br>${getText('coordinates')}: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
                 .openPopup();
         } else {
-            alert('未找到该位置，请尝试其他搜索词');
+            showToast('未找到该位置，请尝试其他搜索词', 'info');
         }
     } catch (error) {
         console.error('搜索失败:', error);
-        alert('搜索失败，请检查网络连接');
+        showToast('搜索失败，请检查网络连接', 'error');
     }
 }
 
@@ -1332,9 +1161,8 @@ function initializeApp() {
         }
     });
     
-    // 隐藏不需要的控件
+    // 初始化完成后隐藏加载覆盖层，保留核心交互控件
     setTimeout(() => {
-        // 隐藏加载覆盖层
         const loadingOverlay = document.getElementById('loading-overlay');
         if (loadingOverlay) {
             loadingOverlay.classList.add('hidden');
@@ -1342,43 +1170,15 @@ function initializeApp() {
                 loadingOverlay.style.display = 'none';
             }, 500);
         }
-        
-        // 隐藏统计面板
+
+        // 初始隐藏仅数据驱动的面板（无数据时不展示）
         const statsPanel = document.querySelector('.stats-panel');
-        if (statsPanel) {
-            statsPanel.style.display = 'none';
-            console.log('已隐藏统计面板');
-        }
-        
-        // 隐藏信息面板
+        if (statsPanel) statsPanel.style.display = 'none';
+
         const infoPanel = document.querySelector('.info-panel');
-        if (infoPanel) {
-            infoPanel.style.display = 'none';
-            console.log('已隐藏信息面板');
-        }
-        
-        // 隐藏图例面板
-        const legendPanel = document.querySelector('.legend-panel');
-        if (legendPanel) {
-            legendPanel.style.display = 'none';
-            console.log('已隐藏图例面板');
-        }
-        
-        // 隐藏搜索容器
-        const searchContainer = document.getElementById('search-container');
-        if (searchContainer) {
-            searchContainer.style.display = 'none';
-            console.log('已隐藏搜索容器');
-        }
-        
-        // 隐藏语言切换按钮
-        const languageButton = document.getElementById('language-btn');
-        if (languageButton) {
-            languageButton.style.display = 'none';
-            console.log('已隐藏语言切换按钮');
-        }
-        
-        console.log('应用初始化完成，所有控件已隐藏');
+        if (infoPanel) infoPanel.style.display = 'none';
+
+        console.log('应用初始化完成');
     }, 1000);
 }
 
