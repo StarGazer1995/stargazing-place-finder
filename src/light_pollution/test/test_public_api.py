@@ -183,7 +183,7 @@ class TestInitAndRequire:
         """Reset global state after each test."""
         import light_pollution.public_api as pub
 
-        pub._lp_analyzer = None
+        pub.reset_analyzer()
 
     @patch("light_pollution.public_api.LightPollutionAnalyzer")
     @patch("light_pollution.public_api._default_geotiff_path")
@@ -191,7 +191,7 @@ class TestInitAndRequire:
         """init with no path uses _default_geotiff_path."""
         import light_pollution.public_api as pub
 
-        pub._lp_analyzer = None
+        pub.reset_analyzer()
         mock_default_path.return_value = "/fake/path.tif"
         mock_lp_cls.return_value = MagicMock()
 
@@ -210,7 +210,7 @@ class TestInitAndRequire:
         """_require_analyzer calls init when _lp_analyzer is None."""
         import light_pollution.public_api as pub
 
-        pub._lp_analyzer = None
+        pub.reset_analyzer()
         mock_lp_cls.return_value = MagicMock()
 
         result = pub._require_analyzer()
@@ -240,7 +240,7 @@ class TestInitAndRequire:
         import light_pollution.public_api as pub
 
         # Reset global state
-        pub._lp_analyzer = None
+        pub.reset_analyzer()
 
         mock_analyzer = MagicMock()
         mock_info = MagicMock(
