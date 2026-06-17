@@ -24,7 +24,7 @@ class TestInit:
         """Reset global state after each test."""
         import stargazing_analyzer.public_api as pub
 
-        pub._sa_analyzer = None
+        pub.reset_analyzer()
 
     @patch("stargazing_analyzer.public_api._default_geotiff_path")
     @patch("stargazing_analyzer.public_api.StargazingLocationAnalyzer")
@@ -43,7 +43,7 @@ class TestInit:
     def test_init_custom_params(self, MockAnalyzer):
         import stargazing_analyzer.public_api as pub
 
-        pub._sa_analyzer = None
+        pub.reset_analyzer()
 
         init_stargazing_analyzer(
             geotiff_path="/custom/path.tif",

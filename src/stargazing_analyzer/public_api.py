@@ -1,4 +1,5 @@
 import importlib.resources as res
+import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -12,6 +13,7 @@ from .stargazing_location_analyzer import (
 )
 
 _sa_analyzer: Optional[StargazingLocationAnalyzer] = None
+_sa_lock = threading.RLock()
 
 
 def _default_geotiff_path() -> Path:
@@ -50,17 +52,18 @@ def init_stargazing_analyzer(
     global _sa_analyzer
     if geotiff_path is None:
         geotiff_path = _default_geotiff_path()
-    # Close old instance before creating a new one to prevent resource leaks
-    if _sa_analyzer is not None:
-        _sa_analyzer.close()
-    _sa_analyzer = StargazingLocationAnalyzer(
-        geotiff_path=str(geotiff_path),
-        min_height_difference=min_height_difference,
-        road_search_radius_km=road_search_radius_km,
-        max_distance_to_road_km=max_distance_to_road_km,
-        db_config_path=str(db_config_path) if db_config_path else None,
-        config=config,
-    )
+    with _sa_lock:
+        # Close old instance before creating a new one to prevent resource leaks
+        if _sa_analyzer is not None:
+            _sa_analyzer.close()
+        _sa_analyzer = StargazingLocationAnalyzer(
+            geotiff_path=str(geotiff_path),
+            min_height_difference=min_height_difference,
+            road_search_radius_km=road_search_radius_km,
+            max_distance_to_road_km=max_distance_to_road_km,
+            db_config_path=str(db_config_path) if db_config_path else None,
+            config=config,
+        )
     return _sa_analyzer
 
 
@@ -68,13 +71,31 @@ def _require_analyzer() -> StargazingLocationAnalyzer:
     """
     确保分析器已初始化，未初始化则使用默认路径进行初始化。
 
+    Thread-safe: uses double-checked locking so concurrent callers don't
+    create multiple instances.
+
     Returns:
         StargazingLocationAnalyzer 实例
     """
     global _sa_analyzer
     if _sa_analyzer is None:
-        init_stargazing_analyzer()
+        with _sa_lock:
+            if _sa_analyzer is None:
+                init_stargazing_analyzer()
     return _sa_analyzer  # type: ignore
+
+
+def reset_analyzer() -> None:
+    """
+    Reset the global analyzer singleton.  Useful in test teardown.
+
+    Closes the underlying resources before clearing the reference.
+    """
+    global _sa_analyzer
+    with _sa_lock:
+        if _sa_analyzer is not None:
+            _sa_analyzer.close()
+        _sa_analyzer = None
 
 
 def analyze_area(

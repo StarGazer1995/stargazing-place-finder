@@ -1,5 +1,6 @@
 import importlib.resources as res
 import math
+import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -24,6 +25,7 @@ from .light_pollution_analyzer import (
 )
 
 _lp_analyzer: Optional[LightPollutionAnalyzer] = None
+_lp_lock = threading.RLock()
 
 
 def _default_geotiff_path() -> Path:
@@ -56,14 +58,15 @@ def init_light_pollution_analyzer(
 
     if geotiff_path is None:
         geotiff_path = _default_geotiff_path()
-    # Close old instance before creating a new one to prevent resource leaks
-    if _lp_analyzer is not None:
-        _lp_analyzer.close()
-    _lp_analyzer = LightPollutionAnalyzer(
-        geotiff_path=str(geotiff_path),
-        skyglow_sigma_km=15.0,
-        skyglow_weight=0.4,
-    )
+    with _lp_lock:
+        # Close old instance before creating a new one to prevent resource leaks
+        if _lp_analyzer is not None:
+            _lp_analyzer.close()
+        _lp_analyzer = LightPollutionAnalyzer(
+            geotiff_path=str(geotiff_path),
+            skyglow_sigma_km=15.0,
+            skyglow_weight=0.4,
+        )
     return _lp_analyzer
 
 
@@ -71,13 +74,31 @@ def _require_analyzer() -> LightPollutionAnalyzer:
     """
     确保分析器已初始化，未初始化则使用默认路径进行初始化。
 
+    Thread-safe: uses double-checked locking so concurrent callers don't
+    create multiple instances.
+
     Returns:
         LightPollutionAnalyzer 实例
     """
     global _lp_analyzer
     if _lp_analyzer is None:
-        init_light_pollution_analyzer()
+        with _lp_lock:
+            if _lp_analyzer is None:
+                init_light_pollution_analyzer()
     return _lp_analyzer  # type: ignore
+
+
+def reset_analyzer() -> None:
+    """
+    Reset the global analyzer singleton.  Useful in test teardown.
+
+    Closes the underlying resources before clearing the reference.
+    """
+    global _lp_analyzer
+    with _lp_lock:
+        if _lp_analyzer is not None:
+            _lp_analyzer.close()
+        _lp_analyzer = None
 
 
 # ---------------------------------------------------------------------------

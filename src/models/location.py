@@ -43,7 +43,17 @@ class Location(GeoCoordinate):
         return self.location_type == "viewpoint"
 
 
-# Backward-compatible aliases used by stargazing_place_finder
+# Backward-compatible type aliases.
+#
+# These are NOT real subclasses — they are the same class as `Location`.
+# ``isinstance(x, Peak)``, ``isinstance(x, Observatory)``, and
+# ``isinstance(x, Viewpoint)`` will all return True for any Location.
+#
+# Distinguish by the ``location_type`` string field instead:
+#     if loc.location_type == "mountain_peak": ...
+#
+# Prefer using ``Location`` directly in new code.  These aliases are kept
+# only for backward compatibility with older import paths.
 Peak = Location
 Observatory = Location
 Viewpoint = Location
