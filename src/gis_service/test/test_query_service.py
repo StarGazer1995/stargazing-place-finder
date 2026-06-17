@@ -221,6 +221,19 @@ class TestGisQueryService(unittest.TestCase):
             )
             self.assertEqual(results, [0.0, 0.0])
 
+    def test_close_with_postgis(self):
+        """close() releases the PostGIS backend pool."""
+        service = self._make_service(db_config={"host": "localhost"})
+        # close should call the backend's close method
+        self.mock_postgis.close.assert_not_called()
+        service.close()
+        self.mock_postgis.close.assert_called_once()
+
+    def test_close_without_postgis_does_not_raise(self):
+        """close() when PostGIS was never enabled is a no-op."""
+        service = self._make_service(db_config=None)
+        service.close()  # should not raise
+
 
 class TestOverpassBackendFallback(unittest.TestCase):
     """Tests for OverpassBackend._request with multi-URL fallback + retry."""
@@ -468,6 +481,69 @@ class TestPostgisBackendElevation(unittest.TestCase):
         backend = PostgisBackend(config={"host": "localhost"})
         result = backend.find_elevation_at_point(39.9, 116.4)
         self.assertIsNone(result)
+
+
+class TestPostgisBackendPool(unittest.TestCase):
+    """Tests for PostgisBackend connection pool lifecycle."""
+
+    def setUp(self):
+        self.psycopg2_patcher = patch("gis_service.backends.postgis_backend.psycopg2")
+        self.mock_psycopg2 = self.psycopg2_patcher.start()
+        self.pool_patcher = patch("gis_service.backends.postgis_backend.SimpleConnectionPool")
+        self.mock_pool_cls = self.pool_patcher.start()
+
+    def tearDown(self):
+        self.psycopg2_patcher.stop()
+        self.pool_patcher.stop()
+
+    def test_ensure_pool_creates_pool_once(self):
+        """_ensure_pool creates pool on first call; subsequent calls return same pool."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        pool1 = backend._ensure_pool()
+        pool2 = backend._ensure_pool()
+        self.mock_pool_cls.assert_called_once_with(1, 4, host="localhost")
+        self.assertIs(pool1, pool2)
+
+    def test_get_conn_borrows_from_pool(self):
+        """_get_conn delegates to pool.getconn()."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        conn = backend._get_conn()
+        backend._pool.getconn.assert_called_once()
+        self.assertIs(conn, backend._pool.getconn.return_value)
+
+    def test_put_conn_returns_to_pool(self):
+        """_put_conn delegates to pool.putconn()."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        conn = MagicMock()
+        backend._ensure_pool()
+        backend._put_conn(conn)
+        backend._pool.putconn.assert_called_once_with(conn, close=False)
+
+    def test_close_releases_pool(self):
+        """close() calls closeall on pool and sets it to None."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        backend._ensure_pool()
+        pool = backend._pool
+        self.assertIsNotNone(pool)
+        backend.close()
+        pool.closeall.assert_called_once()
+        self.assertIsNone(backend._pool)
+
+    def test_close_idempotent(self):
+        """Calling close() twice does not raise."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        backend.close()
+        backend.close()  # should not raise
 
 
 class TestPostgisBackendFormatRow(unittest.TestCase):

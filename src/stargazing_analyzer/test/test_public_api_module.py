@@ -201,3 +201,28 @@ class TestAnalyzeAreaSimple:
         assert kwargs["max_locations"] == 3
         assert kwargs["min_height_diff"] == 200.0
         assert kwargs["road_radius_km"] == 15.0
+
+
+class TestElevationBatchQuery:
+    """Tests for the deprecated BatchElevationQuery module."""
+
+    def test_import_coverage(self):
+        """Module import covers the NetworkError import line."""
+        from stargazing_analyzer.elevation_batch_query import BatchElevationQuery
+
+        assert BatchElevationQuery is not None
+
+    def test_query_elevations_catches_psycopg2_error(self):
+        """When PostgisBackend raises psycopg2.Error, we return error results."""
+        import psycopg2
+
+        from stargazing_analyzer.elevation_batch_query import BatchElevationQuery
+
+        # PostgisBackend is imported inside query_elevations, patch the source
+        with patch("gis_service.backends.postgis_backend.PostgisBackend") as mock_be:
+            mock_be.return_value.batch_query_elevations.side_effect = psycopg2.Error("db down")
+            query = BatchElevationQuery(db_config={"host": "localhost"}, batch_size=10)
+            results = query.query_elevations([(39.9, 116.4), (40.0, 116.5)])
+            assert len(results) == 2
+            assert all(r.error is not None for r in results)
+            assert "db down" in results[0].error
