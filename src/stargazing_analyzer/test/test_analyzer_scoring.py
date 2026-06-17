@@ -721,3 +721,21 @@ class TestAnalyzerClose:
             a = StargazingLocationAnalyzer()
             a.light_pollution_analyzer = None
             a.close()  # should not raise
+
+    def test_close_handles_exception(self):
+        """When inner analyzer.close() raises, close() logs and continues (lines 137-138)."""
+        mock_lpa = MagicMock()
+        mock_lpa.close.side_effect = RuntimeError("GeoTIFF corruption")
+        with (
+            patch("stargazing_analyzer.stargazing_location_analyzer.StarGazingPlaceFinder"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.RoadConnectivityChecker"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.LightPollutionAnalyzer"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.logger") as mock_log,
+        ):
+            a = StargazingLocationAnalyzer()
+            a.light_pollution_analyzer = mock_lpa
+            a.close()
+
+        mock_lpa.close.assert_called_once()
+        assert a.light_pollution_analyzer is None
+        mock_log.exception.assert_called_once_with("Error closing light pollution analyzer")
