@@ -510,6 +510,55 @@ class TestPostgisBackendElevation(unittest.TestCase):
         self.mock_pool.getconn.assert_called()
         self.mock_pool.putconn.assert_called()
 
+    def test_query_road_connectivity_uses_pool(self):
+        """query_road_connectivity → _execute_road_knn_query uses pool."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchone.return_value = ("residential", "Main St", 45.0, 39.905, 116.408)
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.query_road_connectivity(39.9, 116.4)
+        self.assertTrue(result["accessible"])
+        self.assertEqual(result["distance_meters"], 45.0)
+        self.mock_pool.getconn.assert_called()
+        self.mock_pool.putconn.assert_called()
+
+    def test_find_elevation_close_cursor_failure_is_silent(self):
+        """When cursor.close() fails in find_elevation_at_point, it is silently ignored."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchone.return_value = (1200.0,)
+        self.mock_cursor.close.side_effect = self.mock_psycopg2.Error("close failed")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.find_elevation_at_point(39.9, 116.4)
+        self.assertEqual(result, 1200.0)
+        # Cursor close was attempted (and silently failed)
+        self.mock_cursor.close.assert_called()
+
+    def test_query_single_batch_handles_db_error(self):
+        """_query_single_batch wraps psycopg2.Error in DataError."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+        from models import DataError
+
+        self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("db error")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        with self.assertRaises(DataError):
+            backend._query_single_batch([(39.9, 116.4)], ["P1"])
+
+    def test_get_elevation_statistics_handles_exception(self):
+        """get_elevation_statistics catches psycopg2.Error and returns error dict."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("stats failed")
+        self.mock_cursor.close.side_effect = self.mock_psycopg2.Error("close failed")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.get_elevation_statistics()
+        self.assertIn("error", result)
+        self.assertEqual(result["error"], "stats failed")
+
 
 class TestPostgisBackendPool(unittest.TestCase):
     """Tests for PostgisBackend connection pool lifecycle."""
