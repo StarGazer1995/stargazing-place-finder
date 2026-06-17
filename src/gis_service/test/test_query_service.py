@@ -536,6 +536,16 @@ class TestPostgisBackendElevation(unittest.TestCase):
         # Cursor close was attempted (and silently failed)
         self.mock_cursor.close.assert_called()
 
+    def test_find_elevation_at_point_handles_execution_error(self):
+        """find_elevation_at_point catches psycopg2.Error during query and returns None."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("query failed")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.find_elevation_at_point(39.9, 116.4)
+        self.assertIsNone(result)
+
     def test_query_single_batch_handles_db_error(self):
         """_query_single_batch wraps psycopg2.Error in DataError."""
         from gis_service.backends.postgis_backend import PostgisBackend
