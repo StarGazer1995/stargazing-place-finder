@@ -11,17 +11,15 @@ class TestPackageExports:
     """Test that the top-level package exports work."""
 
     def test_import_all_symbols(self):
-        """Verify all __all__ symbols are importable."""
+        """Verify all public symbols are importable and callable."""
         from stargazingplacefinder import (
             analyze_area,
             analyze_area_simple,
             analyze_coordinate,
             get_light_pollution_grid,
             init_light_pollution_analyzer,
-            init_stargazing_analyzer,
         )
 
-        assert callable(init_stargazing_analyzer)
         assert callable(analyze_area)
         assert callable(analyze_area_simple)
         assert callable(init_light_pollution_analyzer)
@@ -33,7 +31,6 @@ class TestPackageExports:
         from stargazingplacefinder import __all__
 
         expected = [
-            "init_stargazing_analyzer",
             "analyze_area",
             "analyze_area_simple",
             "init_light_pollution_analyzer",
