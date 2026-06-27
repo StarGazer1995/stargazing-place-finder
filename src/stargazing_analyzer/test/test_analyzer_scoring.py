@@ -741,3 +741,63 @@ class TestAnalyzerClose:
         # close() logs the error — check the call appeared (init also logs warnings)
         close_calls = [c for c in mock_log.warning.call_args_list if "Error closing" in str(c)]
         assert len(close_calls) == 1, f"Expected 1 close-error log, got {len(close_calls)}"
+
+    def test_close_gis_service(self):
+        """close() also shuts down the GIS/PostGIS backend."""
+        mock_gis = MagicMock()
+        mock_finder = MagicMock()
+        mock_finder.gis_service = mock_gis
+        with (
+            patch("stargazing_analyzer.stargazing_location_analyzer.LightPollutionAnalyzer"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.RoadConnectivityChecker"),
+        ):
+            a = StargazingLocationAnalyzer()
+            a.light_pollution_analyzer = None
+            a.mountain_finder = mock_finder
+
+        a.close()
+        mock_gis.close.assert_called_once()
+
+    def test_close_gis_service_handles_exception(self):
+        """close() survives an error from GIS service close()."""
+        mock_gis = MagicMock()
+        mock_gis.close.side_effect = OSError("Pool already closed")
+        mock_finder = MagicMock()
+        mock_finder.gis_service = mock_gis
+        with (
+            patch("stargazing_analyzer.stargazing_location_analyzer.LightPollutionAnalyzer"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.RoadConnectivityChecker"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.logger") as mock_log,
+        ):
+            a = StargazingLocationAnalyzer()
+            a.light_pollution_analyzer = None
+            a.mountain_finder = mock_finder
+            a.close()  # should not raise
+
+        mock_gis.close.assert_called_once()
+        close_errs = [c for c in mock_log.warning.call_args_list if "Error closing GIS" in str(c)]
+        assert len(close_errs) == 1
+
+    def test_close_when_mountain_finder_is_none(self):
+        """close() does not crash when mountain_finder is None."""
+        with (
+            patch("stargazing_analyzer.stargazing_location_analyzer.LightPollutionAnalyzer"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.RoadConnectivityChecker"),
+        ):
+            a = StargazingLocationAnalyzer()
+            a.light_pollution_analyzer = None
+            a.mountain_finder = None
+            a.close()  # should not raise
+
+    def test_close_when_gis_service_is_none(self):
+        """close() does not crash when gis_service is None."""
+        mock_finder = MagicMock()
+        mock_finder.gis_service = None
+        with (
+            patch("stargazing_analyzer.stargazing_location_analyzer.LightPollutionAnalyzer"),
+            patch("stargazing_analyzer.stargazing_location_analyzer.RoadConnectivityChecker"),
+        ):
+            a = StargazingLocationAnalyzer()
+            a.light_pollution_analyzer = None
+            a.mountain_finder = mock_finder
+            a.close()  # should not raise
