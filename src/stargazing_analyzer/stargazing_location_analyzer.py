@@ -129,7 +129,8 @@ class StargazingLocationAnalyzer:
         """
         Release internal resources.
 
-        Currently closes the underlying LightPollutionAnalyzer (GeoTIFF file handle).
+        Closes the LightPollutionAnalyzer (GeoTIFF file handle) and the
+        GisQueryService (PostGIS connection pool).
         """
         if self.light_pollution_analyzer is not None:
             try:
@@ -137,6 +138,12 @@ class StargazingLocationAnalyzer:
             except (OSError, RuntimeError, AttributeError) as e:
                 logger.warning("Error closing light pollution analyzer: %s", e)
             self.light_pollution_analyzer = None
+
+        if self.mountain_finder is not None and self.mountain_finder.gis_service is not None:
+            try:
+                self.mountain_finder.gis_service.close()
+            except (OSError, RuntimeError, AttributeError) as e:
+                logger.warning("Error closing GIS service: %s", e)
 
     def analyze_area(
         self,
