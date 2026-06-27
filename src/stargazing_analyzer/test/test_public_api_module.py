@@ -30,14 +30,13 @@ class TestInit:
     @patch("stargazing_analyzer.public_api.StargazingLocationAnalyzer")
     def test_init_default_path(self, MockAnalyzer, mock_geotiff):
         mock_geotiff.return_value = "/fake/path.tif"
-        analyzer = init_stargazing_analyzer()
+        init_stargazing_analyzer()
 
         MockAnalyzer.assert_called_once()
         call_kwargs = MockAnalyzer.call_args.kwargs
         assert call_kwargs["min_height_difference"] == 100.0
         assert call_kwargs["road_search_radius_km"] == 10.0
         assert call_kwargs["max_distance_to_road_km"] == 0.2
-        assert analyzer is not None
 
     @patch("stargazing_analyzer.public_api.StargazingLocationAnalyzer")
     def test_init_custom_params(self, MockAnalyzer):

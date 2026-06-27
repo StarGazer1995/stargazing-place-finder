@@ -30,9 +30,13 @@ def init_stargazing_analyzer(
     max_distance_to_road_km: float = 0.2,
     db_config_path: Optional[Path] = None,
     config: Optional[StargazingConfig] = None,
-) -> StargazingLocationAnalyzer:
-    """
-    初始化并返回天文观测位置分析器实例，供直接导入调用。
+) -> None:
+    """Configure the global stargazing analyzer singleton.
+
+    This function initializes or re-initializes the internal analyzer used by
+    :func:`analyze_area` and :func:`analyze_area_simple`.  It does **not**
+    return the internal analyzer object — all analysis should go through the
+    public API functions.
 
     Args:
         geotiff_path: VIIRS GeoTIFF 文件路径，默认为包内裁剪中国区域数据
@@ -41,9 +45,6 @@ def init_stargazing_analyzer(
         max_distance_to_road_km: 离路最大距离（公里），默认 0.2（200m 步行距离）
         db_config_path: 数据库配置文件路径
         config: Centralised StargazingConfig 实例，提供时将覆盖上述独立参数默认值
-
-    Returns:
-        已初始化的 StargazingLocationAnalyzer 实例
     """
     if config is not None:
         min_height_difference = config.min_height_difference
@@ -64,7 +65,6 @@ def init_stargazing_analyzer(
             db_config_path=str(db_config_path) if db_config_path else None,
             config=config,
         )
-    return _sa_analyzer
 
 
 def _require_analyzer() -> StargazingLocationAnalyzer:

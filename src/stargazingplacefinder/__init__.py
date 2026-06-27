@@ -6,11 +6,10 @@ from light_pollution.public_api import (
 from stargazing_analyzer.public_api import (
     analyze_area,
     analyze_area_simple,
-    init_stargazing_analyzer,
+    init_stargazing_analyzer,  # noqa: F401 — internal config hook, accessed via module
 )
 
 __all__ = [
-    "init_stargazing_analyzer",
     "analyze_area",
     "analyze_area_simple",
     "init_light_pollution_analyzer",
