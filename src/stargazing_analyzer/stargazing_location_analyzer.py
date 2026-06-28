@@ -105,6 +105,7 @@ class StargazingLocationAnalyzer:
                 min_height_difference=min_height_difference,
                 light_pollution_analyzer=self.light_pollution_analyzer,
                 gis_service=gis_service,
+                config=config,
             )
         else:
             if geotiff_path:
@@ -122,6 +123,7 @@ class StargazingLocationAnalyzer:
             search_radius_km=road_search_radius_km,
             max_distance_to_road_km=max_distance_to_road_km,
             gis_service=gis_service,
+            config=config,
         )
         logger.info("Stargazing location analyzer initialization completed")
 
