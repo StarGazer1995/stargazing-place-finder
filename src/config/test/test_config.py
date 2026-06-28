@@ -67,14 +67,19 @@ class TestLoadStargazingConfig:
         import sys
         import types
 
-        import tomllib as _real_tomllib
-
         toml_file = tmp_path / "cfg.toml"
         toml_file.write_text("max_locations = 42\n")
         monkeypatch.setenv("STARGAZING_CONFIG", str(toml_file))
 
+        # tomllib only exists on Python 3.11+; on older Pythons we need
+        # to grab a real TOML loader to stuff into the fake tomli module.
+        try:
+            import tomllib as _real_loader
+        except ImportError:
+            import tomli as _real_loader
+
         fake_tomli = types.ModuleType("tomli")
-        fake_tomli.load = _real_tomllib.load
+        fake_tomli.load = _real_loader.load
 
         with patch.dict(sys.modules, {"tomllib": None, "tomli": fake_tomli}, clear=False):
             cfg = load_stargazing_config()
