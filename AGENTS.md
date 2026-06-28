@@ -63,7 +63,7 @@ Run tests with `FAST_TESTS=1` for a faster test mode that skips slow geospatial 
 
 ### Imports
 - Standard library → third-party → first-party ordering
-- Internal cross-module imports use `try/except ImportError` fallback pattern:
+- **Legacy fallback pattern** (existing code only — do NOT use in new code):
   ```python
   try:
       from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
@@ -72,12 +72,13 @@ Run tests with `FAST_TESTS=1` for a faster test mode that skips slow geospatial 
       sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..', 'src'))
       from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
   ```
-- For new code, prefer `import` from the installed package when possible.
+  This pattern exists for historical reasons (supporting both `python -m` and direct script execution). New code must use normal package imports — the `pyproject.toml` `pythonpath = ["src"]` config and `uv run` handle path resolution.
+- Clean up legacy import fallbacks when touching old files.
 
 ### Module Patterns
-- Each module exposes a `public_api.py` with lazy-initialized global analyzer instances
+- Each module exposes a `public_api.py` with lazy-initialized global analyzer instances — thread-safe via `threading.RLock` double-checked locking
 - `__init__.py` files re-export key symbols for clean imports
-- Dataclasses used for structured data (`@dataclass`)
+- **Pydantic v2 `BaseModel`** for all data transfer objects — use `Field()` validators, `model_dump()`, and type hints. Legacy `@dataclass` usage should be migrated to Pydantic when touching old files.
 
 ### Testing
 - Every source module must have a `test/` directory with `__init__.py` and `test_*.py`
@@ -93,15 +94,15 @@ Run tests with `FAST_TESTS=1` for a faster test mode that skips slow geospatial 
 
 ## Key Design Decisions
 
-1. **Unified Location model** — All location types (peaks, observatories, viewpoints) share a single `Location` dataclass. Older `Peak`, `Observatory`, `Viewpoint` are maintained as backward-compatible aliases.
+1. **Unified Location model** — All location types (peaks, observatories, viewpoints) share a single `Location` Pydantic v2 model (`src/models/location.py`). Older `Peak`, `Observatory`, `Viewpoint` are type aliases for backward compatibility. Distinguish by `location_type: Literal["mountain_peak", "observatory", "viewpoint"]`.
 
-2. **Lazy initialization** — Global analyzers (`LightPollutionAnalyzer`, `RoadConnectivityChecker`) are initialized on first use, not at import time. This avoids expensive setup for CLI tools that may not use all features.
+2. **Lazy initialization** — Global analyzers (`LightPollutionAnalyzer`, `RoadConnectivityChecker`) are initialized on first use, not at import time. Thread-safe via `threading.RLock` with double-checked locking. This avoids expensive setup for CLI tools that may not use all features.
 
 3. **Package resource loading** — GeoTIFF data is bundled via `importlib.resources` / `setuptools` `package-data`, not relative file paths. See `light_pollution/public_api.py:_default_geotiff_path()`.
 
-4. **Database is optional** — PostGIS-backed queries are behind a `PostGISClient` class. The system falls back to Overpass API when no database config is provided.
+4. **Database is optional** — PostGIS-backed queries use `PostgisBackend` with `SimpleConnectionPool(1, 4)` for connection reuse. The system falls back to Overpass API via `OverpassBackend` when no database config is provided.
 
-5. **Cache layer** — Geocoding and elevation lookups are cached on disk via `src/cache/` module (gitignored except `__init__.py` and `cache_config.py`).
+5. **Cache layer** — Two-level cache (memory dict + disk pickle) used for GIS queries (`GisQueryCache`) and road connectivity results (`RoadAccessInfoCache`). **Note:** neither implementation is thread-safe — no file locks or atomic writes. Avoid concurrent access to the same cache key.
 
 ## Dependencies
 
@@ -123,12 +124,14 @@ Dev: `pytest`, `pytest-cov`, `requests-mock`, `responses`, `freezegun`, `build`,
 
 ## When Making Changes
 
-1. If adding a new sub-analyzer, follow the pattern: `public_api.py` + lazy global init + `test/` directory
-2. If changing the data model, update `utils/` unified dataclasses and all type aliases
-3. Ensure backward compatibility — existing import paths should continue to work
-4. Update `CHANGELOG.md` with the version bump and description
-5. Version in `pyproject.toml` must match the changelog entry
-6. Run full test suite before finalizing (`uv run pytest`)
+1. If adding a new sub-analyzer, follow the pattern: `public_api.py` + lazy global init (with `threading.RLock`) + `test/` directory
+2. If changing the data model, update `src/models/` Pydantic v2 models and all type aliases
+3. Use Pydantic v2 `BaseModel` (not `@dataclass`) for new data structures
+4. Ensure backward compatibility — existing import paths should continue to work
+5. Update `CHANGELOG.md` with the version bump and description
+6. Version in `pyproject.toml` must match the changelog entry
+7. Run full test suite before finalizing (`uv run pytest`)
+8. See `CLAUDE.md` → Known Sharp Edges for current technical debt items to be aware of
 
 ## CI/CD & Release Workflow
 
