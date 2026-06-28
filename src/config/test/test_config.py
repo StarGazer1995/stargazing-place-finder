@@ -62,6 +62,24 @@ class TestLoadStargazingConfig:
         cfg = load_stargazing_config()
         assert cfg.max_locations == 50
 
+    def test_falls_back_to_tomli_when_tomllib_unavailable(self, tmp_path, monkeypatch):
+        """When tomllib is missing, tomli is used as fallback (Py 3.9/3.10)."""
+        import sys
+        import types
+
+        import tomllib as _real_tomllib
+
+        toml_file = tmp_path / "cfg.toml"
+        toml_file.write_text("max_locations = 42\n")
+        monkeypatch.setenv("STARGAZING_CONFIG", str(toml_file))
+
+        fake_tomli = types.ModuleType("tomli")
+        fake_tomli.load = _real_tomllib.load
+
+        with patch.dict(sys.modules, {"tomllib": None, "tomli": fake_tomli}, clear=False):
+            cfg = load_stargazing_config()
+        assert cfg.max_locations == 42
+
 
 class TestResolveConfigPath:
     def _call(self, explicit=None):
