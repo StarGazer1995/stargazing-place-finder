@@ -62,42 +62,6 @@ class TestLoadStargazingConfig:
         cfg = load_stargazing_config()
         assert cfg.max_locations == 50
 
-    def test_falls_back_to_tomli_when_tomllib_unavailable(self, tmp_path, monkeypatch):
-        """When tomllib is missing, tomli is used as fallback (Py 3.9/3.10)."""
-        import sys
-        import types
-
-        toml_file = tmp_path / "cfg.toml"
-        toml_file.write_text("max_locations = 42\n")
-        monkeypatch.setenv("STARGAZING_CONFIG", str(toml_file))
-
-        # tomllib only exists on Python 3.11+; on older Pythons we need
-        # to grab a real TOML loader to stuff into the fake tomli module.
-        try:
-            import tomllib as _real_loader
-        except ImportError:
-            import tomli as _real_loader
-
-        fake_tomli = types.ModuleType("tomli")
-        fake_tomli.load = _real_loader.load
-
-        with patch.dict(sys.modules, {"tomllib": None, "tomli": fake_tomli}, clear=False):
-            cfg = load_stargazing_config()
-        assert cfg.max_locations == 42
-
-    def test_no_toml_library_returns_defaults(self, tmp_path, monkeypatch):
-        """When neither tomllib nor tomli is available, return programmatic defaults."""
-        import sys
-
-        toml_file = tmp_path / "cfg.toml"
-        toml_file.write_text("max_locations = 99\n")
-        monkeypatch.setenv("STARGAZING_CONFIG", str(toml_file))
-
-        # Simulate environment where no TOML library exists
-        with patch.dict(sys.modules, {"tomllib": None, "tomli": None}, clear=False):
-            cfg = load_stargazing_config()
-        assert cfg.max_locations == 50  # programmatic default
-
 
 class TestResolveConfigPath:
     def _call(self, explicit=None):

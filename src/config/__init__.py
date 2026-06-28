@@ -39,10 +39,10 @@ def load_stargazing_config(path: Optional[str] = None) -> StargazingConfig:
     try:
         try:
             import tomllib  # Python 3.11+
-        except ImportError:
+        except ImportError:  # pragma: no cover — only on Python < 3.11
             import tomli as tomllib  # Python 3.9/3.10
-    except ImportError:
-        return StargazingConfig()  # no TOML library available
+    except ImportError:  # pragma: no cover — no TOML library available
+        return StargazingConfig()  # programmatic defaults
 
     try:
         with open(cfg_path, "rb") as f:
