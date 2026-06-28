@@ -43,6 +43,15 @@ class StargazingConfig(BaseModel):
         ge=0,
         description=("Maximum acceptable distance to a road (km). Used as the accessibility threshold."),
     )
+    road_network_tile_max_area_km2: float = Field(
+        default=500.0,
+        gt=0,
+        description=(
+            "Maximum bbox area (km²) to download as a single OSM road-network tile. "
+            "Larger areas are automatically split into tiles, downloaded individually, "
+            "and merged.  Lower = more tiles, smaller downloads, fewer timeouts."
+        ),
+    )
     min_distance_to_road_km: Optional[float] = Field(
         default=None,
         ge=0,

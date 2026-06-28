@@ -1,0 +1,20 @@
+# Stargazing Place Finder — runtime configuration
+#
+# Set STARGAZING_CONFIG=/path/to/this/file in your environment.
+# Every key is optional — missing keys keep their programmatic default.
+
+# ── Search / location ─────────────────────────────────────────
+max_locations = 50
+min_height_difference = 100.0
+
+# ── Road connectivity ────────────────────────────────────────
+road_search_radius_km = 10.0
+max_distance_to_road_km = 0.2
+road_network_tile_max_area_km2 = 500.0
+
+# ── Light pollution ──────────────────────────────────────────
+skyglow_sigma_km = 15.0
+skyglow_weight = 0.4
+
+# ── Cache ────────────────────────────────────────────────────
+cache_expiry_hours = 24

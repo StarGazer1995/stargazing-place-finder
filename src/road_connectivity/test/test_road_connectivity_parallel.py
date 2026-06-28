@@ -190,18 +190,22 @@ class TestPreloadNetwork(unittest.TestCase):
 
         return RoadConnectivityChecker(search_radius_km=10.0)
 
+    # Use a bbox small enough to stay under the 500 km² single-tile threshold
+    # (~0.1° × 0.1° ≈ 95 km² at 40°N).
+    _SMALL_BBOX = (39.90, 116.30, 40.00, 116.40)
+
     def test_preload_with_tuple_bbox(self):
-        """Tuple bbox (south, west, north, east) → success."""
+        """Tuple bbox (south, west, north, east) → single-tile success."""
         mock_graph = MagicMock()
         mock_graph.nodes.return_value = [1, 2, 3]
         self.mock_ox.return_value = mock_graph
 
         checker = self._make_checker()
-        checker.preload_network_for_bbox((39.0, 115.0, 41.0, 117.0))
+        checker.preload_network_for_bbox(self._SMALL_BBOX)
 
         self.mock_ox.assert_called_once()
         _, kwargs = self.mock_ox.call_args
-        self.assertEqual(kwargs["bbox"], (115.0, 39.0, 117.0, 41.0))
+        self.assertEqual(kwargs["bbox"], (116.30, 39.90, 116.40, 40.00))
         self.assertEqual(kwargs["network_type"], "drive")
         self.assertIs(checker._shared_graph, mock_graph)
 
@@ -212,19 +216,26 @@ class TestPreloadNetwork(unittest.TestCase):
         self.mock_ox.return_value = mock_graph
 
         checker = self._make_checker()
-        checker.preload_network_for_bbox(LatLonBox(south=39.0, west=115.0, north=41.0, east=117.0))
+        checker.preload_network_for_bbox(
+            LatLonBox(
+                south=self._SMALL_BBOX[0],
+                west=self._SMALL_BBOX[1],
+                north=self._SMALL_BBOX[2],
+                east=self._SMALL_BBOX[3],
+            )
+        )
 
         self.mock_ox.assert_called_once()
         _, kwargs = self.mock_ox.call_args
-        self.assertEqual(kwargs["bbox"], (115.0, 39.0, 117.0, 41.0))
+        self.assertEqual(kwargs["bbox"], (116.30, 39.90, 116.40, 40.00))
         self.assertIs(checker._shared_graph, mock_graph)
 
     def test_preload_with_network_error(self):
-        """ox.graph_from_bbox raises NetworkError → _shared_graph set to None."""
+        """ox.graph_from_bbox raises → _shared_graph set to None."""
         self.mock_ox.side_effect = NetworkError("OSM timeout")
 
         checker = self._make_checker()
-        checker.preload_network_for_bbox((39.0, 115.0, 41.0, 117.0))
+        checker.preload_network_for_bbox(self._SMALL_BBOX)
 
         self.mock_ox.assert_called_once()
         self.assertIsNone(checker._shared_graph)
@@ -236,10 +247,39 @@ class TestPreloadNetwork(unittest.TestCase):
         self.mock_ox.side_effect = requests.exceptions.ConnectionError("Connection refused")
 
         checker = self._make_checker()
-        checker.preload_network_for_bbox((39.0, 115.0, 41.0, 117.0))
+        checker.preload_network_for_bbox(self._SMALL_BBOX)
 
         self.mock_ox.assert_called_once()
         self.assertIsNone(checker._shared_graph)
+
+    def test_preload_large_bbox_splits_into_tiles(self):
+        """Large bbox (> 500 km²) is split and merged via compose_all."""
+        import networkx as nx
+
+        checker = self._make_checker()
+        # 2° × 2° ≈ 19,000 km² → should split into many tiles
+        large_bbox = (39.0, 115.0, 41.0, 117.0)
+
+        # Return real MultiDiGraphs so compose_all doesn't choke
+        def _fake_graph(*args, **kwargs):
+            return nx.MultiDiGraph()
+
+        self.mock_ox.side_effect = _fake_graph
+
+        checker.preload_network_for_bbox(large_bbox)
+        self.assertIsNotNone(checker._shared_graph)
+        self.assertGreater(self.mock_ox.call_count, 1)  # multiple tiles
+
+    def test_config_respects_tile_max_area(self):
+        """RoadConnectivityChecker reads road_network_tile_max_area_km2 from config."""
+        from config import StargazingConfig
+        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+
+        checker = RoadConnectivityChecker(
+            search_radius_km=10.0,
+            config=StargazingConfig(road_network_tile_max_area_km2=300.0),
+        )
+        self.assertEqual(checker._tile_max_area_km2, 300.0)
 
     def test_get_road_network_request_exception(self):
         """ox.graph_from_point raises ConnectionError → _get_road_network returns None."""
