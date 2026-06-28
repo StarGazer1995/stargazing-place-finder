@@ -165,6 +165,9 @@ class RoadConnectivityChecker:
         if config is not None:
             search_radius_km = config.road_search_radius_km
             max_distance_to_road_km = config.max_distance_to_road_km
+            self._tile_max_area_km2 = config.road_network_tile_max_area_km2
+        else:
+            self._tile_max_area_km2 = StargazingConfig.model_fields["road_network_tile_max_area_km2"].default
         self.search_radius_km = search_radius_km
         self.max_distance_to_road_km = max_distance_to_road_km
         self.graph_cache = {}  # Cache downloaded road networks
@@ -277,44 +280,129 @@ class RoadConnectivityChecker:
         self.location_cache.save_road_access_info_to_cache(f"accessible_{network_type}", [road_info])
         return accessible
 
+    @staticmethod
+    def _bbox_area_km2(south: float, west: float, north: float, east: float) -> float:
+        """Approximate area of a lat/lon bounding box in km²."""
+        import math
+
+        mid_lat = (south + north) / 2.0
+        lat_km = (north - south) * 111.32
+        lon_km = (east - west) * 111.32 * math.cos(math.radians(mid_lat))
+        return lat_km * lon_km
+
+    @staticmethod
+    def _split_bbox(
+        south: float, west: float, north: float, east: float, max_area_km2: float
+    ) -> list[tuple[float, float, float, float]]:
+        """Split a bounding box into equal-area tiles ≤ *max_area_km2* each."""
+        import math
+
+        area = RoadConnectivityChecker._bbox_area_km2(south, west, north, east)
+        if area <= max_area_km2:
+            return [(south, west, north, east)]
+
+        # How many tiles along each axis?
+        n_total = math.ceil(area / max_area_km2)
+        # Prefer splitting along the longer side
+        lat_range = north - south
+        lon_range = east - west
+        aspect = lat_range / max(lon_range, 1e-9)
+        n_lat = max(1, round(math.sqrt(n_total * aspect)))
+        n_lon = max(1, math.ceil(n_total / n_lat))
+
+        step_lat = lat_range / n_lat
+        step_lon = lon_range / n_lon
+
+        tiles = []
+        for i in range(n_lat):
+            s = south + i * step_lat
+            n = s + step_lat
+            for j in range(n_lon):
+                w = west + j * step_lon
+                e = w + step_lon
+                tiles.append((s, w, n, e))
+        return tiles
+
+    def _download_tile(self, bbox_tuple, network_type: str):
+        """Download a single tile and return the graph (or None on failure)."""
+        south, west, north, east = bbox_tuple
+        try:
+            return ox.graph_from_bbox(
+                bbox=(west, south, east, north),
+                network_type=network_type,
+                simplify=True,
+            )
+        except (requests.exceptions.RequestException, Exception) as e:
+            logger.warning(
+                "Failed to download tile (%.2f,%.2f)-(%.2f,%.2f): %s",
+                south,
+                west,
+                north,
+                east,
+                e,
+            )
+            return None
+
     def preload_network_for_bbox(
         self,
         bbox,
         network_type: str = "drive",
     ) -> None:
         """
-        Pre-download a single road network for the entire bounding box.
-        All subsequent _get_road_network calls will reuse this graph instead of
-        downloading per-location.
+        Pre-download road network for the entire bounding box.
 
-        Args:
-            bbox: LatLonBox or tuple/list (south, west, north, east)
-            network_type: Network type ('drive', 'walk', 'bike', 'all')
+        For areas ≤ 500 km² a single OSM query is used.  Larger areas are
+        automatically split into tiles (each ≤ 500 km²), downloaded
+        individually, and merged via :func:`networkx.compose_all`.
+
+        All subsequent ``_get_road_network`` calls reuse the merged graph.
         """
         if isinstance(bbox, (tuple, list)):
             south, west, north, east = bbox
         else:
             south, west, north, east = bbox.south, bbox.west, bbox.north, bbox.east
 
-        logger.info(
-            "Pre-loading road network for bbox (%.4f, %.4f, %.4f, %.4f)",
-            south,
-            west,
-            north,
-            east,
-        )
-        try:
-            # OSMnx >=1.6 uses bbox tuple (left, bottom, right, top)
-            graph = ox.graph_from_bbox(
-                bbox=(west, south, east, north),
-                network_type=network_type,
-                simplify=True,
+        area_km2 = self._bbox_area_km2(south, west, north, east)
+        tiles = self._split_bbox(south, west, north, east, self._tile_max_area_km2)
+
+        if len(tiles) == 1:
+            logger.info(
+                "Pre-loading road network for bbox (%.4f, %.4f, %.4f, %.4f) — %.0f km²",
+                south,
+                west,
+                north,
+                east,
+                area_km2,
             )
-            self._shared_graph = graph
-            logger.info("Pre-loaded road network with %d nodes", len(graph.nodes()))
-        except (NetworkError, requests.exceptions.RequestException) as e:
-            logger.error("Failed to pre-load road network: %s", e)
+        else:
+            logger.info(
+                "Pre-loading road network for bbox (%.4f, %.4f, %.4f, %.4f) — %.0f km², %d tiles",
+                south,
+                west,
+                north,
+                east,
+                area_km2,
+                len(tiles),
+            )
+
+        graphs = []
+        for tile in tiles:
+            g = self._download_tile(tile, network_type)
+            if g is not None:
+                graphs.append(g)
+
+        if not graphs:
+            logger.error("Failed to download any road network tiles")
             self._shared_graph = None
+            return
+
+        if len(graphs) == 1:
+            self._shared_graph = graphs[0]
+        else:
+            logger.info("Merging %d road network tiles…", len(graphs))
+            self._shared_graph = nx.compose_all(graphs)
+
+        logger.info("Pre-loaded road network with %d nodes", len(self._shared_graph.nodes()))
 
     def _get_road_network(self, point: GeoCoordinate, network_type: str) -> Optional[nx.MultiDiGraph]:
         """
