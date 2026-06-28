@@ -59,7 +59,7 @@ src/
 
 ## Critical Design Patterns
 
-1. **Lazy global singletons** — `public_api.py` modules hold module-level `_analyzer = None` variables, initialized on first use. No locks. Tests manually reset these. Be careful with concurrent access.
+1. **Lazy global singletons** — `public_api.py` modules hold module-level `_analyzer = None` variables, initialized on first use. Thread-safe via `threading.RLock` with double-checked locking (`_require_analyzer()` pattern). Tests use `reset_analyzer()` for teardown between cases.
 
 2. **try/except ImportError for cross-imports** — Many modules use this fallback to support both `python -m` and direct script execution. Prefer installed-package imports in new code.
 
@@ -81,16 +81,24 @@ src/
 
 ## Known Sharp Edges
 
-- **No PostGIS connection pool** — every query creates a new `psycopg2.connect()`. If adding batch operations, add a pool first.
-- **Bare `except Exception` in ~5 places** — hides programming errors. Bandit BLE001 is suppressed with `# noqa`.
-- **Frontend hides all UI controls on load** (`app.js` ~line 1332). Search, legend, language toggle all get `display: none`. Only the map + analysis toggle remain visible.
-- **Frontend `generateMockData()` is dead code** but still referenced; real data path is `loadLightPollutionDataPoints()`.
-- **`Ctrl+L` keyboard shortcut conflicts** with browser focus-address-bar.
-- **Flask `app.run()` is dev-only** — no gunicorn/uwsgi config for production.
-- **Duplicate functions**: `brightness_to_bortle()`, `bortle_to_sqm()`, `calculate_distance()` appear in 3 files. Fix bugs in all three.
-- **TOML config parsing** is duplicated between `config/stargazing_config.py` and `gis_service/config.py`.
-- **Tests share mutable disk state** (cache directory) — not fully isolated.
+### Real issues (verified 2026-06-28)
+
+- **Two `except (XError, Exception)` redundancies** — `stargazing_location_analyzer.py:251` and `road_connectivity_checker.py:373`. Both catch `(SpecificError, Exception)` where `SpecificError` is an `Exception` subclass, making this functionally `except Exception`. Both silently return `[]` or `None` without re-raising, which masks programming bugs like `TypeError` or `AttributeError`. Fix by removing `Exception` from the tuple.
+- **Cache implementations are not thread-safe** — `RoadAccessInfoCache` (`road_connectivity_checker.py`) and `GisQueryCache` (`gis_service/caching.py`) both write pickle files directly without file locks or atomic temp-file+rename. `RoadAccessInfoCache` has a TOCTOU race: reads old cache → merges new data → writes back, and concurrent callers silently overwrite each other. Both also lack in-memory locking for their `dict`-backed caches.
+- **Flask `app.run()` is dev-only** — no gunicorn/uwsgi/waitress config, no Dockerfile. `start.sh` runs Flask's single-process dev server and Python's `http.server` as background processes. Not suitable for production concurrency.
+- **`calculate_distance` has a standalone duplicate** in `light_pollution/light_pollution_api.py` — identical Haversine algorithm but takes `(lat1, lon1, lat2, lon2)` floats instead of `(GeoCoordinate, GeoCoordinate)`. The version in `gis_service/parsers.py` is the canonical one; the `stargazing_place_finder.py` version is a thin delegate wrapper. Consolidate the API version to delegate to `parsers.py` by constructing temporary `GeoCoordinate` objects.
+- **TOML import boilerplate duplicated** — the 4-line `try: import tomllib except ImportError: import tomli as tomllib` stanza appears identically in `config/__init__.py` and `gis_service/config.py`. Extract a shared `_load_toml(path) -> dict` helper.
+- **`BatchElevationQuery.get_statistics()`** (deprecated module) still uses raw `psycopg2.connect()` — the only remaining non-pool connection in production code. Migrate to `PostgisBackend.get_elevation_statistics()` or remove the deprecated module.
+- **Tests share mutable disk state** (cache directory) — not fully isolated between test runs.
 - **Tag push triggers PyPI publish** — push a `v*` tag only ONCE. PyPI does not allow overwriting versions.
+
+### Things previously listed that are no longer true
+
+- ~~No PostGIS connection pool~~ → `PostgisBackend` uses `SimpleConnectionPool(1, 4)` since at least v0.6.x.
+- ~~Bare except Exception in ~5 places~~ → Only 2 remain (listed above). All other 57 except blocks catch specific exception types.
+- ~~Frontend hides all UI controls on load~~ → Only loading overlay and empty data panels are hidden on init — search, legend, language toggle, and mode toggle are all visible. Standard UX pattern.
+- ~~`generateMockData()` dead code~~ → Does not exist anywhere in the codebase.
+- ~~`brightness_to_bortle()` / `bortle_to_sqm()` duplicated~~ → Each defined exactly once in `gis_service/parsers.py`.
 
 ## Commit Policy
 
