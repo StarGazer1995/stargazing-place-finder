@@ -80,6 +80,19 @@ class TestLoadStargazingConfig:
             cfg = load_stargazing_config()
         assert cfg.max_locations == 42
 
+    def test_no_toml_library_returns_defaults(self, tmp_path, monkeypatch):
+        """When neither tomllib nor tomli is available, return programmatic defaults."""
+        import sys
+
+        toml_file = tmp_path / "cfg.toml"
+        toml_file.write_text("max_locations = 99\n")
+        monkeypatch.setenv("STARGAZING_CONFIG", str(toml_file))
+
+        # Simulate environment where no TOML library exists
+        with patch.dict(sys.modules, {"tomllib": None, "tomli": None}, clear=False):
+            cfg = load_stargazing_config()
+        assert cfg.max_locations == 50  # programmatic default
+
 
 class TestResolveConfigPath:
     def _call(self, explicit=None):
