@@ -233,7 +233,7 @@ def sort_places_by_lightpollution(
 
     sorted_pollutions = sorted(
         light_pollution_analyzer.batch_analyze_coordinates(places_coord),
-        key=lambda x: x["pollution_info"].brightness,
+        key=lambda x: x["pollution_info"].brightness if x["pollution_info"] else float("inf"),
         reverse=False,
     )
     sorted_places = [valid_places[p["index"]] for p in sorted_pollutions]
