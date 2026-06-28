@@ -270,6 +270,17 @@ class TestPreloadNetwork(unittest.TestCase):
         self.assertIsNotNone(checker._shared_graph)
         self.assertGreater(self.mock_ox.call_count, 1)  # multiple tiles
 
+    def test_config_respects_tile_max_area(self):
+        """RoadConnectivityChecker reads road_network_tile_max_area_km2 from config."""
+        from config import StargazingConfig
+        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+
+        checker = RoadConnectivityChecker(
+            search_radius_km=10.0,
+            config=StargazingConfig(road_network_tile_max_area_km2=300.0),
+        )
+        self.assertEqual(checker._tile_max_area_km2, 300.0)
+
     def test_get_road_network_request_exception(self):
         """ox.graph_from_point raises ConnectionError → _get_road_network returns None."""
         import requests
