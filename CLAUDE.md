@@ -4,6 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 See also `AGENTS.md` for broader agent guidance including environment setup, coding conventions, and CI/CD details.
 
+## Package Management
+
+**Always use `uv`** — never `pip`, `pip3`, or `python -m pip`. `uv` is the project's package manager and all commands (install, test, lint, run) use it.
+
+- Use `uv sync` / `uv add` / `uv remove` for dependencies
+- Use `uv run <command>` to run any script or CLI within the project venv
+- For the MCP-SG project (`mcp-stargazing`), same rules apply — it also uses `uv`
+
 ## Quick Commands
 
 | Action | Command |
