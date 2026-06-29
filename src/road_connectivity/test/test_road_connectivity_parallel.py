@@ -118,7 +118,7 @@ class TestCheckViaPostgis(unittest.TestCase):
     """Test the _check_via_postgis fast path directly."""
 
     def test_check_via_postgis_accessible(self):
-        """PostGIS returns accessible → returns True."""
+        """PostGIS returns accessible → returns dict with accessible=True and details."""
         from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
         gis = MagicMock()
@@ -130,10 +130,12 @@ class TestCheckViaPostgis(unittest.TestCase):
         }
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
         result = checker._check_via_postgis(GeoCoordinate(latitude=39.9, longitude=116.4))
-        self.assertTrue(result)
+        self.assertTrue(result["accessible"])
+        self.assertEqual(result["distance_meters"], 50.0)
+        self.assertEqual(result["road_type"], "residential")
 
     def test_check_via_postgis_inaccessible(self):
-        """Far from road → returns False."""
+        """Far from road → returns dict with accessible=False."""
         from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
         gis = MagicMock()
@@ -145,7 +147,9 @@ class TestCheckViaPostgis(unittest.TestCase):
         }
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
         result = checker._check_via_postgis(GeoCoordinate(latitude=0.0, longitude=160.0))
-        self.assertFalse(result)
+        self.assertFalse(result["accessible"])
+        self.assertEqual(result["distance_meters"], 100000.0)
+        self.assertIsNone(result["road_type"])
 
     def test_check_via_postgis_no_gis_service(self):
         """No gis_service → returns None."""
