@@ -9,8 +9,10 @@
 import logging
 import math
 import os
+import time
+from collections import OrderedDict
 from io import BytesIO
-from typing import Dict, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 from flask import Flask, Response, jsonify, request
@@ -67,9 +69,10 @@ def init_analyzer():
 
 # Tile size in pixels
 _TILE_SIZE = 256
-# Simple in-memory tile cache
-_tile_cache: Dict[str, bytes] = {}
+# LRU tile cache with TTL (1 hour).  Stores (png_bytes, created_at) tuples.
+_tile_cache: OrderedDict[str, tuple[bytes, float]] = OrderedDict()
 _MAX_TILE_CACHE = 500
+_TILE_CACHE_TTL = 3600
 
 # Colormap stops matching the heatmap gradient (value → RGB)
 _TILE_CMAP_STOPS = [
@@ -143,14 +146,30 @@ def _tile_bounds(x: int, y: int, z: int) -> Tuple[float, float, float, float]:
 def _empty_tile() -> Response:
     """Return a 256x256 fully transparent PNG tile."""
     key = "__empty__"
+    now = time.time()
     if key in _tile_cache:
-        return Response(_tile_cache[key], mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+        data, created_at = _tile_cache[key]
+        if now - created_at < _TILE_CACHE_TTL:
+            _tile_cache.move_to_end(key)
+            return Response(data, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+        del _tile_cache[key]
     rgba = np.zeros((_TILE_SIZE, _TILE_SIZE, 4), dtype=np.uint8)
     img = Image.fromarray(rgba, "RGBA")
     buf = BytesIO()
     img.save(buf, format="PNG")
-    _tile_cache[key] = buf.getvalue()
-    return Response(buf.getvalue(), mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+    png_data = buf.getvalue()
+    _set_tile_cache(key, png_data)
+    return Response(png_data, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+
+
+def _set_tile_cache(key: str, png_data: bytes) -> None:
+    """Store PNG data in the LRU tile cache, evicting oldest entries if full."""
+    if key in _tile_cache:
+        _tile_cache.move_to_end(key)
+    else:
+        while len(_tile_cache) >= _MAX_TILE_CACHE:
+            _tile_cache.popitem(last=False)
+    _tile_cache[key] = (png_data, time.time())
 
 
 def _validate_tile_request(z: int, x: int, y: int) -> Optional[Response]:
@@ -158,9 +177,13 @@ def _validate_tile_request(z: int, x: int, y: int) -> Optional[Response]:
     if analyzer is None or analyzer._src is None:
         return _empty_tile()
     cache_key = f"{z}/{x}/{y}"
-    cached = _tile_cache.get(cache_key)
-    if cached is not None:
-        return Response(cached, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+    entry = _tile_cache.get(cache_key)
+    if entry is not None:
+        data, created_at = entry
+        if time.time() - created_at < _TILE_CACHE_TTL:
+            _tile_cache.move_to_end(cache_key)
+            return Response(data, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+        del _tile_cache[cache_key]
     return None
 
 
@@ -226,9 +249,7 @@ def _render_tile_png(data: np.ndarray, src, cache_key: str) -> Response:
     buf = BytesIO()
     img.save(buf, format="PNG")
     png_data = buf.getvalue()
-    _tile_cache[cache_key] = png_data
-    if len(_tile_cache) > _MAX_TILE_CACHE:
-        _tile_cache.clear()
+    _set_tile_cache(cache_key, png_data)
     return Response(png_data, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 

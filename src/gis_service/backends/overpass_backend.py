@@ -22,6 +22,7 @@ OVERPASS_FALLBACK_URLS = [
 ]
 DEFAULT_TIMEOUT = 60
 DEFAULT_MAX_RETRIES = 3
+DEFAULT_TOTAL_TIMEOUT = 90  # wall-clock deadline for the entire _request method
 
 
 class OverpassBackend:
@@ -38,10 +39,12 @@ class OverpassBackend:
         fallback_urls: Optional[List[str]] = None,
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
+        total_timeout: int | None = DEFAULT_TOTAL_TIMEOUT,
     ):
         self.urls = [url] + (fallback_urls or OVERPASS_FALLBACK_URLS)
         self.timeout = timeout
         self.max_retries = max_retries
+        self.total_timeout = total_timeout
 
     # ── 公开查询方法 ──────────────────────────────────────────
 
@@ -133,10 +136,24 @@ class OverpassBackend:
         向 Overpass API 发送 POST 请求，多 URL 轮询 + 自动重试。
 
         先尝试主 URL（含重试），失败后逐个尝试备用 URL。
+        受 total_timeout 约束，超时后直接放弃返回空列表。
         """
+        started_at = time.time()
+
         for url_idx, url in enumerate(self.urls):
             prefix = f"[{url_idx}] " if url_idx > 0 else ""
             for attempt in range(self.max_retries):
+                # Check total deadline before each attempt
+                elapsed = time.time() - started_at
+                if self.total_timeout is not None and elapsed >= self.total_timeout:
+                    logger.warning(
+                        "%sOverpass total timeout (%ss) reached, giving up on %s",
+                        prefix,
+                        self.total_timeout,
+                        data_type,
+                    )
+                    return []
+
                 try:
                     if attempt > 0:
                         delay = random.uniform(1, 3) * (attempt + 1)
