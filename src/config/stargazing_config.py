@@ -73,6 +73,49 @@ class StargazingConfig(BaseModel):
         description="How much skyglow to add back (0 – 1).",
     )
 
+    # ── Scoring weights (total 100 points) ────────────────────────
+    weight_light_pollution: float = Field(
+        default=35.0,
+        ge=0,
+        le=100,
+        description="Weight for light pollution sub-score (0-35 default).",
+    )
+    weight_town_isolation: float = Field(
+        default=20.0,
+        ge=0,
+        le=100,
+        description="Weight for town isolation sub-score (0-20 default).",
+    )
+    weight_road_access: float = Field(
+        default=20.0,
+        ge=0,
+        le=100,
+        description="Weight for road accessibility sub-score (0-20 default).",
+    )
+    weight_elevation: float = Field(
+        default=15.0,
+        ge=0,
+        le=100,
+        description="Weight for elevation + terrain sub-score (0-15 default).",
+    )
+    weight_location_type: float = Field(
+        default=10.0,
+        ge=0,
+        le=100,
+        description="Weight for location-type sub-score (0-10 default).",
+    )
+
+    # ── Smooth scoring parameters ─────────────────────────────────
+    road_distance_decay_km: float = Field(
+        default=0.2,
+        gt=0,
+        description=(
+            "Half-decay distance (km) for road accessibility sigmoid. "
+            "At this distance the score is 50% of maximum. "
+            "Replaces the hard 200m accessible/inaccessible threshold."
+        ),
+    )
+
     # ── Cache ─────────────────────────────────────────────────────
     cache_expiry_hours: int = Field(
         default=24,

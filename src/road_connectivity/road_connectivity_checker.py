@@ -10,6 +10,7 @@ import logging
 import pickle
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional
 
@@ -393,10 +394,12 @@ class RoadConnectivityChecker:
             )
 
         graphs = []
-        for tile in tiles:
-            g = self._download_tile(tile, network_type)
-            if g is not None:
-                graphs.append(g)
+        with ThreadPoolExecutor(max_workers=min(len(tiles), 8)) as executor:
+            futures = {executor.submit(self._download_tile, tile, network_type): tile for tile in tiles}
+            for future in as_completed(futures):
+                g = future.result()
+                if g is not None:
+                    graphs.append(g)
 
         if not graphs:
             logger.error("Failed to download any road network tiles")
