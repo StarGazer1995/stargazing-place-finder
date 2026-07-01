@@ -292,14 +292,16 @@ class TestOverpassBackendFallback(unittest.TestCase):
         self.assertEqual(self.mock_post.call_count, 3)
 
     def test_request_all_urls_fail(self):
-        """All URLs fail → returns empty list."""
+        """All URLs fail → raises NetworkError (no more silent [].)"""
         from requests.exceptions import HTTPError
+
+        from models import NetworkError as NetExc
 
         mock_resp = self.mock_post.return_value
         mock_resp.raise_for_status.side_effect = HTTPError("500 Server Error")
 
-        result = self.backend._request("[out:json];node;out;", "town")
-        self.assertEqual(result, [])
+        with self.assertRaises(NetExc):
+            self.backend._request("[out:json];node;out;", "town")
         # 2 URLs × 2 retries = 4 calls
         self.assertEqual(self.mock_post.call_count, 4)
 

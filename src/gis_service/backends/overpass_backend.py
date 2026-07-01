@@ -146,13 +146,13 @@ class OverpassBackend:
                 # Check total deadline before each attempt
                 elapsed = time.time() - started_at
                 if self.total_timeout is not None and elapsed >= self.total_timeout:
-                    logger.warning(
-                        "%sOverpass total timeout (%ss) reached, giving up on %s",
+                    logger.error(
+                        "%sOverpass total timeout (%ss) reached for %s",
                         prefix,
                         self.total_timeout,
                         data_type,
                     )
-                    return []
+                    raise NetworkError(f"Overpass total timeout ({self.total_timeout}s) reached for {data_type}")
 
                 try:
                     if attempt > 0:
@@ -206,8 +206,10 @@ class OverpassBackend:
                         self.max_retries,
                     )
                 except NetworkError as e:
+                    # Custom exception from wrapping layers (e.g. DNS / proxy errors
+                    # translated by a middleware). Treat as retryable.
                     logger.warning(
-                        "%sOverpass error (%s, attempt %d/%d): %s",
+                        "%sOverpass network error (%s, attempt %d/%d): %s",
                         prefix,
                         data_type,
                         attempt + 1,
@@ -231,5 +233,4 @@ class OverpassBackend:
                     url,
                 )
 
-        logger.error("Overpass query failed for %s after all URLs exhausted", data_type)
-        return []
+        raise NetworkError(f"Overpass query failed for {data_type} after all URLs exhausted")

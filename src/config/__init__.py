@@ -15,9 +15,22 @@ Usage::
 
 import os
 from pathlib import Path
+from types import ModuleType
 from typing import Optional
 
 from .stargazing_config import StargazingConfig
+
+
+def _import_tomllib() -> ModuleType:
+    """Import the TOML library (stdlib ``tomllib`` or backport ``tomli``).
+
+    Shared helper so the fallback logic isn't duplicated across config modules.
+    """
+    try:
+        import tomllib  # Python 3.11+
+    except ImportError:  # pragma: no cover — only on Python < 3.11
+        import tomli as tomllib  # Python 3.9/3.10
+    return tomllib
 
 
 def load_stargazing_config(path: Optional[str] = None) -> StargazingConfig:
@@ -37,10 +50,7 @@ def load_stargazing_config(path: Optional[str] = None) -> StargazingConfig:
         return StargazingConfig()
 
     try:
-        try:
-            import tomllib  # Python 3.11+
-        except ImportError:  # pragma: no cover — only on Python < 3.11
-            import tomli as tomllib  # Python 3.9/3.10
+        tomllib = _import_tomllib()
     except ImportError:  # pragma: no cover — no TOML library available
         return StargazingConfig()  # programmatic defaults
 

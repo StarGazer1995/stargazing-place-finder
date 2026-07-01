@@ -36,5 +36,14 @@ class TestPackageExports:
             "init_light_pollution_analyzer",
             "get_light_pollution_grid",
             "analyze_coordinate",
+            # Exception types (exposed for isinstance checks in bridge layers)
+            "StargazingError",
+            "DataError",
+            "NoDataError",
+            "ValidationError",
+            "NetworkError",
+            "CacheError",
+            "ConfigError",
+            "GeoError",
         ]
         assert sorted(__all__) == sorted(expected)

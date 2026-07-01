@@ -7,7 +7,9 @@ Used to detect whether specified coordinate points can be reached by road
 
 import hashlib
 import logging
+import os
 import pickle
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -41,6 +43,7 @@ class RoadAccessInfoCache:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.expiry_hours = cache_expiry_hours * 3600
         self.cache_mem_data = {}
+        self._lock = threading.Lock()
 
     def _generate_cache_key(self, location_type: str) -> str:
         return hashlib.md5(location_type.encode("utf-8")).hexdigest()
@@ -56,7 +59,7 @@ class RoadAccessInfoCache:
 
     def save_road_access_info_to_cache(self, location_type: str, data: List[RoadAccessInfo]):
         """
-        Save query results to cache
+        Save query results to cache (thread-safe, atomic write).
 
         Args:
             location_type: Location type
@@ -64,18 +67,31 @@ class RoadAccessInfoCache:
         """
         cache_key = self._generate_cache_key(location_type)
         cache_file = self._get_cache_file_path(cache_key)
-        cached_data = self.get_cached_result(location_type)
-        if cached_data is None or not isinstance(cached_data, list):
-            cached_data = data
-        else:
-            for item in data:
-                if item not in cached_data:
-                    cached_data.append(item)
-        self.cache_mem_data[location_type] = cached_data
+
+        with self._lock:
+            cached_data = self.get_cached_result(location_type)
+            if cached_data is None or not isinstance(cached_data, list):
+                cached_data = data
+            else:
+                for item in data:
+                    if item not in cached_data:
+                        cached_data.append(item)
+            self.cache_mem_data[location_type] = cached_data
+
         try:
             Path(cache_file).parent.mkdir(parents=True, exist_ok=True)
-            with open(cache_file, "wb") as f:
-                pickle.dump(cached_data, f)
+            # Atomic write: temp file + rename to avoid TOCTOU corruption
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".pkl", prefix=".tmp-", dir=str(Path(cache_file).parent))
+            try:
+                with os.fdopen(tmp_fd, "wb") as f:
+                    pickle.dump(cached_data, f)
+                os.replace(tmp_path, cache_file)
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
             logger.info(f"💾 Query results cached: {len(data)} records")
         except DataError as e:
             logger.error(f"⚠️ Failed to save cache: {e}")
@@ -340,7 +356,7 @@ class RoadConnectivityChecker:
                 network_type=network_type,
                 simplify=True,
             )
-        except (requests.exceptions.RequestException, Exception) as e:
+        except Exception as e:
             logger.warning(
                 "Failed to download tile (%.2f,%.2f)-(%.2f,%.2f): %s",
                 south,

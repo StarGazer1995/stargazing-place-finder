@@ -6,10 +6,13 @@ including retry, fallback, and exception coverage.
 
 from unittest.mock import patch
 
+import pytest
+
 # Ensure src is on path
 import requests
 
 from gis_service.backends.overpass_backend import OVERPASS_FALLBACK_URLS, OverpassBackend
+from models import NetworkError
 
 
 class TestOverpassRequestExceptionHandling:
@@ -35,45 +38,45 @@ class TestOverpassRequestExceptionHandling:
 
     @patch("gis_service.backends.overpass_backend.requests.post")
     def test_connection_error_triggers_retry(self, mock_post):
-        """ConnectionError should be caught and retried."""
+        """ConnectionError should be caught, retried, then raise NetworkError."""
         mock_post.side_effect = requests.exceptions.ConnectionError("Connection refused")
         backend = self._make_backend()
 
-        result = backend._request("[out:json]; out;", "test")
+        with pytest.raises(NetworkError, match="all URLs exhausted"):
+            backend._request("[out:json]; out;", "test")
 
-        assert result == []
         assert mock_post.call_count == 2  # max_retries=2
 
     @patch("gis_service.backends.overpass_backend.requests.post")
     def test_ssl_error_triggers_retry(self, mock_post):
-        """SSLError should be caught and retried."""
+        """SSLError should be caught, retried, then raise NetworkError."""
         mock_post.side_effect = requests.exceptions.SSLError("SSL handshake failed")
         backend = self._make_backend()
 
-        result = backend._request("[out:json]; out;", "test")
+        with pytest.raises(NetworkError, match="all URLs exhausted"):
+            backend._request("[out:json]; out;", "test")
 
-        assert result == []
         assert mock_post.call_count == 2
 
     @patch("gis_service.backends.overpass_backend.requests.post")
     def test_request_exception_triggers_retry(self, mock_post):
-        """Generic RequestException should be caught and retried."""
+        """Generic RequestException should be caught, retried, then raise NetworkError."""
         mock_post.side_effect = requests.exceptions.RequestException("Something went wrong")
         backend = self._make_backend()
 
-        result = backend._request("[out:json]; out;", "test")
+        with pytest.raises(NetworkError, match="all URLs exhausted"):
+            backend._request("[out:json]; out;", "test")
 
-        assert result == []
         assert mock_post.call_count == 2
 
     @patch("gis_service.backends.overpass_backend.requests.post")
     def test_request_exception_uses_fallback_url(self, mock_post):
-        """After retries exhausted, should try fallback URL."""
+        """After retries exhausted on primary, tries fallback then raises NetworkError."""
         mock_post.side_effect = requests.exceptions.ConnectionError("Connection refused")
         backend = self._make_backend_with_fallback()
 
-        result = backend._request("[out:json]; out;", "test")
+        with pytest.raises(NetworkError, match="all URLs exhausted"):
+            backend._request("[out:json]; out;", "test")
 
-        assert result == []
-        # Main URL: 1 retry (= 1 call), Fallback URL: 1 retry (= 1 call) = 2 total
+        # Main URL: 1 call, Fallback URL: 1 call = 2 total
         assert mock_post.call_count == 2

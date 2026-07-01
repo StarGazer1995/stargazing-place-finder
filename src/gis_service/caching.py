@@ -8,7 +8,10 @@ GIS 查询缓存模块。
 
 import hashlib
 import logging
+import os
 import pickle
+import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -41,6 +44,7 @@ class GisQueryCache:
 
         # 内存缓存: {cache_key: (timestamp, data)}
         self._memory: Dict[str, tuple] = {}
+        self._lock = threading.Lock()
 
     def _make_key(self, *args, **kwargs) -> str:
         """从参数生成唯一缓存键。"""
@@ -48,24 +52,26 @@ class GisQueryCache:
         return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
     def get(self, key: str) -> Optional[Any]:
-        """获取缓存。检查内存和磁盘，过期自动丢弃。"""
+        """获取缓存（线程安全）。检查内存和磁盘，过期自动丢弃。"""
         now = time.time()
 
-        # 内存缓存
-        if key in self._memory:
-            ts, data = self._memory[key]
-            if now - ts < self.cache_expiry_seconds:
-                return data
-            del self._memory[key]
+        with self._lock:
+            # 内存缓存
+            if key in self._memory:
+                ts, data = self._memory[key]
+                if now - ts < self.cache_expiry_seconds:
+                    return data
+                del self._memory[key]
 
-        # 磁盘缓存
+        # 磁盘缓存（锁外读取 I/O，避免阻塞其他线程）
         cache_path = self._disk_path(key)
         if cache_path.exists():
             try:
                 with open(cache_path, "rb") as f:
                     ts, data = pickle.load(f)
                 if now - ts < self.cache_expiry_seconds:
-                    self._memory[key] = (ts, data)
+                    with self._lock:
+                        self._memory[key] = (ts, data)
                     return data
                 # 过期删除
                 cache_path.unlink(missing_ok=True)
@@ -75,13 +81,26 @@ class GisQueryCache:
         return None
 
     def set(self, key: str, data: Any):
-        """写入内存 + 磁盘缓存。"""
+        """写入内存 + 磁盘缓存（线程安全，原子写入）。"""
         now = time.time()
-        self._memory[key] = (now, data)
+        with self._lock:
+            self._memory[key] = (now, data)
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
-            with open(self._disk_path(key), "wb") as f:
-                pickle.dump((now, data), f)
+            disk_path = self._disk_path(key)
+            # Atomic write: temp file + rename avoids TOCTOU corruption
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".pkl", prefix=".tmp-", dir=str(self.cache_dir))
+            try:
+                with os.fdopen(tmp_fd, "wb") as f:
+                    pickle.dump((now, data), f)
+                os.replace(tmp_path, disk_path)
+            except Exception:
+                # Clean up temp file on failure
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
         except DataError as e:
             logger.debug("Cache write failed for %s: %s", key, e)
 

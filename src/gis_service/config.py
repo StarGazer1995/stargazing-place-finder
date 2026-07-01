@@ -8,7 +8,7 @@ import logging
 import os
 from typing import Dict, Optional
 
-from models import ConfigError
+from config import _import_tomllib
 
 logger = logging.getLogger(__name__)
 
@@ -67,14 +67,11 @@ def load_db_config(path: Optional[str] = None) -> Optional[Dict[str, object]]:
             return json.load(f)
     elif ext == ".toml":
         try:
-            try:
-                import tomllib  # Python 3.11+
-            except ImportError:
-                import tomli as tomllib  # Python 3.9/3.10
+            tomllib = _import_tomllib()
 
             with open(cfg_path, "rb") as f:
                 return tomllib.load(f)
-        except ConfigError as e:
-            raise RuntimeError(f"Failed to parse TOML config: {e}")
+        except tomllib.TOMLDecodeError as e:
+            raise RuntimeError(f"Failed to parse TOML config: {e}") from e
     else:
         raise ValueError(f"Unsupported config format: {ext}")

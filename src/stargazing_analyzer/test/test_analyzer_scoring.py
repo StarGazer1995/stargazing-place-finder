@@ -174,21 +174,25 @@ class TestScoringAndRecommendation:
         assert with_density < no_density
 
     def test_score_road_accessibility(self, analyzer, sample_location):
-        """Road accessibility scoring for various distances."""
+        """Road accessibility scoring — smooth sigmoid decay."""
         sample_location.road_accessible = True
         sample_location.distance_to_road_km = 0.1
-        assert analyzer._score_road_accessibility(sample_location) == 20  # Ideal
+        # ratio=0.5 → 20/(1+0.25)*1.1 = 17.6 (with ideal-range bonus)
+        assert analyzer._score_road_accessibility(sample_location) == 17.6
 
         sample_location.distance_to_road_km = 0.01
-        assert analyzer._score_road_accessibility(sample_location) == 14  # Too close
+        # ratio=0.05 → 20/(1+0.0025) ≈ 19.95, no bonus (ratio<0.25), rounded to 20.0
+        assert analyzer._score_road_accessibility(sample_location) == 20.0
 
         sample_location.distance_to_road_km = None
-        assert analyzer._score_road_accessibility(sample_location) == 12
+        # Unknown distance → 50% of max = 10
+        assert analyzer._score_road_accessibility(sample_location) == 10
 
         sample_location.road_accessible = False
         assert analyzer._score_road_accessibility(sample_location) == 0
 
         sample_location.road_accessible = None
+        # Unknown access → 50% of max = 10
         assert analyzer._score_road_accessibility(sample_location) == 10
 
     def test_score_elevation_terrain(self, analyzer, sample_location):
@@ -544,16 +548,18 @@ class TestAnalyzeAreaWithMockData:
         assert analyzer._score_light_pollution(loc) == 8
 
     def test_score_road_accessibility_beyond_threshold(self, analyzer, sample_location):
-        """Road accessible but beyond 200m returns 10."""
+        """Road accessible at 500m — sigmoid decay gives low but non-zero score."""
         sample_location.road_accessible = True
         sample_location.distance_to_road_km = 0.5
-        assert analyzer._score_road_accessibility(sample_location) == 10
+        # ratio=2.5 → 20/(1+6.25)=2.76, no bonus (ratio>1.0), rounded to 2.8
+        assert analyzer._score_road_accessibility(sample_location) == 2.8
 
     def test_score_town_isolation_very_close(self, analyzer, sample_location):
-        """Town distance < 5km gives 0 score before density."""
+        """Town at 2km — continuous log scoring gives ~5.6, not zero."""
         sample_location.distance_to_nearest_town = 2.0
         sample_location.nearby_town_count = 0
-        assert analyzer._score_town_isolation(sample_location) == 0
+        # 20 * log(3)/log(51) ≈ 5.59
+        assert analyzer._score_town_isolation(sample_location) == pytest.approx(5.59, abs=0.01)
 
     def test_score_location_type_unknown(self, analyzer, sample_location):
         """Unknown location type returns 0."""

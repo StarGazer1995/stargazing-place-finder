@@ -249,7 +249,7 @@ class StargazingLocationAnalyzer:
         """Fetch towns data for town density computation (optional)."""
         try:
             return self.mountain_finder.gis_service.query_locations(bbox, "town")
-        except (NoDataError, Exception) as e:
+        except Exception as e:
             logger.warning("Failed to fetch towns data: %s", e)
             return []
 
@@ -583,6 +583,9 @@ class StargazingLocationAnalyzer:
         locations farther score progressively less, without a cliff.
         """
         max_weight = cfg.weight_road_access if cfg else 20
+        # Explicitly not accessible → zero score regardless of distance
+        if location.road_accessible is False:
+            return 0
         if location.distance_to_road_km is None:
             return max_weight * 0.5  # Unknown → middle
         d = location.distance_to_road_km

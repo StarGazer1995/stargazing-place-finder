@@ -284,28 +284,7 @@ def serve_light_pollution_tile(z: int, x: int, y: int) -> Response:
         return _empty_tile()
 
 
-def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    计算两个地理坐标之间的距离（公里）
-
-    Args:
-        lat1, lon1: 第一个点的纬度和经度
-        lat2, lon2: 第二个点的纬度和经度
-
-    Returns:
-        距离（公里）
-    """
-    R = 6371  # 地球半径（公里）
-
-    lat1_rad = math.radians(lat1)
-    lat2_rad = math.radians(lat2)
-    delta_lat = math.radians(lat2 - lat1)
-    delta_lon = math.radians(lon2 - lon1)
-
-    a = math.sin(delta_lat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    return R * c
+# Distance calculation has moved to gis_service.parsers.calculate_distance
 
 
 def _parse_pollution_request():
