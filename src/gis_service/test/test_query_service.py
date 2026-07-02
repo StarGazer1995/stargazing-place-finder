@@ -419,26 +419,106 @@ class TestPostgisBackendElevation(unittest.TestCase):
         self.assertEqual(results[0].source_name, "Mt Foo")
         self.assertEqual(results[0].feature_type, "natural=peak")
 
-        # Verify the VALUES query was used
+        # Verify the VALUES query with LEFT JOIN LATERAL was used
         call_sql = self.mock_cursor.execute.call_args[0][0]
         self.assertIn("VALUES", call_sql)
-        self.assertIn("CROSS JOIN LATERAL", call_sql)
+        self.assertIn("LEFT JOIN LATERAL", call_sql)
 
     def test_batch_query_multiple_points(self):
-        """Multiple coordinates → all results returned in order."""
+        """Single unified query — second point resolved via line fallback."""
         from gis_service.backends.postgis_backend import PostgisBackend
 
+        # COALESCE + two LEFT JOIN LATERAL → one fetchall with all results.
+        # Row 1: point hit  |  Row 2: line fallback (same 8-column shape)
         self.mock_cursor.fetchall.return_value = [
             (1, 39.9, 116.4, "A", 500.0, "S1", 100.0, "natural=peak"),
-            (2, 40.0, 117.0, "B", None, "S2", 200.0, "unknown"),
+            (2, 40.0, 117.0, "B", 800.0, "ContourX", 50.0, "line"),
         ]
 
         backend = PostgisBackend(config={"host": "localhost"})
         results = backend._query_single_batch([(39.9, 116.4), (40.0, 117.0)], ["A", "B"])
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].elevation, 500.0)
+        self.assertEqual(results[0].feature_type, "natural=peak")
+        # Second point resolved via line fallback
+        self.assertEqual(results[1].elevation, 800.0)
+        self.assertEqual(results[1].feature_type, "line")
+
+    def test_batch_query_line_fallback_empty(self):
+        """Neither point nor line has elevation → elevation stays None."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        # Single query returns both rows: first hit, second miss on both tiers
+        self.mock_cursor.fetchall.return_value = [
+            (1, 39.9, 116.4, "A", 500.0, "S1", 100.0, "natural=peak"),
+            (2, 40.0, 117.0, "B", None, None, None, "unknown"),
+        ]
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        results = backend._query_single_batch([(39.9, 116.4), (40.0, 117.0)], ["A", "B"])
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].elevation, 500.0)
+        # Second point still missing — no fallback data found
         self.assertIsNone(results[1].elevation)
         self.assertEqual(results[1].feature_type, "unknown")
+
+    def test_batch_query_feature_type_point_fallback(self):
+        """Point matched but no feature tags → feature_type='point'."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = [
+            (1, 39.9, 116.4, "A", 500.0, "SomePeak", 100.0, "point"),
+        ]
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        results = backend._query_single_batch([(39.9, 116.4)], ["A"])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].elevation, 500.0)
+        self.assertEqual(results[0].feature_type, "point")
+
+    def test_batch_query_feature_type_highway(self):
+        """Line fallback with highway tag → feature_type='highway=...'."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = [
+            (1, 39.9, 116.4, "A", 300.0, "RoadX", 80.0, "highway=primary"),
+        ]
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        results = backend._query_single_batch([(39.9, 116.4)], ["A"])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].elevation, 300.0)
+        self.assertEqual(results[0].feature_type, "highway=primary")
+
+    def test_batch_query_feature_type_waterway(self):
+        """Line fallback with waterway tag → feature_type='waterway=...'."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = [
+            (1, 39.9, 116.4, "A", 250.0, "RiverY", 60.0, "waterway=stream"),
+        ]
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        results = backend._query_single_batch([(39.9, 116.4)], ["A"])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].elevation, 250.0)
+        self.assertEqual(results[0].feature_type, "waterway=stream")
+
+    def test_find_elevation_at_point_uses_both_tiers(self):
+        """Single query includes both planet_osm_point and planet_osm_line."""
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchone.return_value = (1200.0,)
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        result = backend.find_elevation_at_point(39.9, 116.4)
+        self.assertEqual(result, 1200.0)
+
+        # Single execute call with COALESCE across both tables
+        call_sql = self.mock_cursor.execute.call_args[0][0]
+        self.assertIn("planet_osm_point", call_sql)
+        self.assertIn("planet_osm_line", call_sql)
+        self.assertIn("COALESCE", call_sql)
 
     def test_batch_query_psycopg2_parameters(self):
         """Verify SQL params match VALUES placeholders."""
