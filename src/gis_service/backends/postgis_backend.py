@@ -398,9 +398,9 @@ class PostgisBackend:
             "nearest_lon": nearest_lon,
         }
 
-    # ── 路网图查询（替代 OSMnx HTTP 下载）────────────────────
+    # ── Road network graph queries (replaces OSMnx HTTP downloads) ─
 
-    # 用于从 WKT LINESTRING 中提取坐标的正则
+    # Regex to extract coordinates from WKT LINESTRING strings.
     _WKT_COORD_RE = re.compile(r"[\d.-]+\s+[\d.-]+")
 
     def query_road_graph_by_bbox(
@@ -412,27 +412,27 @@ class PostgisBackend:
         network_type: str = "drive",
     ) -> Optional[nx.MultiDiGraph]:
         """
-        从 PostGIS planet_osm_line 查询 bbox 内路网，构建 NetworkX MultiDiGraph。
+        Build a NetworkX MultiDiGraph from ``planet_osm_line`` within a bounding box.
 
-        替代 ``ox.graph_from_bbox`` 的 HTTP 下载，直接使用本地 PostGIS 数据。
+        Replaces ``ox.graph_from_bbox`` HTTP download with a local PostGIS query.
 
         Args:
-            south: 南边界纬度 (WGS84)
-            west: 西边界经度 (WGS84)
-            north: 北边界纬度 (WGS84)
-            east: 东边界经度 (WGS84)
-            network_type: 道路类型 ('drive', 'walk', 'bike', 'all')
+            south: Southern latitude (WGS84).
+            west: Western longitude (WGS84).
+            north: Northern latitude (WGS84).
+            east: Eastern longitude (WGS84).
+            network_type: Road network type ('drive', 'walk', 'bike', 'all').
 
         Returns:
-            NetworkX MultiDiGraph，节点属性含 x(lon)/y(lat)，边属性含 highway/name。
-            查询失败或无数据时返回 None。
+            MultiDiGraph with x(lon)/y(lat) node attributes and highway/name edge
+            attributes, or ``None`` if the query fails or returns no rows.
         """
         highway_filter = self._HIGHWAY_FILTERS.get(network_type, "highway IS NOT NULL")
         conn = self._get_conn()
         cursor = conn.cursor()
         try:
-            # 使用 ST_MakeEnvelope + && 运算符利用 GiST 空间索引
-            # ST_MakeEnvelope(xmin, ymin, xmax, ymax, srid) = (west, south, east, north)
+            # Use ST_MakeEnvelope + && to leverage the GiST spatial index.
+            # ST_MakeEnvelope(xmin, ymin, xmax, ymax, srid) = (west, south, east, north).
             cursor.execute(
                 f"""
                 SELECT highway, name, ST_AsText(ST_Transform(way, 4326)) AS geom_wkt
@@ -476,19 +476,19 @@ class PostgisBackend:
         network_type: str = "drive",
     ) -> Optional[nx.MultiDiGraph]:
         """
-        从 PostGIS planet_osm_line 查询某点周围路网，构建 NetworkX MultiDiGraph。
+        Build a NetworkX MultiDiGraph from ``planet_osm_line`` around a point.
 
-        替代 ``ox.graph_from_point`` 的 HTTP 下载。
+        Replaces ``ox.graph_from_point`` HTTP download with a local PostGIS query.
 
         Args:
-            lat: 中心纬度 (WGS84)
-            lon: 中心经度 (WGS84)
-            radius_km: 搜索半径（千米）
-            network_type: 道路类型 ('drive', 'walk', 'bike', 'all')
+            lat: Center latitude (WGS84).
+            lon: Center longitude (WGS84).
+            radius_km: Search radius in kilometers.
+            network_type: Road network type ('drive', 'walk', 'bike', 'all').
 
         Returns:
-            NetworkX MultiDiGraph，节点属性含 x(lon)/y(lat)，边属性含 highway/name。
-            查询失败或无数据时返回 None。
+            MultiDiGraph with x(lon)/y(lat) node attributes and highway/name edge
+            attributes, or ``None`` if the query fails or returns no rows.
         """
         highway_filter = self._HIGHWAY_FILTERS.get(network_type, "highway IS NOT NULL")
         radius_meters = radius_km * 1000.0
@@ -535,16 +535,18 @@ class PostgisBackend:
     @classmethod
     def _build_graph_from_rows(cls, rows: List[tuple]) -> nx.MultiDiGraph:
         """
-        从 PostGIS 查询行构建 NetworkX MultiDiGraph。
+        Build a NetworkX MultiDiGraph from PostGIS query rows.
 
-        每行包含 (highway, name, geom_wkt)。geom_wkt 为 WGS84 LINESTRING WKT。
-        使用自增整数作为节点 ID 以兼容 osmnx（避免 tuple ID 导致 pandas MultiIndex）。
-        节点属性含 x(lon)/y(lat)，图属性含 crs。
+        Each row is (highway, name, geom_wkt) where geom_wkt is a WGS84
+        LINESTRING.  Nodes use auto-increment integer IDs for osmnx
+        compatibility (tuple IDs would create a pandas MultiIndex that
+        breaks ``graph_to_gdfs`` / ``nearest_nodes``).
+        Node attributes: ``x`` (lon), ``y`` (lat).  Graph attribute: ``crs``.
         """
         G = nx.MultiDiGraph()
         G.graph["crs"] = "EPSG:4326"
 
-        # 坐标 → 节点 ID 映射，使用整数 ID 保证 osmnx 兼容性
+        # Coordinate → integer node ID mapping for osmnx compatibility.
         coord_to_id: dict[tuple[float, float], int] = {}
         _next_id = 0
 
@@ -581,17 +583,17 @@ class PostgisBackend:
     @classmethod
     def _parse_linestring_wkt(cls, wkt: str) -> List[Tuple[float, float]]:
         """
-        解析 WKT LINESTRING 字符串为 [(lon, lat), ...] 列表。
+        Parse a WKT LINESTRING into a list of (lon, lat) coordinate pairs.
 
-        支持 LINESTRING 和 MULTILINESTRING 格式。
+        Handles both LINESTRING and MULTILINESTRING formats.
         """
         if not wkt:
             return []
 
-        # 处理 MULTILINESTRING：取第一个 LINESTRING
+        # Handle MULTILINESTRING: extract the first parenthesised group.
         wkt_upper = wkt.upper().strip()
         if wkt_upper.startswith("MULTILINESTRING"):
-            # 提取第一个括号组
+            # Find the first matching pair of parentheses.
             depth = 0
             start = -1
             for i, ch in enumerate(wkt):
