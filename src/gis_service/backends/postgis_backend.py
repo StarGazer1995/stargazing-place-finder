@@ -7,8 +7,10 @@ elevation_batch_query.py 中的 BatchElevationQuery 统一到此模块。
 """
 
 import logging
+import re
 from typing import Dict, List, Optional, Tuple
 
+import networkx as nx
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
 
@@ -395,6 +397,222 @@ class PostgisBackend:
             "nearest_lat": nearest_lat,
             "nearest_lon": nearest_lon,
         }
+
+    # ── 路网图查询（替代 OSMnx HTTP 下载）────────────────────
+
+    # 用于从 WKT LINESTRING 中提取坐标的正则
+    _WKT_COORD_RE = re.compile(r"[\d.-]+\s+[\d.-]+")
+
+    def query_road_graph_by_bbox(
+        self,
+        south: float,
+        west: float,
+        north: float,
+        east: float,
+        network_type: str = "drive",
+    ) -> Optional[nx.MultiDiGraph]:
+        """
+        从 PostGIS planet_osm_line 查询 bbox 内路网，构建 NetworkX MultiDiGraph。
+
+        替代 ``ox.graph_from_bbox`` 的 HTTP 下载，直接使用本地 PostGIS 数据。
+
+        Args:
+            south: 南边界纬度 (WGS84)
+            west: 西边界经度 (WGS84)
+            north: 北边界纬度 (WGS84)
+            east: 东边界经度 (WGS84)
+            network_type: 道路类型 ('drive', 'walk', 'bike', 'all')
+
+        Returns:
+            NetworkX MultiDiGraph，节点属性含 x(lon)/y(lat)，边属性含 highway/name。
+            查询失败或无数据时返回 None。
+        """
+        highway_filter = self._HIGHWAY_FILTERS.get(network_type, "highway IS NOT NULL")
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        try:
+            # 使用 ST_MakeEnvelope + && 运算符利用 GiST 空间索引
+            # ST_MakeEnvelope(xmin, ymin, xmax, ymax, srid) = (west, south, east, north)
+            cursor.execute(
+                f"""
+                SELECT highway, name, ST_AsText(ST_Transform(way, 4326)) AS geom_wkt
+                FROM planet_osm_line
+                WHERE {highway_filter}
+                  AND ST_Transform(way, 4326) && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
+                """,
+                (west, south, east, north),
+            )
+            rows = cursor.fetchall()
+            if not rows:
+                logger.info(
+                    "No road segments found in bbox (%.4f, %.4f, %.4f, %.4f)",
+                    south,
+                    west,
+                    north,
+                    east,
+                )
+                return None
+            logger.info(
+                "Building road graph from %d LINESTRINGs for bbox (%.2f,%.2f)-(%.2f,%.2f)",
+                len(rows),
+                south,
+                west,
+                north,
+                east,
+            )
+            return self._build_graph_from_rows(rows)
+        except (psycopg2.Error, DataError) as e:
+            logger.error("Road graph bbox query failed: %s", e)
+            return None
+        finally:
+            cursor.close()
+            self._put_conn(conn)
+
+    def query_road_graph_by_point(
+        self,
+        lat: float,
+        lon: float,
+        radius_km: float,
+        network_type: str = "drive",
+    ) -> Optional[nx.MultiDiGraph]:
+        """
+        从 PostGIS planet_osm_line 查询某点周围路网，构建 NetworkX MultiDiGraph。
+
+        替代 ``ox.graph_from_point`` 的 HTTP 下载。
+
+        Args:
+            lat: 中心纬度 (WGS84)
+            lon: 中心经度 (WGS84)
+            radius_km: 搜索半径（千米）
+            network_type: 道路类型 ('drive', 'walk', 'bike', 'all')
+
+        Returns:
+            NetworkX MultiDiGraph，节点属性含 x(lon)/y(lat)，边属性含 highway/name。
+            查询失败或无数据时返回 None。
+        """
+        highway_filter = self._HIGHWAY_FILTERS.get(network_type, "highway IS NOT NULL")
+        radius_meters = radius_km * 1000.0
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                f"""
+                SELECT highway, name, ST_AsText(ST_Transform(way, 4326)) AS geom_wkt
+                FROM planet_osm_line
+                WHERE {highway_filter}
+                  AND ST_DWithin(
+                      ST_Transform(way, 4326)::geography,
+                      ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
+                      %s
+                  )
+                """,
+                (lon, lat, radius_meters),
+            )
+            rows = cursor.fetchall()
+            if not rows:
+                logger.info(
+                    "No road segments found within %.1f km of (%.4f, %.4f)",
+                    radius_km,
+                    lat,
+                    lon,
+                )
+                return None
+            logger.info(
+                "Building road graph from %d LINESTRINGs within %.1f km of (%.4f, %.4f)",
+                len(rows),
+                radius_km,
+                lat,
+                lon,
+            )
+            return self._build_graph_from_rows(rows)
+        except (psycopg2.Error, DataError) as e:
+            logger.error("Road graph point query failed: %s", e)
+            return None
+        finally:
+            cursor.close()
+            self._put_conn(conn)
+
+    @classmethod
+    def _build_graph_from_rows(cls, rows: List[tuple]) -> nx.MultiDiGraph:
+        """
+        从 PostGIS 查询行构建 NetworkX MultiDiGraph。
+
+        每行包含 (highway, name, geom_wkt)。geom_wkt 为 WGS84 LINESTRING WKT。
+        节点以保留 7 位小数的 (lon, lat) 元组作 ID，节点属性含 x/y 以兼容
+        ``ox.distance.nearest_nodes``。
+        """
+        G = nx.MultiDiGraph()
+        # 设置 CRS 属性以兼容 osmnx 内部调用 (graph_to_gdfs / nearest_nodes)
+        G.graph["crs"] = "EPSG:4326"
+
+        for highway, name, geom_wkt in rows:
+            coords = cls._parse_linestring_wkt(geom_wkt)
+            if len(coords) < 2:
+                continue
+
+            for i in range(len(coords) - 1):
+                lon1, lat1 = coords[i]
+                lon2, lat2 = coords[i + 1]
+
+                # 使用保留 7 位小数的 (lon, lat) 作为节点 ID
+                node1 = (round(lon1, 7), round(lat1, 7))
+                node2 = (round(lon2, 7), round(lat2, 7))
+
+                # 添加节点（含 osmnx 兼容的 x/y 属性）
+                if node1 not in G.nodes:
+                    G.add_node(node1, x=lon1, y=lat1)
+                if node2 not in G.nodes:
+                    G.add_node(node2, x=lon2, y=lat2)
+
+                # 添加双向边
+                edge_attrs = {"highway": highway}
+                if name:
+                    edge_attrs["name"] = name
+                G.add_edge(node1, node2, **edge_attrs)
+                G.add_edge(node2, node1, **edge_attrs)
+
+        logger.info("Built NetworkX graph: %d nodes, %d edges", G.number_of_nodes(), G.number_of_edges())
+        return G
+
+    @classmethod
+    def _parse_linestring_wkt(cls, wkt: str) -> List[Tuple[float, float]]:
+        """
+        解析 WKT LINESTRING 字符串为 [(lon, lat), ...] 列表。
+
+        支持 LINESTRING 和 MULTILINESTRING 格式。
+        """
+        if not wkt:
+            return []
+
+        # 处理 MULTILINESTRING：取第一个 LINESTRING
+        wkt_upper = wkt.upper().strip()
+        if wkt_upper.startswith("MULTILINESTRING"):
+            # 提取第一个括号组
+            depth = 0
+            start = -1
+            for i, ch in enumerate(wkt):
+                if ch == "(":
+                    if depth == 0:
+                        start = i
+                    depth += 1
+                elif ch == ")":
+                    depth -= 1
+                    if depth == 0 and start >= 0:
+                        wkt = wkt[start : i + 1]
+                        break
+
+        # 移除 LINESTRING 前缀及首尾括号
+        if wkt_upper.startswith("LINESTRING"):
+            wkt = wkt[len("LINESTRING") :]
+        wkt = wkt.strip().strip("()")
+
+        points = []
+        for match in cls._WKT_COORD_RE.finditer(wkt):
+            parts = match.group().split()
+            if len(parts) >= 2:
+                points.append((float(parts[0]), float(parts[1])))
+
+        return points
 
     # ── 统计信息 ──────────────────────────────────────────────
 
