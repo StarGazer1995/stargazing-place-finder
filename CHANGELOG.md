@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.0 (2026-07-02)
+## 0.7.1 (2026-07-02)
 
 ### Features
 - **PostGIS road network graph**: `RoadConnectivityChecker` now queries local `planet_osm_line` via PostGIS

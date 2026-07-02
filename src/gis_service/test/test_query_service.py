@@ -766,6 +766,7 @@ class TestPostgisBackendRoadGraph(unittest.TestCase):
 
     def test_build_graph_basic(self):
         import networkx as nx
+
         from gis_service.backends.postgis_backend import PostgisBackend
 
         rows = [
@@ -859,7 +860,6 @@ class TestPostgisBackendRoadGraph(unittest.TestCase):
 
     def test_query_road_graph_by_bbox_db_error(self):
         from gis_service.backends.postgis_backend import PostgisBackend
-        from models import DataError
 
         self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("down")
 
@@ -932,6 +932,7 @@ class TestGisQueryServiceRoadGraph(unittest.TestCase):
 
     def test_query_road_graph_by_bbox_delegates(self):
         import networkx as nx
+
         from gis_service.query_service import GisQueryService
 
         mock_graph = nx.MultiDiGraph()
@@ -954,6 +955,7 @@ class TestGisQueryServiceRoadGraph(unittest.TestCase):
 
     def test_query_road_graph_by_point_delegates(self):
         import networkx as nx
+
         from gis_service.query_service import GisQueryService
 
         mock_graph = nx.MultiDiGraph()
