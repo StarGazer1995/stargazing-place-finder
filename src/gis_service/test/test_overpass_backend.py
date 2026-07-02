@@ -80,3 +80,40 @@ class TestOverpassRequestExceptionHandling:
 
         # Main URL: 1 call, Fallback URL: 1 call = 2 total
         assert mock_post.call_count == 2
+
+
+class TestOverpassTotalTimeout:
+    """Test OverpassBackend._request total_timeout deadline check."""
+
+    @patch("gis_service.backends.overpass_backend.time.sleep")
+    @patch("gis_service.backends.overpass_backend.time.time")
+    def test_total_timeout_raises_network_error(self, mock_time, mock_sleep):
+        """When elapsed exceeds total_timeout, NetworkError is raised immediately."""
+        # Provide many return values — logger.error also calls time.time()
+        mock_time.side_effect = [0.0] + [999.0] * 20
+        backend = OverpassBackend(
+            url="https://fake-overpass.example/api",
+            timeout=5,
+            max_retries=3,
+            total_timeout=1,
+        )
+        backend.urls = [backend.urls[0]]
+
+        with pytest.raises(NetworkError, match="total timeout"):
+            backend._request("[out:json];node;out;", "test")
+
+    @patch("gis_service.backends.overpass_backend.time.sleep")
+    @patch("gis_service.backends.overpass_backend.requests.post")
+    def test_total_timeout_none_disables_deadline_check(self, mock_post, mock_sleep):
+        """total_timeout=None skips the deadline check entirely."""
+        mock_post.side_effect = requests.exceptions.ConnectionError("Connection refused")
+        backend = OverpassBackend(
+            url="https://fake-overpass.example/api",
+            timeout=5,
+            max_retries=2,
+            total_timeout=None,
+        )
+        backend.urls = [backend.urls[0]]
+
+        with pytest.raises(NetworkError, match="all URLs exhausted"):
+            backend._request("[out:json];node;out;", "test")

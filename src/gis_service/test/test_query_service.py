@@ -147,6 +147,17 @@ class TestGisQueryService(unittest.TestCase):
         with self.assertRaises(Exception):
             service.query_locations(LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5))
 
+    def test_query_locations_overpass_network_error_returns_empty(self):
+        """Overpass raises NetworkError → caught and returns empty list (lines 115-116,121)."""
+        self.mock_overpass.query_locations_in_bbox.side_effect = NetworkError("Overpass timeout")
+
+        service = self._make_service(db_config=None)  # No PostGIS → uses Overpass
+        bbox = LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5)
+        results = service.query_locations(bbox, "peak")
+
+        self.assertEqual(results, [])
+        self.mock_overpass.query_locations_in_bbox.assert_called_once()
+
     # ── helper query methods ────────────────────────────────
 
     def test_query_towns_delegates(self):

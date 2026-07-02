@@ -135,6 +135,20 @@ class TestScoringAndRecommendation:
             loc.light_pollution_brightness = brightness
             assert analyzer._score_light_pollution(loc) == expected, f"Failed at brightness={brightness}"
 
+    def test_score_light_pollution_brightness_170(self, analyzer):
+        """Brightness 170 (in range [150,180)) → returns 8 (line 536)."""
+        loc = StargazingLocation(
+            name="B170",
+            latitude=40.0,
+            longitude=116.0,
+            elevation=1000.0,
+            distance_to_nearest_town=10.0,
+            nearest_town_name="T",
+        )
+        loc.light_pollution_bortle = None
+        loc.light_pollution_brightness = 170
+        assert analyzer._score_light_pollution(loc) == 8
+
     def test_score_light_pollution_via_level(self, analyzer, sample_location):
         """Score based on legacy pollution level string."""
         sample_location.light_pollution_bortle = None

@@ -361,3 +361,140 @@ class TestLightPollutionApiIntegration:
             assert resp.status_code == 200
 
         mock_geotiff_path.assert_called()
+
+
+class TestTileCacheFunctions:
+    """Test tile cache functions (_empty_tile, _set_tile_cache, _validate_tile_request)."""
+
+    def setup_method(self):
+        """Reset the module-level tile cache before each test."""
+        import light_pollution.light_pollution_api as api
+
+        api._tile_cache.clear()
+
+    def teardown_method(self):
+        """Clean up module state."""
+        import light_pollution.light_pollution_api as api
+
+        api._tile_cache.clear()
+
+    def test_empty_tile_cache_hit(self):
+        """_empty_tile returns cached empty tile when TTL is valid."""
+        import time
+
+        import light_pollution.light_pollution_api as api
+
+        # Pre-populate the cache with a fresh entry
+        api._tile_cache["__empty__"] = (b"cached_png", time.time())
+        response = api._empty_tile()
+        assert response.data == b"cached_png"
+        assert response.mimetype == "image/png"
+
+    def test_empty_tile_cache_expired(self):
+        """_empty_tile regenerates when cached entry is expired."""
+        import time
+
+        import light_pollution.light_pollution_api as api
+
+        # Old entry (expired)
+        old_time = time.time() - api._TILE_CACHE_TTL - 10
+        api._tile_cache["__empty__"] = (b"stale_png", old_time)
+        response = api._empty_tile()
+        # Should return a newly generated tile, not the stale one
+        assert response.data != b"stale_png"
+        assert response.mimetype == "image/png"
+
+    def test_set_tile_cache_adds_new_key(self):
+        """_set_tile_cache adds a new key to the cache."""
+        import light_pollution.light_pollution_api as api
+
+        api._set_tile_cache("abc/123", b"tile_data")
+        assert "abc/123" in api._tile_cache
+        data, ts = api._tile_cache["abc/123"]
+        assert data == b"tile_data"
+
+    def test_set_tile_cache_moves_existing_to_end(self):
+        """_set_tile_cache moves existing key to end (LRU order)."""
+        import light_pollution.light_pollution_api as api
+
+        api._set_tile_cache("a/1", b"first")
+        api._set_tile_cache("b/2", b"second")
+        # Update "a/1" → should move to the end
+        api._set_tile_cache("a/1", b"updated")
+        # The last key should be "a/1" (most recently used)
+        keys = list(api._tile_cache.keys())
+        assert keys[-1] == "a/1"
+        assert api._tile_cache["a/1"][0] == b"updated"
+
+    def test_set_tile_cache_evicts_when_full(self):
+        """_set_tile_cache evicts oldest entry when cache is full."""
+        import light_pollution.light_pollution_api as api
+
+        old_max = api._MAX_TILE_CACHE
+        try:
+            api._MAX_TILE_CACHE = 2
+            api._set_tile_cache("a/1", b"a")
+            api._set_tile_cache("b/2", b"b")
+            # Cache is now full (2 entries)
+            api._set_tile_cache("c/3", b"c")
+            # "a/1" should be evicted (oldest)
+            assert "a/1" not in api._tile_cache
+            assert "b/2" in api._tile_cache
+            assert "c/3" in api._tile_cache
+        finally:
+            api._MAX_TILE_CACHE = old_max
+
+    def test_validate_tile_request_analyzer_none_returns_empty(self):
+        """_validate_tile_request returns empty tile when analyzer is None."""
+        import light_pollution.light_pollution_api as api
+
+        api.analyzer = None
+        response = api._validate_tile_request(5, 10, 10)
+        assert response is not None
+        assert response.mimetype == "image/png"
+
+    def test_validate_tile_request_cache_hit(self):
+        """_validate_tile_request returns cached response for valid TTL entry."""
+        import time
+
+        import light_pollution.light_pollution_api as api
+
+        # Ensure analyzer is not None so we go past the None check
+        api.analyzer = MagicMock()
+        api.analyzer._src = MagicMock()  # Not None
+        key = "5/10/10"
+        api._tile_cache[key] = (b"cached_tile_data", time.time())
+        response = api._validate_tile_request(5, 10, 10)
+        assert response is not None
+        assert response.data == b"cached_tile_data"
+
+    def test_validate_tile_request_cache_expired(self):
+        """_validate_tile_request returns None for expired cache entry."""
+        import time
+
+        import light_pollution.light_pollution_api as api
+
+        api.analyzer = MagicMock()
+        api.analyzer._src = MagicMock()
+        key = "5/10/10"
+        old_time = time.time() - api._TILE_CACHE_TTL - 10
+        api._tile_cache[key] = (b"stale_data", old_time)
+        response = api._validate_tile_request(5, 10, 10)
+        assert response is None
+        assert key not in api._tile_cache
+
+    def test_render_tile_png_caches_result(self):
+        """_render_tile_png stores the rendered PNG in tile cache (line 252)."""
+        import numpy as np
+
+        import light_pollution.light_pollution_api as api
+
+        data = np.zeros((256, 256), dtype=np.float32)
+        mock_src = MagicMock()
+        mock_src.nodata = None
+
+        cache_key = "test/0/0"
+        response = api._render_tile_png(data, mock_src, cache_key)
+        assert response.mimetype == "image/png"
+        # Verify the result was cached
+        assert cache_key in api._tile_cache
