@@ -29,6 +29,9 @@ class PostgisBackend:
     Uses a connection pool internally to avoid per-query TCP handshakes.
     """
 
+    # Shared elevation filter — used by both point and line kNN queries.
+    _ELE_FILTER = "ele IS NOT NULL AND ele ~ '^[0-9]+(\\.[0-9]+)?$' AND ele::float >= -500 AND ele::float <= 9000"
+
     def __init__(self, config: Dict[str, object]):
         """
         Args:
@@ -184,11 +187,16 @@ class PostgisBackend:
         coordinates: List[Tuple[float, float]],
         names: List[str],
     ) -> List[ElevationResult]:
-        """执行单批海拔查询（使用 VALUES 表达式，避免临时表造成 PG catalog 冲突）。"""
+        """单次查询批量海拔，planet_osm_point → planet_osm_line 自动回退。
+
+        使用 COALESCE + 两个 LEFT JOIN LATERAL 在一次查询中完成两层检索：
+        - planet_osm_point 命中 → 直接用点要素 elevation + feature_type
+        - planet_osm_point 未命中 → 回退到 planet_osm_line
+        - 都未命中 → elevation 为 NULL, feature_type='unknown'
+        """
         if not coordinates:
             return []
 
-        # 构造 VALUES 行: (1, lat1, lon1, 'name1'), (2, lat2, lon2, 'name2'), ...
         value_rows = []
         params: List[float] = []
         for i, (lat, lon) in enumerate(coordinates):
@@ -196,31 +204,51 @@ class PostgisBackend:
             params.extend([lat, lon, names[i]])
 
         values_clause = ", ".join(value_rows)
+
         sql = f"""
             SELECT
                 t.id, t.lat, t.lon, t.name,
-                p.ele::float as elevation,
-                p.name as source_name,
-                ST_Distance(ST_Transform(p.way, 4326)::geography,
-                            ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)::geography) as distance_meters,
+                COALESCE(p.ele::float, l.ele::float) as elevation,
+                COALESCE(p.name, l.name) as source_name,
                 CASE
-                    WHEN p.amenity  IS NOT NULL THEN 'amenity=' || p.amenity
-                    WHEN p.tourism  IS NOT NULL THEN 'tourism=' || p.tourism
-                    WHEN p."natural" IS NOT NULL THEN 'natural=' || p."natural"
-                    WHEN p.man_made IS NOT NULL THEN 'man_made=' || p.man_made
+                    WHEN p.way IS NOT NULL
+                        THEN ST_Distance(ST_Transform(p.way, 4326)::geography,
+                                        ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)::geography)
+                    ELSE ST_Distance(ST_Transform(l.way, 4326)::geography,
+                                    ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)::geography)
+                END as distance_meters,
+                CASE
+                    WHEN p.ele IS NOT NULL THEN
+                        CASE
+                            WHEN p.amenity  IS NOT NULL THEN 'amenity=' || p.amenity
+                            WHEN p.tourism  IS NOT NULL THEN 'tourism=' || p.tourism
+                            WHEN p."natural" IS NOT NULL THEN 'natural=' || p."natural"
+                            WHEN p.man_made IS NOT NULL THEN 'man_made=' || p.man_made
+                            ELSE 'point'
+                        END
+                    WHEN l.ele IS NOT NULL THEN
+                        CASE
+                            WHEN l.highway  IS NOT NULL THEN 'highway=' || l.highway
+                            WHEN l.waterway IS NOT NULL THEN 'waterway=' || l.waterway
+                            ELSE 'line'
+                        END
                     ELSE 'unknown'
                 END as feature_type
             FROM (VALUES {values_clause}) AS t(id, lat, lon, name)
-            CROSS JOIN LATERAL (
+            LEFT JOIN LATERAL (
                 SELECT name, ele, way, amenity, tourism, "natural", man_made
                 FROM planet_osm_point
-                WHERE ele IS NOT NULL
-                    AND ele ~ '^[0-9]+(\\.[0-9]+)?$'
-                    AND ele::float >= -500
-                    AND ele::float <= 9000
+                WHERE {self._ELE_FILTER}
                 ORDER BY way <-> ST_Transform(ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326), 3857)
                 LIMIT 1
-            ) p
+            ) p ON true
+            LEFT JOIN LATERAL (
+                SELECT name, ele, way, highway, waterway
+                FROM planet_osm_line
+                WHERE {self._ELE_FILTER}
+                ORDER BY way <-> ST_Transform(ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326), 3857)
+                LIMIT 1
+            ) l ON true
             ORDER BY t.id;
         """
 
@@ -230,6 +258,10 @@ class PostgisBackend:
             cursor.execute(sql, params)
 
             results: List[ElevationResult] = []
+            found_point = 0
+            found_line = 0
+            _LINE_FTYPES = frozenset({"line"})
+
             for row in cursor.fetchall():
                 _id, lat, lon, name, elev, source, dist, ftype = row
                 results.append(
@@ -242,11 +274,19 @@ class PostgisBackend:
                         feature_type=ftype,
                     )
                 )
+                if elev is not None:
+                    ftype_s = ftype or ""
+                    if ftype_s in _LINE_FTYPES or ftype_s.startswith(("highway=", "waterway=")):
+                        found_line += 1
+                    else:
+                        found_point += 1
 
             logger.info(
-                "Elevation batch query: %d points, %d found",
+                "Elevation batch query: %d points, %d from point, %d from line, %d missing",
                 len(coordinates),
-                sum(1 for r in results if r.elevation is not None),
+                found_point,
+                found_line,
+                len(coordinates) - found_point - found_line,
             )
             return results
         except (psycopg2.Error, DataError) as e:
@@ -260,7 +300,10 @@ class PostgisBackend:
 
     def find_elevation_at_point(self, lat: float, lon: float) -> Optional[float]:
         """
-        查找单点附近最邻近 OSM 元素的海拔。
+        查找单点附近最邻近 OSM 元素的海拔，单次查询自动回退。
+
+        使用 COALESCE + 两个 LEFT JOIN LATERAL：
+        planet_osm_point → planet_osm_line → NULL
 
         Returns:
             海拔（米），未找到则返回 None
@@ -269,15 +312,23 @@ class PostgisBackend:
         cursor = conn.cursor()
         try:
             cursor.execute(
-                """
-                SELECT ele::float FROM planet_osm_point
-                WHERE ele IS NOT NULL
-                    AND ele ~ '^[0-9]+(\\.[0-9]+)?$'
-                    AND ele::float >= -500 AND ele::float <= 9000
-                ORDER BY way <-> ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 3857)
-                LIMIT 1;
+                f"""
+                SELECT COALESCE(p.ele::float, l.ele::float)
+                FROM (SELECT 1) AS dummy
+                LEFT JOIN LATERAL (
+                    SELECT ele FROM planet_osm_point
+                    WHERE {self._ELE_FILTER}
+                    ORDER BY way <-> ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 3857)
+                    LIMIT 1
+                ) p ON true
+                LEFT JOIN LATERAL (
+                    SELECT ele FROM planet_osm_line
+                    WHERE {self._ELE_FILTER}
+                    ORDER BY way <-> ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 3857)
+                    LIMIT 1
+                ) l ON true
                 """,
-                (lon, lat),
+                (lon, lat, lon, lat),
             )
             row = cursor.fetchone()
             return row[0] if row else None
