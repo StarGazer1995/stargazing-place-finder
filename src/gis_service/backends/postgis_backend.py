@@ -590,10 +590,11 @@ class PostgisBackend:
         if not wkt:
             return []
 
-        # Handle MULTILINESTRING: extract the first parenthesised group.
+        # Handle MULTILINESTRING: extract its outer group then the *first*
+        # inner LINESTRING so the regex only matches that one segment.
         wkt_upper = wkt.upper().strip()
         if wkt_upper.startswith("MULTILINESTRING"):
-            # Find the first matching pair of parentheses.
+            # Find the outer matching pair of parentheses.
             depth = 0
             start = -1
             for i, ch in enumerate(wkt):
@@ -604,10 +605,24 @@ class PostgisBackend:
                 elif ch == ")":
                     depth -= 1
                     if depth == 0 and start >= 0:
-                        wkt = wkt[start : i + 1]
+                        wkt = wkt[start + 1 : i]  # strip outer parens
+                        break
+            # Now extract the first inner LINESTRING group from the comma-
+            # separated list, e.g. "(116 39,116.1 39.1),(117 40,117.1 40.1)"
+            inner_depth = 0
+            inner_start = -1
+            for i, ch in enumerate(wkt):
+                if ch == "(":
+                    if inner_depth == 0:
+                        inner_start = i
+                    inner_depth += 1
+                elif ch == ")":
+                    inner_depth -= 1
+                    if inner_depth == 0 and inner_start >= 0:
+                        wkt = wkt[inner_start : i + 1]
                         break
 
-        # 移除 LINESTRING 前缀及首尾括号
+        # Strip LINESTRING prefix and outer parentheses.
         if wkt_upper.startswith("LINESTRING"):
             wkt = wkt[len("LINESTRING") :]
         wkt = wkt.strip().strip("()")

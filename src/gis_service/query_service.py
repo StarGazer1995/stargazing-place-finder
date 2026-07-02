@@ -192,10 +192,10 @@ class GisQueryService:
         network_type: str = "drive",
     ) -> Optional[nx.MultiDiGraph]:
         """
-        从 PostGIS 获取 bbox 内路网 NetworkX 图（替代 ox.graph_from_bbox）。
+        Build a NetworkX graph from PostGIS ``planet_osm_line`` within a bbox.
 
-        Returns:
-            NetworkX MultiDiGraph，PostGIS 不可用或无数据时返回 None。
+        Replaces ``ox.graph_from_bbox``.  Returns ``None`` when PostGIS is
+        unavailable or the query returns no rows.
         """
         if self.postgis_enabled and self._postgis:
             return self._postgis.query_road_graph_by_bbox(south, west, north, east, network_type)
@@ -209,10 +209,10 @@ class GisQueryService:
         network_type: str = "drive",
     ) -> Optional[nx.MultiDiGraph]:
         """
-        从 PostGIS 获取某点周围路网 NetworkX 图（替代 ox.graph_from_point）。
+        Build a NetworkX graph from PostGIS ``planet_osm_line`` around a point.
 
-        Returns:
-            NetworkX MultiDiGraph，PostGIS 不可用或无数据时返回 None。
+        Replaces ``ox.graph_from_point``.  Returns ``None`` when PostGIS is
+        unavailable or the query returns no rows.
         """
         if self.postgis_enabled and self._postgis:
             return self._postgis.query_road_graph_by_point(lat, lon, radius_km, network_type)

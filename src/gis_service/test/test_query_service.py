@@ -702,3 +702,273 @@ class TestPostgisBackendFormatRow(unittest.TestCase):
         result = backend._format_location_row(row)
         self.assertEqual(result["tags"]["ele"], "2500")
         self.assertEqual(result["tags"]["natural"], "peak")
+
+
+# ── PostGIS road graph query tests (v0.8.0) ───────────────────────
+
+
+class TestPostgisBackendRoadGraph(unittest.TestCase):
+    """Unit tests for _parse_linestring_wkt, _build_graph_from_rows, and graph query methods."""
+
+    def setUp(self):
+        self.psycopg2_patcher = patch("gis_service.backends.postgis_backend.psycopg2")
+        self.mock_psycopg2 = self.psycopg2_patcher.start()
+        self.mock_psycopg2.Error = type("Error", (Exception,), {})
+        self.pool_patcher = patch("gis_service.backends.postgis_backend.SimpleConnectionPool")
+        self.mock_pool_cls = self.pool_patcher.start()
+        self.mock_conn = MagicMock()
+        self.mock_cursor = self.mock_conn.cursor.return_value
+        self.mock_pool = MagicMock()
+        self.mock_pool.getconn.return_value = self.mock_conn
+        self.mock_pool_cls.return_value = self.mock_pool
+
+    def tearDown(self):
+        self.psycopg2_patcher.stop()
+        self.pool_patcher.stop()
+
+    # ── _parse_linestring_wkt ──────────────────────────────────
+
+    def test_parse_simple_linestring(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        wkt = "LINESTRING(116.0 39.0, 116.1 39.1, 116.2 39.2)"
+        result = PostgisBackend._parse_linestring_wkt(wkt)
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0], (116.0, 39.0))
+        self.assertEqual(result[1], (116.1, 39.1))
+        self.assertEqual(result[2], (116.2, 39.2))
+
+    def test_parse_multilinestring_extracts_first(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        wkt = "MULTILINESTRING((116.0 39.0, 116.1 39.1), (117.0 40.0, 117.1 40.1))"
+        result = PostgisBackend._parse_linestring_wkt(wkt)
+        # Should extract only the first parenthesised group
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0], (116.0, 39.0))
+        self.assertEqual(result[1], (116.1, 39.1))
+
+    def test_parse_empty_wkt(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.assertEqual(PostgisBackend._parse_linestring_wkt(""), [])
+        self.assertEqual(PostgisBackend._parse_linestring_wkt(None), [])
+
+    def test_parse_single_point_linestring(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        wkt = "LINESTRING(116.0 39.0)"
+        result = PostgisBackend._parse_linestring_wkt(wkt)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0], (116.0, 39.0))
+
+    # ── _build_graph_from_rows ─────────────────────────────────
+
+    def test_build_graph_basic(self):
+        import networkx as nx
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        rows = [
+            ("residential", "Main St", "LINESTRING(116.0 39.0, 116.1 39.1)"),
+        ]
+        G = PostgisBackend._build_graph_from_rows(rows)
+        self.assertIsInstance(G, nx.MultiDiGraph)
+        self.assertEqual(G.graph["crs"], "EPSG:4326")
+        self.assertEqual(G.number_of_nodes(), 2)
+        self.assertEqual(G.number_of_edges(), 2)  # bidirectional
+
+        # Verify node attributes (osmnx compatible)
+        for node_id in G.nodes():
+            self.assertIn("x", G.nodes[node_id])
+            self.assertIn("y", G.nodes[node_id])
+
+        # Verify edge attributes
+        for u, v, data in G.edges(data=True):
+            self.assertEqual(data["highway"], "residential")
+            self.assertEqual(data["name"], "Main St")
+
+    def test_build_graph_deduplicates_nodes(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        # Two segments sharing the middle point
+        rows = [
+            ("primary", "Rd A", "LINESTRING(116.0 39.0, 116.1 39.1)"),
+            ("primary", "Rd B", "LINESTRING(116.1 39.1, 116.2 39.2)"),
+        ]
+        G = PostgisBackend._build_graph_from_rows(rows)
+        # 3 unique nodes (the middle one is shared), 4 edges (2× bidirectional)
+        self.assertEqual(G.number_of_nodes(), 3)
+        self.assertEqual(G.number_of_edges(), 4)
+
+    def test_build_graph_skips_single_point_linestrings(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        rows = [
+            ("primary", "Rd A", "LINESTRING(116.0 39.0)"),  # single point, should skip
+            ("primary", "Rd B", "LINESTRING(116.0 39.0, 116.1 39.1)"),
+        ]
+        G = PostgisBackend._build_graph_from_rows(rows)
+        self.assertEqual(G.number_of_nodes(), 2)
+
+    def test_build_graph_edge_without_name(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        rows = [
+            ("footway", None, "LINESTRING(116.0 39.0, 116.1 39.1)"),
+        ]
+        G = PostgisBackend._build_graph_from_rows(rows)
+        for _u, _v, data in G.edges(data=True):
+            self.assertEqual(data["highway"], "footway")
+            self.assertNotIn("name", data)
+
+    def test_build_graph_integer_node_ids(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        rows = [
+            ("trunk", "Hwy", "LINESTRING(116.0 39.0, 116.1 39.1)"),
+        ]
+        G = PostgisBackend._build_graph_from_rows(rows)
+        # All node IDs must be plain ints (not tuples) for osmnx compat
+        for nid in G.nodes():
+            self.assertIsInstance(nid, int)
+
+    # ── query_road_graph_by_bbox ───────────────────────────────
+
+    def test_query_road_graph_by_bbox_success(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = [
+            ("primary", "Rd", "LINESTRING(116.0 39.0, 116.1 39.1)"),
+        ]
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        graph = backend.query_road_graph_by_bbox(39.0, 116.0, 39.1, 116.1, "drive")
+        self.assertIsNotNone(graph)
+        self.assertEqual(graph.number_of_nodes(), 2)
+        self.mock_pool.getconn.assert_called()
+        self.mock_pool.putconn.assert_called()
+
+    def test_query_road_graph_by_bbox_empty(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = []
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        graph = backend.query_road_graph_by_bbox(0.0, 0.0, 0.1, 0.1, "drive")
+        self.assertIsNone(graph)
+
+    def test_query_road_graph_by_bbox_db_error(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+        from models import DataError
+
+        self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("down")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        graph = backend.query_road_graph_by_bbox(39.0, 116.0, 39.1, 116.1)
+        self.assertIsNone(graph)
+
+    def test_query_road_graph_by_bbox_respects_network_type(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = []
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        backend.query_road_graph_by_bbox(39.0, 116.0, 39.1, 116.1, "walk")
+        call_sql = self.mock_cursor.execute.call_args[0][0]
+        self.assertIn("footway", call_sql)
+
+    # ── query_road_graph_by_point ──────────────────────────────
+
+    def test_query_road_graph_by_point_success(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = [
+            ("residential", None, "LINESTRING(116.0 39.0, 116.1 39.1)"),
+        ]
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        graph = backend.query_road_graph_by_point(39.0, 116.0, 5.0, "drive")
+        self.assertIsNotNone(graph)
+        self.assertEqual(graph.number_of_nodes(), 2)
+        # Verify ST_DWithin used with radius in meters
+        call_args = self.mock_cursor.execute.call_args[0]
+        self.assertIn("ST_DWithin", call_args[0])
+        self.assertEqual(call_args[1][2], 5000.0)  # 5 km in meters
+
+    def test_query_road_graph_by_point_empty(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.fetchall.return_value = []
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        graph = backend.query_road_graph_by_point(0.0, 0.0, 1.0)
+        self.assertIsNone(graph)
+
+    def test_query_road_graph_by_point_db_error(self):
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        self.mock_cursor.execute.side_effect = self.mock_psycopg2.Error("timeout")
+
+        backend = PostgisBackend(config={"host": "localhost"})
+        graph = backend.query_road_graph_by_point(39.0, 116.0, 5.0)
+        self.assertIsNone(graph)
+
+
+class TestGisQueryServiceRoadGraph(unittest.TestCase):
+    """Tests for GisQueryService.query_road_graph_by_bbox / query_road_graph_by_point."""
+
+    def setUp(self):
+        self.postgis_patcher = patch("gis_service.query_service.PostgisBackend")
+        self.mock_postgis_cls = self.postgis_patcher.start()
+        self.mock_postgis = self.mock_postgis_cls.return_value
+
+    def tearDown(self):
+        self.postgis_patcher.stop()
+
+    def _make_service(self, db_config=None):
+        from gis_service.query_service import GisQueryService
+
+        return GisQueryService(db_config=db_config, enable_cache=False)
+
+    def test_query_road_graph_by_bbox_delegates(self):
+        import networkx as nx
+        from gis_service.query_service import GisQueryService
+
+        mock_graph = nx.MultiDiGraph()
+        mock_graph.add_node(0, x=116.0, y=39.0)
+        self.mock_postgis.query_road_graph_by_bbox.return_value = mock_graph
+
+        service = GisQueryService(db_config={"host": "localhost"}, enable_cache=False)
+        graph = service.query_road_graph_by_bbox(39.0, 116.0, 39.1, 116.1, "drive")
+        self.assertIsNotNone(graph)
+        self.assertEqual(graph.number_of_nodes(), 1)
+        self.mock_postgis.query_road_graph_by_bbox.assert_called_once_with(39.0, 116.0, 39.1, 116.1, "drive")
+
+    def test_query_road_graph_by_bbox_no_postgis(self):
+        from gis_service.query_service import GisQueryService
+
+        service = GisQueryService(db_config=None, enable_cache=False)
+        graph = service.query_road_graph_by_bbox(39.0, 116.0, 39.1, 116.1)
+        self.assertIsNone(graph)
+        self.mock_postgis.query_road_graph_by_bbox.assert_not_called()
+
+    def test_query_road_graph_by_point_delegates(self):
+        import networkx as nx
+        from gis_service.query_service import GisQueryService
+
+        mock_graph = nx.MultiDiGraph()
+        mock_graph.add_node(1, x=116.4, y=39.9)
+        self.mock_postgis.query_road_graph_by_point.return_value = mock_graph
+
+        service = GisQueryService(db_config={"host": "localhost"}, enable_cache=False)
+        graph = service.query_road_graph_by_point(39.9, 116.4, 5.0, "walk")
+        self.assertIsNotNone(graph)
+        self.assertEqual(graph.number_of_nodes(), 1)
+        self.mock_postgis.query_road_graph_by_point.assert_called_once_with(39.9, 116.4, 5.0, "walk")
+
+    def test_query_road_graph_by_point_no_postgis(self):
+        from gis_service.query_service import GisQueryService
+
+        service = GisQueryService(db_config=None, enable_cache=False)
+        graph = service.query_road_graph_by_point(39.9, 116.4, 5.0)
+        self.assertIsNone(graph)
