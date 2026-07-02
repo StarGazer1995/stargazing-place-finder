@@ -1,9 +1,26 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 (2026-07-02)
 
+### Bug Fixes
+- Tile cache: replace unbounded dict with LRU+TTL (1h) — prevents OOM on long-running tile servers
+- Overpass: add wall-clock `total_timeout` deadline to prevent hung queries blocking analysis
+- PostGIS: fix duplicate query when multiple location types share the same bbox
+- Thread safety: add `graph_lock` for `_shared_graph` concurrent access; `threading.Lock` for `GisQueryCache` and `RoadAccessInfoCache`
+- Python 3.9 compat: replace PEP 604 `int | None` with `Optional[int]`
+
+### Features
+- Scoring v2: configurable weights via `StargazingConfig`; sigmoid-based road distance; logarithmic town isolation
+- Parallel tiles: `ThreadPoolExecutor` for concurrent road network tile downloads (~3-8× on multi-tile areas)
+- Dockerfile: multi-stage build with uv for containerized deployment
+- Atomic cache writes: `tempfile.mkstemp` + `os.replace` for TOCTOU-safe persistence
+
+### Other
 - Web 启动链路: `start.sh` 对齐当前仓库结构，直接服务 `src/source/template.html`，并改为使用模块方式启动 `light_pollution.light_pollution_api`
 - 前端配置: `src/source/assets/js/app.js` 新增 API 基地址解析逻辑，支持 `apiBaseUrl` 查询参数和 `window.APP_CONFIG.apiBaseUrl`
+- Docs: add uv policy to CLAUDE.md
+
+## Unreleased
 - 文档更新: `README.md` 与 `README_EN.md` 新增 Quick Start / Web UI / API 说明，明确当前静态前端入口、启动方式和主要接口
 - 文档清理: 移除单独的项目评审文档，改为把关键信息收口到 README 中
 
