@@ -431,10 +431,8 @@ class TestRoadAccessInfoCacheCleanup(unittest.TestCase):
             patch("road_connectivity.road_connectivity_checker.os.unlink") as mock_unlink,
             patch.object(cache, "get_cached_result", return_value=None),
         ):
-            try:
+            with self.assertRaises(RuntimeError):
                 cache.save_road_access_info_to_cache("test_type", data)
-            except RuntimeError:
-                pass
             mock_unlink.assert_called()
 
     def test_atomic_write_cleanup_oserror_is_silent(self):

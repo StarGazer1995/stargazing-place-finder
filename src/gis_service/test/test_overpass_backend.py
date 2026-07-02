@@ -89,8 +89,15 @@ class TestOverpassTotalTimeout:
     @patch("gis_service.backends.overpass_backend.time.time")
     def test_total_timeout_raises_network_error(self, mock_time, mock_sleep):
         """When elapsed exceeds total_timeout, NetworkError is raised immediately."""
-        # Provide many return values — logger.error also calls time.time()
-        mock_time.side_effect = [0.0] + [999.0] * 20
+        # First call = started_at (0.0), every subsequent call = far future
+        # (logger.error etc. also calls time.time(), so don't use a fixed list)
+        _calls = [0]
+
+        def time_side_effect():
+            _calls[0] += 1
+            return 0.0 if _calls[0] == 1 else 999.0
+
+        mock_time.side_effect = time_side_effect
         backend = OverpassBackend(
             url="https://fake-overpass.example/api",
             timeout=5,

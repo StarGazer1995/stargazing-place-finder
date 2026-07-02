@@ -116,12 +116,10 @@ class TestGisQueryCache(unittest.TestCase):
         self.cache.cache_dir.mkdir(parents=True, exist_ok=True)
 
         with patch("gis_service.caching.os.unlink") as mock_unlink:
-            try:
+            with self.assertRaises(RuntimeError):
                 self.cache.set(key, "will_fail")
-            except RuntimeError:
-                pass
 
-            # Verify temp file cleanup was attempted
+            # Verify temp file cleanup was attempted before re-raise
             mock_unlink.assert_called()
 
     @patch("gis_service.caching.pickle.dump")

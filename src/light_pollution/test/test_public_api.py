@@ -367,16 +367,24 @@ class TestTileCacheFunctions:
     """Test tile cache functions (_empty_tile, _set_tile_cache, _validate_tile_request)."""
 
     def setup_method(self):
-        """Reset the module-level tile cache before each test."""
+        """Save and reset module-level state before each test."""
+        from collections import OrderedDict
+
         import light_pollution.light_pollution_api as api
 
-        api._tile_cache.clear()
+        self._saved_cache = api._tile_cache
+        self._saved_analyzer = api.analyzer
+        self._saved_max_cache = api._MAX_TILE_CACHE
+        api._tile_cache = OrderedDict()
+        api.analyzer = None
 
     def teardown_method(self):
-        """Clean up module state."""
+        """Restore module-level state after each test."""
         import light_pollution.light_pollution_api as api
 
-        api._tile_cache.clear()
+        api._tile_cache = self._saved_cache
+        api.analyzer = self._saved_analyzer
+        api._MAX_TILE_CACHE = self._saved_max_cache
 
     def test_empty_tile_cache_hit(self):
         """_empty_tile returns cached empty tile when TTL is valid."""
