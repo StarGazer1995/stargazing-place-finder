@@ -15,9 +15,10 @@
 | 3 | `stargazing_place_finder.py:1143` | Per-location elevation API + 0.1s sleep → 50 HTTP calls | ~10× |
 | 4 | `light_pollution_analyzer.py:341` | Main loop uses per-point read, not `batch_analyze_coordinates()` | ~50× |
 
-> **关于 #1 的 PostGIS 方案**：
-> - `PostgisBackend` 新增 `query_road_connectivity(lat, lon, radius_km)` 方法
-> - 查询 `planet_osm_line WHERE highway IS NOT NULL`，用 `<->` kNN 算子找最近道路
+> **关于 #1 的 PostGIS 方案**（已在 v0.8.0 完整实现）：
+> - `PostgisBackend.query_road_connectivity(lat, lon, radius_km)` — kNN 单点查询，~30ms
+> - `PostgisBackend.query_road_graph_by_bbox()` / `query_road_graph_by_point()` — 从 `planet_osm_line` 构建 NetworkX 图，替代 OSMnx HTTP 下载
+> - `RoadConnectivityChecker.preload_network_for_bbox()` 自动走 PostGIS 快速路径
 > - `GisQueryService` 统一入口：PostGIS 可用 → 毫秒级 SQL；不可用 → fallback 到 OSMnx
 > - 彻底消除 HTTP 开销，邻近点共享数据库索引，无 rate limit 问题
 

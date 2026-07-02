@@ -375,7 +375,9 @@ class RoadConnectivityChecker:
         """
         Pre-download road network for the entire bounding box.
 
-        For areas ≤ 500 km² a single OSM query is used.  Larger areas are
+        When PostGIS is available, queries ``planet_osm_line`` directly
+        (millisecond-level, no network I/O).  Otherwise falls back to OSMnx:
+        for areas ≤ 500 km² a single OSM query is used; larger areas are
         automatically split into tiles (each ≤ 500 km²), downloaded
         individually, and merged via :func:`networkx.compose_all`.
 
@@ -386,6 +388,30 @@ class RoadConnectivityChecker:
         else:
             south, west, north, east = bbox.south, bbox.west, bbox.north, bbox.east
 
+        # ── PostGIS fast path ──────────────────────────────────────
+        if self.gis_service is not None and getattr(self.gis_service, "postgis_enabled", False):
+            area_km2 = self._bbox_area_km2(south, west, north, east)
+            logger.info(
+                "Pre-loading road network via PostGIS for bbox (%.4f, %.4f, %.4f, %.4f) — %.0f km²",
+                south,
+                west,
+                north,
+                east,
+                area_km2,
+            )
+            graph = self.gis_service.query_road_graph_by_bbox(south, west, north, east, network_type)
+            if graph is not None and len(graph.nodes()) > 0:
+                with self._graph_lock:
+                    self._shared_graph = graph
+                logger.info(
+                    "Pre-loaded PostGIS road graph: %d nodes, %d edges",
+                    graph.number_of_nodes(),
+                    graph.number_of_edges(),
+                )
+                return
+            logger.warning("PostGIS road graph query returned empty — falling back to OSMnx")
+
+        # ── OSMnx fallback ─────────────────────────────────────────
         area_km2 = self._bbox_area_km2(south, west, north, east)
         tiles = self._split_bbox(south, west, north, east, self._tile_max_area_km2)
 
@@ -440,6 +466,8 @@ class RoadConnectivityChecker:
         If a shared graph was pre-loaded via preload_network_for_bbox, uses that
         instead of downloading a per-location graph.
 
+        Priority: shared graph → PostGIS query → in-memory cache → OSMnx download.
+
         Args:
             point: Geographic coordinate.
             network_type: Network type
@@ -460,6 +488,14 @@ class RoadConnectivityChecker:
         if cache_key in self.graph_cache:
             logger.debug(f"Using cached road network: {cache_key}")
             return self.graph_cache[cache_key]
+
+        # Try PostGIS graph query first (avoids OSMnx HTTP download)
+        if self.gis_service is not None and getattr(self.gis_service, "postgis_enabled", False):
+            graph = self.gis_service.query_road_graph_by_point(lat, lon, self.search_radius_km, network_type)
+            if graph is not None and len(graph.nodes()) > 0:
+                self.graph_cache[cache_key] = graph
+                logger.info("Road network built from PostGIS: %d nodes", len(graph.nodes()))
+                return graph
 
         try:
             logger.info(f"Downloading road network around coordinates ({lat}, {lon}) within {self.search_radius_km}km")

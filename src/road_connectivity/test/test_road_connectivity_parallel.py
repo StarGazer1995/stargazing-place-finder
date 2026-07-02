@@ -452,3 +452,136 @@ class TestRoadAccessInfoCacheCleanup(unittest.TestCase):
         ):
             with self.assertRaises(RuntimeError):
                 cache.save_road_access_info_to_cache("test_type", data)
+
+
+class TestPreloadPostgisPath(unittest.TestCase):
+    """Test preload_network_for_bbox and _get_road_network PostGIS fast paths (v0.8.0)."""
+
+    def setUp(self):
+        import networkx as nx
+
+        self.gis = MagicMock()
+        self.gis.postgis_enabled = True
+        # Use a real MultiDiGraph so len(graph.nodes()) > 0 works naturally
+        self.mock_graph = nx.MultiDiGraph()
+        self.mock_graph.add_node(0, x=116.4, y=39.9)
+        self.gis.query_road_graph_by_bbox.return_value = self.mock_graph
+        self.gis.query_road_graph_by_point.return_value = self.mock_graph
+
+    def _make_checker(self):
+        return RoadConnectivityChecker(search_radius_km=10.0, gis_service=self.gis)
+
+    # ── preload_network_for_bbox PostGIS path ──────────────────
+
+    def test_preload_uses_postgis_when_available(self):
+        """preload_network_for_bbox uses PostGIS graph query, skips OSMnx."""
+        with patch("road_connectivity.road_connectivity_checker.ox.graph_from_bbox") as mock_ox:
+            checker = self._make_checker()
+            checker.preload_network_for_bbox((39.9, 116.3, 40.0, 116.4))
+
+            self.gis.query_road_graph_by_bbox.assert_called_once_with(39.9, 116.3, 40.0, 116.4, "drive")
+            mock_ox.assert_not_called()
+            self.assertIs(checker._shared_graph, self.mock_graph)
+
+    def test_preload_uses_osmnx_when_postgis_disabled(self):
+        """preload_network_for_bbox falls back to OSMnx when postgis_enabled is False."""
+        self.gis.postgis_enabled = False
+
+        with patch("road_connectivity.road_connectivity_checker.ox.graph_from_bbox") as mock_ox:
+            mock_ox.return_value = self.mock_graph
+            checker = self._make_checker()
+            checker.preload_network_for_bbox((39.9, 116.3, 40.0, 116.4))
+
+            self.gis.query_road_graph_by_bbox.assert_not_called()
+            mock_ox.assert_called()
+
+    def test_preload_uses_osmnx_when_no_gis_service(self):
+        """preload_network_for_bbox falls back to OSMnx when gis_service is None."""
+        with patch("road_connectivity.road_connectivity_checker.ox.graph_from_bbox") as mock_ox:
+            mock_ox.return_value = self.mock_graph
+            checker = RoadConnectivityChecker(search_radius_km=10.0)
+            checker.preload_network_for_bbox((39.9, 116.3, 40.0, 116.4))
+            mock_ox.assert_called()
+
+    def test_preload_postgis_empty_result_falls_back_to_osmnx(self):
+        """PostGIS returns None → falls back to OSMnx tile download."""
+        self.gis.query_road_graph_by_bbox.return_value = None
+
+        with patch("road_connectivity.road_connectivity_checker.ox.graph_from_bbox") as mock_ox:
+            mock_ox.return_value = self.mock_graph
+            checker = self._make_checker()
+            checker.preload_network_for_bbox((39.9, 116.3, 40.0, 116.4))
+
+            self.gis.query_road_graph_by_bbox.assert_called_once()
+            mock_ox.assert_called()
+
+    def test_preload_postgis_empty_nodes_falls_back_to_osmnx(self):
+        """PostGIS returns graph with 0 nodes → falls back to OSMnx."""
+        import networkx as nx
+
+        empty_graph = nx.MultiDiGraph()  # 0 nodes
+        self.gis.query_road_graph_by_bbox.return_value = empty_graph
+
+        with patch("road_connectivity.road_connectivity_checker.ox.graph_from_bbox") as mock_ox:
+            mock_ox.return_value = self.mock_graph
+            checker = self._make_checker()
+            checker.preload_network_for_bbox((39.9, 116.3, 40.0, 116.4))
+
+            self.gis.query_road_graph_by_bbox.assert_called_once()
+            mock_ox.assert_called()
+
+    # ── _get_road_network PostGIS path ─────────────────────────
+
+    def test_get_road_network_uses_postgis(self):
+        """_get_road_network queries PostGIS for road graph when gis_service is available."""
+        checker = self._make_checker()
+        checker._shared_graph = None
+
+        result = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+        self.assertIs(result, self.mock_graph)
+        self.gis.query_road_graph_by_point.assert_called_once_with(39.9, 116.4, 10.0, "drive")
+
+    def test_get_road_network_prefers_shared_graph_over_postgis(self):
+        """Shared graph takes priority — PostGIS not queried."""
+        checker = self._make_checker()
+        shared = MagicMock()
+        checker._shared_graph = shared
+
+        result = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+        self.assertIs(result, shared)
+        self.gis.query_road_graph_by_point.assert_not_called()
+
+    def test_get_road_network_postgis_empty_falls_to_osmnx(self):
+        """PostGIS returns None → _get_road_network falls back to OSMnx."""
+        self.gis.query_road_graph_by_point.return_value = None
+
+        with patch("road_connectivity.road_connectivity_checker.ox.graph_from_point") as mock_gfp:
+            mock_gfp.return_value = self.mock_graph
+            checker = self._make_checker()
+            checker._shared_graph = None
+
+            result = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+            self.assertIs(result, self.mock_graph)
+            mock_gfp.assert_called_once()
+
+    def test_get_road_network_no_postgis_uses_osmnx(self):
+        """Without gis_service, _get_road_network uses OSMnx as before."""
+        with patch("road_connectivity.road_connectivity_checker.ox.graph_from_point") as mock_gfp:
+            mock_gfp.return_value = self.mock_graph
+            checker = RoadConnectivityChecker(search_radius_km=10.0)
+            checker._shared_graph = None
+
+            result = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+            self.assertIs(result, self.mock_graph)
+            mock_gfp.assert_called_once()
+
+    def test_get_road_network_caches_postgis_result(self):
+        """PostGIS graph result is cached in graph_cache."""
+        checker = self._make_checker()
+        checker._shared_graph = None
+
+        _ = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+        self.gis.query_road_graph_by_point.reset_mock()
+        result2 = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+        self.assertIs(result2, self.mock_graph)
+        self.gis.query_road_graph_by_point.assert_not_called()

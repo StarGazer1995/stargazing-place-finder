@@ -167,7 +167,14 @@ for point in points:
 
 ### 4. PostGIS 后端（生产环境推荐）
 
-配置 PostGIS 数据库后，路网查询通过 kNN 在 ~30ms 内完成（vs OSMnx 的 1-5s）：
+配置 PostGIS 数据库后，路网查询通过以下两种方式完成，彻底消除 OSMnx HTTP 下载：
+
+| 查询方式 | 方法 | 数据来源 | 延迟 |
+|---------|------|---------|------|
+| 单点 kNN | `query_road_connectivity()` | `planet_osm_line` kNN 索引 | **~30ms** |
+| 区域图查询 | `query_road_graph_by_bbox()` | `planet_osm_line` LINESTRING → NetworkX | **~15s/95km²** |
+
+对比 OSMnx（单点 143s，区域易超时），PostGIS 路径有 **3000× 加速**。
 
 ```json
 {
@@ -180,6 +187,8 @@ for point in points:
 ```
 
 设置环境变量 `STARGAZING_DB_CONFIG=config/postgis_config.json` 即可启用。
+`RoadConnectivityChecker.preload_network_for_bbox()` 和 `_get_road_network()` 会自动检测 PostGIS 可用性，
+优先使用本地查询，仅在 PostGIS 不可用时回退到 OSMnx。
 
 ## 错误处理
 
@@ -242,18 +251,18 @@ uv run python examples/road_connectivity_example.py
 
 ### 工作原理
 
-1. 使用 OSMnx 从 OpenStreetMap 下载指定区域的道路网络（或通过 PostGIS kNN 查询）
-2. 构建道路网络图（NetworkX）
+1. 优先通过 PostGIS kNN 查询最近道路（毫秒级），或从 `planet_osm_line` 构建 NetworkX 路网图
+2. PostGIS 不可用时回退到 OSMnx 从 OpenStreetMap 下载路网
 3. 查找距离目标坐标最近的道路节点
 4. 计算目标坐标到最近道路的距离
 5. 根据设定的阈值判断是否可达
 
 ### 依赖库
 
-- **OSMnx**: 用于下载和处理 OpenStreetMap 数据
+- **PostGIS**（推荐）: 用于生产环境的毫秒级路网查询
+- **OSMnx**: 用于 PostGIS 不可用时的回退路网下载
 - **NetworkX**: 用于图论计算和路径分析
 - **GeoPandas**: 用于地理空间数据处理
-- **PostGIS**（可选）: 用于生产环境的快速路网查询
 
 ## 扩展功能
 

@@ -9,6 +9,8 @@ GisQueryService — 统一的 GIS 查询服务入口。
 import logging
 from typing import Dict, List, Optional, Tuple
 
+import networkx as nx
+
 from config import StargazingConfig
 from models import LatLonBox, NetworkError
 
@@ -180,6 +182,41 @@ class GisQueryService:
             "nearest_lon": None,
             "fallback_needed": True,
         }
+
+    def query_road_graph_by_bbox(
+        self,
+        south: float,
+        west: float,
+        north: float,
+        east: float,
+        network_type: str = "drive",
+    ) -> Optional[nx.MultiDiGraph]:
+        """
+        Build a NetworkX graph from PostGIS ``planet_osm_line`` within a bbox.
+
+        Replaces ``ox.graph_from_bbox``.  Returns ``None`` when PostGIS is
+        unavailable or the query returns no rows.
+        """
+        if self.postgis_enabled and self._postgis:
+            return self._postgis.query_road_graph_by_bbox(south, west, north, east, network_type)
+        return None
+
+    def query_road_graph_by_point(
+        self,
+        lat: float,
+        lon: float,
+        radius_km: float,
+        network_type: str = "drive",
+    ) -> Optional[nx.MultiDiGraph]:
+        """
+        Build a NetworkX graph from PostGIS ``planet_osm_line`` around a point.
+
+        Replaces ``ox.graph_from_point``.  Returns ``None`` when PostGIS is
+        unavailable or the query returns no rows.
+        """
+        if self.postgis_enabled and self._postgis:
+            return self._postgis.query_road_graph_by_point(lat, lon, radius_km, network_type)
+        return None
 
     # ── 高程查询 ─────────────────────────────────────────────
 

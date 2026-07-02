@@ -7,8 +7,10 @@ elevation_batch_query.py 中的 BatchElevationQuery 统一到此模块。
 """
 
 import logging
+import re
 from typing import Dict, List, Optional, Tuple
 
+import networkx as nx
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
 
@@ -395,6 +397,243 @@ class PostgisBackend:
             "nearest_lat": nearest_lat,
             "nearest_lon": nearest_lon,
         }
+
+    # ── Road network graph queries (replaces OSMnx HTTP downloads) ─
+
+    # Regex to extract coordinates from WKT LINESTRING strings.
+    _WKT_COORD_RE = re.compile(r"[\d.-]+\s+[\d.-]+")
+
+    def query_road_graph_by_bbox(
+        self,
+        south: float,
+        west: float,
+        north: float,
+        east: float,
+        network_type: str = "drive",
+    ) -> Optional[nx.MultiDiGraph]:
+        """
+        Build a NetworkX MultiDiGraph from ``planet_osm_line`` within a bounding box.
+
+        Replaces ``ox.graph_from_bbox`` HTTP download with a local PostGIS query.
+
+        Args:
+            south: Southern latitude (WGS84).
+            west: Western longitude (WGS84).
+            north: Northern latitude (WGS84).
+            east: Eastern longitude (WGS84).
+            network_type: Road network type ('drive', 'walk', 'bike', 'all').
+
+        Returns:
+            MultiDiGraph with x(lon)/y(lat) node attributes and highway/name edge
+            attributes, or ``None`` if the query fails or returns no rows.
+        """
+        highway_filter = self._HIGHWAY_FILTERS.get(network_type, "highway IS NOT NULL")
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        try:
+            # Use ST_MakeEnvelope + && to leverage the GiST spatial index.
+            # ST_MakeEnvelope(xmin, ymin, xmax, ymax, srid) = (west, south, east, north).
+            cursor.execute(
+                f"""
+                SELECT highway, name, ST_AsText(ST_Transform(way, 4326)) AS geom_wkt
+                FROM planet_osm_line
+                WHERE {highway_filter}
+                  AND ST_Transform(way, 4326) && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
+                """,
+                (west, south, east, north),
+            )
+            rows = cursor.fetchall()
+            if not rows:
+                logger.info(
+                    "No road segments found in bbox (%.4f, %.4f, %.4f, %.4f)",
+                    south,
+                    west,
+                    north,
+                    east,
+                )
+                return None
+            logger.info(
+                "Building road graph from %d LINESTRINGs for bbox (%.2f,%.2f)-(%.2f,%.2f)",
+                len(rows),
+                south,
+                west,
+                north,
+                east,
+            )
+            return self._build_graph_from_rows(rows)
+        except (psycopg2.Error, DataError) as e:
+            logger.error("Road graph bbox query failed: %s", e)
+            return None
+        finally:
+            cursor.close()
+            self._put_conn(conn)
+
+    def query_road_graph_by_point(
+        self,
+        lat: float,
+        lon: float,
+        radius_km: float,
+        network_type: str = "drive",
+    ) -> Optional[nx.MultiDiGraph]:
+        """
+        Build a NetworkX MultiDiGraph from ``planet_osm_line`` around a point.
+
+        Replaces ``ox.graph_from_point`` HTTP download with a local PostGIS query.
+
+        Args:
+            lat: Center latitude (WGS84).
+            lon: Center longitude (WGS84).
+            radius_km: Search radius in kilometers.
+            network_type: Road network type ('drive', 'walk', 'bike', 'all').
+
+        Returns:
+            MultiDiGraph with x(lon)/y(lat) node attributes and highway/name edge
+            attributes, or ``None`` if the query fails or returns no rows.
+        """
+        highway_filter = self._HIGHWAY_FILTERS.get(network_type, "highway IS NOT NULL")
+        radius_meters = radius_km * 1000.0
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                f"""
+                SELECT highway, name, ST_AsText(ST_Transform(way, 4326)) AS geom_wkt
+                FROM planet_osm_line
+                WHERE {highway_filter}
+                  AND ST_DWithin(
+                      ST_Transform(way, 4326)::geography,
+                      ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
+                      %s
+                  )
+                """,
+                (lon, lat, radius_meters),
+            )
+            rows = cursor.fetchall()
+            if not rows:
+                logger.info(
+                    "No road segments found within %.1f km of (%.4f, %.4f)",
+                    radius_km,
+                    lat,
+                    lon,
+                )
+                return None
+            logger.info(
+                "Building road graph from %d LINESTRINGs within %.1f km of (%.4f, %.4f)",
+                len(rows),
+                radius_km,
+                lat,
+                lon,
+            )
+            return self._build_graph_from_rows(rows)
+        except (psycopg2.Error, DataError) as e:
+            logger.error("Road graph point query failed: %s", e)
+            return None
+        finally:
+            cursor.close()
+            self._put_conn(conn)
+
+    @classmethod
+    def _build_graph_from_rows(cls, rows: List[tuple]) -> nx.MultiDiGraph:
+        """
+        Build a NetworkX MultiDiGraph from PostGIS query rows.
+
+        Each row is (highway, name, geom_wkt) where geom_wkt is a WGS84
+        LINESTRING.  Nodes use auto-increment integer IDs for osmnx
+        compatibility (tuple IDs would create a pandas MultiIndex that
+        breaks ``graph_to_gdfs`` / ``nearest_nodes``).
+        Node attributes: ``x`` (lon), ``y`` (lat).  Graph attribute: ``crs``.
+        """
+        G = nx.MultiDiGraph()
+        G.graph["crs"] = "EPSG:4326"
+
+        # Coordinate → integer node ID mapping for osmnx compatibility.
+        coord_to_id: dict[tuple[float, float], int] = {}
+        _next_id = 0
+
+        def _get_node_id(lon: float, lat: float) -> int:
+            nonlocal _next_id
+            key = (round(lon, 7), round(lat, 7))
+            if key not in coord_to_id:
+                coord_to_id[key] = _next_id
+                _next_id += 1
+                G.add_node(coord_to_id[key], x=lon, y=lat)
+            return coord_to_id[key]
+
+        for highway, name, geom_wkt in rows:
+            coords = cls._parse_linestring_wkt(geom_wkt)
+            if len(coords) < 2:
+                continue
+
+            for i in range(len(coords) - 1):
+                lon1, lat1 = coords[i]
+                lon2, lat2 = coords[i + 1]
+
+                nid1 = _get_node_id(lon1, lat1)
+                nid2 = _get_node_id(lon2, lat2)
+
+                edge_attrs = {"highway": highway}
+                if name:
+                    edge_attrs["name"] = name
+                G.add_edge(nid1, nid2, **edge_attrs)
+                G.add_edge(nid2, nid1, **edge_attrs)
+
+        logger.info("Built NetworkX graph: %d nodes, %d edges", G.number_of_nodes(), G.number_of_edges())
+        return G
+
+    @classmethod
+    def _parse_linestring_wkt(cls, wkt: str) -> List[Tuple[float, float]]:
+        """
+        Parse a WKT LINESTRING into a list of (lon, lat) coordinate pairs.
+
+        Handles both LINESTRING and MULTILINESTRING formats.
+        """
+        if not wkt:
+            return []
+
+        # Handle MULTILINESTRING: extract its outer group then the *first*
+        # inner LINESTRING so the regex only matches that one segment.
+        wkt_upper = wkt.upper().strip()
+        if wkt_upper.startswith("MULTILINESTRING"):
+            # Find the outer matching pair of parentheses.
+            depth = 0
+            start = -1
+            for i, ch in enumerate(wkt):
+                if ch == "(":
+                    if depth == 0:
+                        start = i
+                    depth += 1
+                elif ch == ")":
+                    depth -= 1
+                    if depth == 0 and start >= 0:
+                        wkt = wkt[start + 1 : i]  # strip outer parens
+                        break
+            # Now extract the first inner LINESTRING group from the comma-
+            # separated list, e.g. "(116 39,116.1 39.1),(117 40,117.1 40.1)"
+            inner_depth = 0
+            inner_start = -1
+            for i, ch in enumerate(wkt):
+                if ch == "(":
+                    if inner_depth == 0:
+                        inner_start = i
+                    inner_depth += 1
+                elif ch == ")":
+                    inner_depth -= 1
+                    if inner_depth == 0 and inner_start >= 0:
+                        wkt = wkt[inner_start : i + 1]
+                        break
+
+        # Strip LINESTRING prefix and outer parentheses.
+        if wkt_upper.startswith("LINESTRING"):
+            wkt = wkt[len("LINESTRING") :]
+        wkt = wkt.strip().strip("()")
+
+        points = []
+        for match in cls._WKT_COORD_RE.finditer(wkt):
+            parts = match.group().split()
+            if len(parts) >= 2:
+                points.append((float(parts[0]), float(parts[1])))
+
+        return points
 
     # ── 统计信息 ──────────────────────────────────────────────
 

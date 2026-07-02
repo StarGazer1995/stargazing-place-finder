@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.1 (2026-07-02)
+
+### Features
+- **PostGIS road network graph**: `RoadConnectivityChecker` now queries local `planet_osm_line` via PostGIS
+  instead of downloading from Overpass API via OSMnx.  Eliminates HTTP timeouts for areas in China.
+  - `PostgisBackend.query_road_graph_by_bbox()` — build a NetworkX `MultiDiGraph` from LINESTRINGs
+    within a bounding box (replaces `ox.graph_from_bbox`).
+  - `PostgisBackend.query_road_graph_by_point()` — build a graph from roads near a point
+    (replaces `ox.graph_from_point`).
+  - `GisQueryService` delegating methods for transparent PostGIS/fallback switching.
+  - `RoadConnectivityChecker.preload_network_for_bbox` and `_get_road_network` try PostGIS
+    first, falling back to OSMnx only when PostGIS is unavailable.
+  - ~3000× speedup for single-point road connectivity checks (50ms vs 143s OSMnx).
+
+### Other
+- New code comments in English to align with project conventions.
+
 ## 0.7.0 (2026-07-02)
 
 ### Bug Fixes
@@ -19,10 +36,6 @@
 - Web 启动链路: `start.sh` 对齐当前仓库结构，直接服务 `src/source/template.html`，并改为使用模块方式启动 `light_pollution.light_pollution_api`
 - 前端配置: `src/source/assets/js/app.js` 新增 API 基地址解析逻辑，支持 `apiBaseUrl` 查询参数和 `window.APP_CONFIG.apiBaseUrl`
 - Docs: add uv policy to CLAUDE.md
-
-## Unreleased
-- 文档更新: `README.md` 与 `README_EN.md` 新增 Quick Start / Web UI / API 说明，明确当前静态前端入口、启动方式和主要接口
-- 文档清理: 移除单独的项目评审文档，改为把关键信息收口到 README 中
 
 ## 0.6.2 (2026-06-17)
 

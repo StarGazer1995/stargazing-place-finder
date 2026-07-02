@@ -44,7 +44,7 @@ Infra:       GisQueryService ──┬── PostgisBackend (fast, needs config)
              Models (Pydantic v2 DTOs)
 ```
 
-**Data flow**: CLI/API → `StargazingLocationAnalyzer.analyze_area()` → search locations → batch light pollution → preload road network → `ThreadPoolExecutor(max_workers=4)` parallel per-location pipeline (build → enrich → score) → filter/sort → results.
+**Data flow**: CLI/API → `StargazingLocationAnalyzer.analyze_area()` → search locations → batch light pollution → preload road network (PostGIS `planet_osm_line` graph, or OSMnx fallback) → `ThreadPoolExecutor(max_workers=4)` parallel per-location pipeline (build → enrich → score) → filter/sort → results.
 
 **Scoring** (0–100): light pollution 0–35, town isolation 0–20, road accessibility 0–20, elevation+prominence 0–15, location type 0–10.
 
@@ -55,7 +55,7 @@ src/
 ├── stargazing_analyzer/    → orchestrator (analyzer, CLI, public_api)
 ├── light_pollution/        → VIIRS GeoTIFF analysis + Flask API server
 │   └── resources/          → viirs_china_2025.tif (~100MB, from GitHub Release)
-├── road_connectivity/      → road distance via OSMnx or PostGIS kNN
+├── road_connectivity/      → road distance: PostGIS kNN (~30ms) or PostGIS graph from planet_osm_line; OSMnx fallback
 ├── gis_service/            → unified GIS query (PostGIS/Overpass/Elevation backends)
 ├── models/                 → Pydantic v2 models + exception hierarchy
 ├── cache/                  → disk + memory cache layer
