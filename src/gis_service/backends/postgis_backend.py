@@ -538,12 +538,24 @@ class PostgisBackend:
         从 PostGIS 查询行构建 NetworkX MultiDiGraph。
 
         每行包含 (highway, name, geom_wkt)。geom_wkt 为 WGS84 LINESTRING WKT。
-        节点以保留 7 位小数的 (lon, lat) 元组作 ID，节点属性含 x/y 以兼容
-        ``ox.distance.nearest_nodes``。
+        使用自增整数作为节点 ID 以兼容 osmnx（避免 tuple ID 导致 pandas MultiIndex）。
+        节点属性含 x(lon)/y(lat)，图属性含 crs。
         """
         G = nx.MultiDiGraph()
-        # 设置 CRS 属性以兼容 osmnx 内部调用 (graph_to_gdfs / nearest_nodes)
         G.graph["crs"] = "EPSG:4326"
+
+        # 坐标 → 节点 ID 映射，使用整数 ID 保证 osmnx 兼容性
+        coord_to_id: dict[tuple[float, float], int] = {}
+        _next_id = 0
+
+        def _get_node_id(lon: float, lat: float) -> int:
+            nonlocal _next_id
+            key = (round(lon, 7), round(lat, 7))
+            if key not in coord_to_id:
+                coord_to_id[key] = _next_id
+                _next_id += 1
+                G.add_node(coord_to_id[key], x=lon, y=lat)
+            return coord_to_id[key]
 
         for highway, name, geom_wkt in rows:
             coords = cls._parse_linestring_wkt(geom_wkt)
@@ -554,22 +566,14 @@ class PostgisBackend:
                 lon1, lat1 = coords[i]
                 lon2, lat2 = coords[i + 1]
 
-                # 使用保留 7 位小数的 (lon, lat) 作为节点 ID
-                node1 = (round(lon1, 7), round(lat1, 7))
-                node2 = (round(lon2, 7), round(lat2, 7))
+                nid1 = _get_node_id(lon1, lat1)
+                nid2 = _get_node_id(lon2, lat2)
 
-                # 添加节点（含 osmnx 兼容的 x/y 属性）
-                if node1 not in G.nodes:
-                    G.add_node(node1, x=lon1, y=lat1)
-                if node2 not in G.nodes:
-                    G.add_node(node2, x=lon2, y=lat2)
-
-                # 添加双向边
                 edge_attrs = {"highway": highway}
                 if name:
                     edge_attrs["name"] = name
-                G.add_edge(node1, node2, **edge_attrs)
-                G.add_edge(node2, node1, **edge_attrs)
+                G.add_edge(nid1, nid2, **edge_attrs)
+                G.add_edge(nid2, nid1, **edge_attrs)
 
         logger.info("Built NetworkX graph: %d nodes, %d edges", G.number_of_nodes(), G.number_of_edges())
         return G
