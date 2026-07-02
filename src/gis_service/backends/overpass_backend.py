@@ -39,7 +39,7 @@ class OverpassBackend:
         fallback_urls: Optional[List[str]] = None,
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
-        total_timeout: int | None = DEFAULT_TOTAL_TIMEOUT,
+        total_timeout: Optional[int] = DEFAULT_TOTAL_TIMEOUT,
     ):
         self.urls = [url] + (fallback_urls or OVERPASS_FALLBACK_URLS)
         self.timeout = timeout
