@@ -11,7 +11,8 @@ The Road Connectivity Analysis System is a sophisticated geospatial infrastructu
 ```
 Road Connectivity Analysis System
 ├── Data Acquisition Layer
-│   ├── OpenStreetMap Integration (OSMnx)
+│   ├── PostGIS planet_osm_line (primary, v0.8.0+)
+│   ├── OpenStreetMap Integration (OSMnx, fallback)
 │   ├── Road Network Processor
 │   └── Transportation Mode Handler
 ├── Graph Analysis Engine
@@ -720,20 +721,29 @@ class NetworkCacheManager:
             del self.cache[lru_key]
 ```
 
-### 2. Bbox-Level Graph Preloading (v0.6.1+)
+### 2. Bbox-Level Graph Preloading (v0.6.1+, PostGIS v0.8.0+)
+
 在批量分析 N 个地点时，原实现每个地点独立下载 10km 半径路网（共 N 次 OSM 请求）。
 v0.6.1 新增 `RoadConnectivityChecker.preload_network_for_bbox()`，对整个 bbox 预加载一次路网，
-所有 N 个地点复用同一张图。`StargazingLocationAnalyzer.analyze_area()` 在并行循环前自动调用预加载。
+所有 N 个地点复用同一张图。
+
+v0.8.0 起，当 `GisQueryService` 可用且 PostGIS 启用时，`preload_network_for_bbox()`
+直接从 `planet_osm_line` 查询 LINESTRING 并构建 NetworkX 图，**无需任何 HTTP 请求**。
+仅在 PostGIS 不可用时回退到 OSMnx tile 下载。
 
 ```python
-checker = RoadConnectivityChecker()
-# 一次下载覆盖整个区域的完整路网
+from gis_service.query_service import GisQueryService
+from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+
+gis = GisQueryService(db_config_path="config/postgis_config.toml")
+checker = RoadConnectivityChecker(gis_service=gis)
+
+# PostGIS 路径：查询 planet_osm_line 构建路网图（毫秒级 SQL，无 HTTP）
 checker.preload_network_for_bbox(
     bbox=(39.5, 115.5, 40.5, 117.5),  # (south, west, north, east)
     network_type="drive",
 )
 # 后续所有 _get_road_network() 调用复用该图
-            del self.access_times[lru_key]
 ```
 
 ### 2. Parallel Processing for Batch Analysis
