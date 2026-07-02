@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import road_connectivity.road_connectivity_checker
 from models import GeoCoordinate, LatLonBox, NetworkError
+from road_connectivity.road_connectivity_checker import RoadAccessInfoCache, RoadConnectivityChecker
 
 
 class TestBatchCheckAccessibilityParallel(unittest.TestCase):
@@ -30,7 +31,6 @@ class TestBatchCheckAccessibilityParallel(unittest.TestCase):
             os.environ["FAST_TESTS"] = self._old_fast
 
     def _make_checker(self):
-        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
         return RoadConnectivityChecker(search_radius_km=10.0)
 
@@ -118,8 +118,7 @@ class TestCheckViaPostgis(unittest.TestCase):
     """Test the _check_via_postgis fast path directly."""
 
     def test_check_via_postgis_accessible(self):
-        """PostGIS returns accessible → returns True."""
-        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+        """PostGIS returns accessible → returns dict with accessible=True and details."""
 
         gis = MagicMock()
         gis.postgis_enabled = True
@@ -130,11 +129,12 @@ class TestCheckViaPostgis(unittest.TestCase):
         }
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
         result = checker._check_via_postgis(GeoCoordinate(latitude=39.9, longitude=116.4))
-        self.assertTrue(result)
+        self.assertTrue(result["accessible"])
+        self.assertEqual(result["distance_meters"], 50.0)
+        self.assertEqual(result["road_type"], "residential")
 
     def test_check_via_postgis_inaccessible(self):
-        """Far from road → returns False."""
-        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+        """Far from road → returns dict with accessible=False."""
 
         gis = MagicMock()
         gis.postgis_enabled = True
@@ -145,11 +145,12 @@ class TestCheckViaPostgis(unittest.TestCase):
         }
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
         result = checker._check_via_postgis(GeoCoordinate(latitude=0.0, longitude=160.0))
-        self.assertFalse(result)
+        self.assertFalse(result["accessible"])
+        self.assertEqual(result["distance_meters"], 100000.0)
+        self.assertIsNone(result["road_type"])
 
     def test_check_via_postgis_no_gis_service(self):
         """No gis_service → returns None."""
-        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
         checker = RoadConnectivityChecker(search_radius_km=10.0)
         result = checker._check_via_postgis(GeoCoordinate(latitude=39.9, longitude=116.4))
@@ -157,7 +158,6 @@ class TestCheckViaPostgis(unittest.TestCase):
 
     def test_check_via_postgis_postgis_disabled(self):
         """gis_service exists but postgis_enabled=False → fallback."""
-        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
         gis = MagicMock()
         gis.postgis_enabled = False
@@ -167,7 +167,6 @@ class TestCheckViaPostgis(unittest.TestCase):
 
     def test_check_via_postgis_fallback_needed(self):
         """PostGIS returns fallback_needed → returns None."""
-        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
         gis = MagicMock()
         gis.postgis_enabled = True
@@ -186,7 +185,6 @@ class TestPreloadNetwork(unittest.TestCase):
         self.addCleanup(self.ox_patcher.stop)
 
     def _make_checker(self):
-        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
         return RoadConnectivityChecker(search_radius_km=10.0)
 
@@ -273,7 +271,6 @@ class TestPreloadNetwork(unittest.TestCase):
     def test_config_respects_tile_max_area(self):
         """RoadConnectivityChecker reads road_network_tile_max_area_km2 from config."""
         from config import StargazingConfig
-        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
         checker = RoadConnectivityChecker(
             search_radius_km=10.0,
@@ -300,8 +297,6 @@ class TestPreloadNetwork(unittest.TestCase):
     def test_get_road_accessibility_request_exception(self):
         """RequestException in is_road_accessible → returns False (line 248)."""
         import requests
-
-        from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
         mock_graph = MagicMock()
         mock_graph.nodes.return_value = [1]
@@ -340,3 +335,120 @@ class TestPreloadNetwork(unittest.TestCase):
         self.assertIs(result, mock_graph)
         # ox.graph_from_bbox should NOT be called when shared graph is used
         self.mock_ox.assert_not_called()
+
+
+class TestTryPostgisInfo(unittest.TestCase):
+    """Test _try_postgis_info method (lines 573-584)."""
+
+    def setUp(self):
+        self.mock_gis = MagicMock()
+        self.mock_gis.postgis_enabled = True
+        self.mock_gis.query_road_connectivity.return_value = {
+            "accessible": True,
+            "distance_meters": 50.0,
+            "road_type": "residential",
+        }
+
+    def test_try_postgis_info_sets_all_fields(self):
+        """PostGIS success → result dict is populated with accessible/distance/road_type."""
+
+        checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=self.mock_gis)
+        result = {"accessible": False, "distance_to_road_km": None, "nearest_road_type": None, "error": None}
+        point = GeoCoordinate(latitude=39.9, longitude=116.4)
+
+        success = checker._try_postgis_info(result, point, "drive")
+        self.assertTrue(success)
+        self.assertTrue(result["accessible"])
+        self.assertEqual(result["distance_to_road_km"], 0.05)
+        self.assertEqual(result["nearest_road_type"], "residential")
+        self.assertIsNone(result["error"])
+
+    def test_try_postgis_info_returns_false_when_postgis_unavailable(self):
+        """No PostGIS → _try_postgis_info returns False, result unchanged."""
+
+        checker = RoadConnectivityChecker(search_radius_km=10.0)  # No gis_service
+        result = {"accessible": False}
+        point = GeoCoordinate(latitude=39.9, longitude=116.4)
+
+        success = checker._try_postgis_info(result, point, "drive")
+        self.assertFalse(success)
+
+    def test_try_postgis_info_handles_none_distance(self):
+        """PostGIS returns None distance_meters → distance_to_road_km stays None."""
+
+        self.mock_gis.query_road_connectivity.return_value = {
+            "accessible": False,
+            "distance_meters": None,
+            "road_type": None,
+        }
+        checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=self.mock_gis)
+        result = {"accessible": True, "distance_to_road_km": None, "nearest_road_type": None, "error": None}
+        point = GeoCoordinate(latitude=39.9, longitude=116.4)
+
+        success = checker._try_postgis_info(result, point, "drive")
+        self.assertTrue(success)
+        self.assertFalse(result["accessible"])
+        self.assertIsNone(result["distance_to_road_km"])
+        self.assertIsNone(result["nearest_road_type"])
+
+
+class TestIsRoadAccessiblePostgisPath(unittest.TestCase):
+    """Test is_road_accessible when PostGIS fast path is used (line 238)."""
+
+    def test_postgis_fast_path_returns_accessible(self):
+        """is_road_accessible returns True when PostGIS says accessible."""
+
+        gis = MagicMock()
+        gis.postgis_enabled = True
+        gis.query_road_connectivity.return_value = {
+            "accessible": True,
+            "distance_meters": 25.0,
+            "road_type": "residential",
+        }
+        checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
+        # Bypass cache
+        with patch.object(checker.location_cache, "get_cached_result", return_value=None):
+            result = checker.is_road_accessible(GeoCoordinate(latitude=39.9, longitude=116.4))
+        self.assertTrue(result)
+
+
+class TestRoadAccessInfoCacheCleanup(unittest.TestCase):
+    """Test save_road_access_info_to_cache temp file cleanup (lines 89-94)."""
+
+    def test_atomic_write_cleans_up_on_pickle_failure(self):
+        """When pickle.dump fails, temp file is cleaned up."""
+        from models import RoadAccessInfo
+
+        cache = RoadAccessInfoCache(cache_expiry_hours=24)
+        data = [RoadAccessInfo(latitude=39.9, longitude=116.4, is_road_accessible=True)]
+
+        # Ensure we get past mkdir and into the write block
+        cache._generate_cache_key = MagicMock(return_value="test_cleanup_key")
+        cache._get_cache_file_path = MagicMock(return_value=MagicMock())
+
+        with (
+            patch("road_connectivity.road_connectivity_checker.pickle.dump", side_effect=RuntimeError("pickle fail")),
+            patch("road_connectivity.road_connectivity_checker.os.unlink") as mock_unlink,
+            patch.object(cache, "get_cached_result", return_value=None),
+        ):
+            with self.assertRaises(RuntimeError):
+                cache.save_road_access_info_to_cache("test_type", data)
+            mock_unlink.assert_called()
+
+    def test_atomic_write_cleanup_oserror_is_silent(self):
+        """When os.unlink fails during cleanup, OSError is silently ignored (lines 92-93)."""
+        from models import RoadAccessInfo
+
+        cache = RoadAccessInfoCache(cache_expiry_hours=24)
+        data = [RoadAccessInfo(latitude=39.9, longitude=116.4, is_road_accessible=True)]
+
+        cache._generate_cache_key = MagicMock(return_value="test_cleanup_oserror")
+        cache._get_cache_file_path = MagicMock(return_value=MagicMock())
+
+        with (
+            patch("road_connectivity.road_connectivity_checker.pickle.dump", side_effect=RuntimeError("pickle fail")),
+            patch("road_connectivity.road_connectivity_checker.os.unlink", side_effect=OSError("permission denied")),
+            patch.object(cache, "get_cached_result", return_value=None),
+        ):
+            with self.assertRaises(RuntimeError):
+                cache.save_road_access_info_to_cache("test_type", data)

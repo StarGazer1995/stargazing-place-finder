@@ -10,7 +10,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 from config import StargazingConfig
-from models import LatLonBox
+from models import LatLonBox, NetworkError
 
 from .backends.elevation_backend import ElevationBackend
 from .backends.overpass_backend import OverpassBackend
@@ -108,7 +108,17 @@ class GisQueryService:
             results = self._postgis.query_locations_in_bbox(lon_min, lat_min, lon_max, lat_max, location_type, filters)
         else:
             logger.info("Querying %s via Overpass: %s", location_type, bbox_tuple)
-            results = self._overpass.query_locations_in_bbox(lon_min, lat_min, lon_max, lat_max, location_type, filters)
+            try:
+                results = self._overpass.query_locations_in_bbox(
+                    lon_min, lat_min, lon_max, lat_max, location_type, filters
+                )
+            except NetworkError:
+                logger.warning(
+                    "Overpass query failed for %s in %s — returning empty result",
+                    location_type,
+                    bbox_tuple,
+                )
+                results = []
 
         if cache_key and self._cache:
             self._cache.set(cache_key, results)

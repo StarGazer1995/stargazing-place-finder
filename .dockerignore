@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Docs and examples
+docs/
+examples/
+*.md
+!README.md
+
+# Test artifacts
+htmlcov/
+coverage.xml
+.pytest_cache/
+
+# Cache and data
+cache/
+*.kml
+
+# Misc
+.dockerignore
+start.sh

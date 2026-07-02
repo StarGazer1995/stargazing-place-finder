@@ -7,8 +7,12 @@ Used to detect whether specified coordinate points can be reached by road
 
 import hashlib
 import logging
+import os
 import pickle
+import tempfile
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional
 
@@ -39,6 +43,7 @@ class RoadAccessInfoCache:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.expiry_hours = cache_expiry_hours * 3600
         self.cache_mem_data = {}
+        self._lock = threading.Lock()
 
     def _generate_cache_key(self, location_type: str) -> str:
         return hashlib.md5(location_type.encode("utf-8")).hexdigest()
@@ -54,7 +59,7 @@ class RoadAccessInfoCache:
 
     def save_road_access_info_to_cache(self, location_type: str, data: List[RoadAccessInfo]):
         """
-        Save query results to cache
+        Save query results to cache (thread-safe, atomic write).
 
         Args:
             location_type: Location type
@@ -62,18 +67,31 @@ class RoadAccessInfoCache:
         """
         cache_key = self._generate_cache_key(location_type)
         cache_file = self._get_cache_file_path(cache_key)
-        cached_data = self.get_cached_result(location_type)
-        if cached_data is None or not isinstance(cached_data, list):
-            cached_data = data
-        else:
-            for item in data:
-                if item not in cached_data:
-                    cached_data.append(item)
-        self.cache_mem_data[location_type] = cached_data
+
+        with self._lock:
+            cached_data = self.get_cached_result(location_type)
+            if cached_data is None or not isinstance(cached_data, list):
+                cached_data = data
+            else:
+                for item in data:
+                    if item not in cached_data:
+                        cached_data.append(item)
+            self.cache_mem_data[location_type] = cached_data
+
         try:
             Path(cache_file).parent.mkdir(parents=True, exist_ok=True)
-            with open(cache_file, "wb") as f:
-                pickle.dump(cached_data, f)
+            # Atomic write: temp file + rename to avoid TOCTOU corruption
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".pkl", prefix=".tmp-", dir=str(Path(cache_file).parent))
+            try:
+                with os.fdopen(tmp_fd, "wb") as f:
+                    pickle.dump(cached_data, f)
+                os.replace(tmp_path, cache_file)
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
             logger.info(f"💾 Query results cached: {len(data)} records")
         except DataError as e:
             logger.error(f"⚠️ Failed to save cache: {e}")
@@ -172,6 +190,7 @@ class RoadConnectivityChecker:
         self.max_distance_to_road_km = max_distance_to_road_km
         self.graph_cache = {}  # Cache downloaded road networks
         self._shared_graph = None  # Pre-loaded graph for batch checking (set via preload_network_for_bbox)
+        self._graph_lock = threading.Lock()  # Protects concurrent access to _shared_graph
         self.gis_service = gis_service  # Optional GisQueryService for PostGIS fast path
         self.geo_fence = geo_fence  # 仅当上游显式传入时才使用
         # Set OSMnx cache directory
@@ -216,7 +235,7 @@ class RoadConnectivityChecker:
             logger.info("Not found in cache, try PostGIS fast path")
             postgis_result = self._check_via_postgis(point, network_type)
             if postgis_result is not None:
-                return postgis_result
+                return postgis_result["accessible"]
 
             logger.info("PostGIS not available or no result, try OSMnx download")
             graph = self._get_road_network(point, network_type)
@@ -252,12 +271,13 @@ class RoadConnectivityChecker:
             logger.error(f"Error detecting accessibility for coordinates ({lat}, {lon}): {str(e)}")
             return False
 
-    def _check_via_postgis(self, point: GeoCoordinate, network_type: str = "drive") -> Optional[bool]:
+    def _check_via_postgis(self, point: GeoCoordinate, network_type: str = "drive") -> Optional[dict]:
         """
         通过 PostGIS kNN 查询检查道路连通性（毫秒级）。
 
         Returns:
-            True/False 如果查询成功，None 如果 PostGIS 不可用
+            包含 accessible/distance_meters/road_type 的 dict 如果查询成功，
+            None 如果 PostGIS 不可用或需要回退
         """
         if self.gis_service is None:
             return None
@@ -278,7 +298,11 @@ class RoadConnectivityChecker:
             nearest_road_type=result.get("road_type"),
         )
         self.location_cache.save_road_access_info_to_cache(f"accessible_{network_type}", [road_info])
-        return accessible
+        return {
+            "accessible": accessible,
+            "distance_meters": result.get("distance_meters"),
+            "road_type": result.get("road_type"),
+        }
 
     @staticmethod
     def _bbox_area_km2(south: float, west: float, north: float, east: float) -> float:
@@ -332,7 +356,7 @@ class RoadConnectivityChecker:
                 network_type=network_type,
                 simplify=True,
             )
-        except (requests.exceptions.RequestException, Exception) as e:
+        except Exception as e:
             logger.warning(
                 "Failed to download tile (%.2f,%.2f)-(%.2f,%.2f): %s",
                 south,
@@ -386,21 +410,27 @@ class RoadConnectivityChecker:
             )
 
         graphs = []
-        for tile in tiles:
-            g = self._download_tile(tile, network_type)
-            if g is not None:
-                graphs.append(g)
+        with ThreadPoolExecutor(max_workers=min(len(tiles), 8)) as executor:
+            futures = {executor.submit(self._download_tile, tile, network_type): tile for tile in tiles}
+            for future in as_completed(futures):
+                g = future.result()
+                if g is not None:
+                    graphs.append(g)
 
         if not graphs:
             logger.error("Failed to download any road network tiles")
-            self._shared_graph = None
+            with self._graph_lock:
+                self._shared_graph = None
             return
 
         if len(graphs) == 1:
-            self._shared_graph = graphs[0]
+            with self._graph_lock:
+                self._shared_graph = graphs[0]
         else:
             logger.info("Merging %d road network tiles…", len(graphs))
-            self._shared_graph = nx.compose_all(graphs)
+            merged = nx.compose_all(graphs)
+            with self._graph_lock:
+                self._shared_graph = merged
 
         logger.info("Pre-loaded road network with %d nodes", len(self._shared_graph.nodes()))
 
@@ -418,8 +448,10 @@ class RoadConnectivityChecker:
             Road network graph, returns None if failed to get
         """
         # Use the pre-loaded shared graph if available (much faster — 1 download vs N)
-        if self._shared_graph is not None:
-            return self._shared_graph
+        with self._graph_lock:
+            shared = self._shared_graph
+        if shared is not None:
+            return shared
 
         lat, lon = point.latitude, point.longitude
         cache_key = f"{lat:.4f}_{lon:.4f}_{network_type}_{self.search_radius_km}"
@@ -540,19 +572,15 @@ class RoadConnectivityChecker:
 
     def _try_postgis_info(self, result: dict, point: GeoCoordinate, network_type: str) -> bool:
         """PostGIS kNN 快速路径。返回 True 表示成功获取结果。"""
-        lat, lon = point.latitude, point.longitude
         postgis_result = self._check_via_postgis(point, network_type)
         if postgis_result is None:
             return False
-        result["accessible"] = postgis_result
-        if self.gis_service and getattr(self.gis_service, "postgis_enabled", False):
-            details = self.gis_service.query_road_connectivity(lat, lon, self.search_radius_km, network_type)
-            if not details.get("fallback_needed"):
-                result["distance_to_road_km"] = (
-                    details["distance_meters"] / 1000.0 if details["distance_meters"] is not None else None
-                )
-                result["nearest_road_type"] = details.get("road_type")
-                result["error"] = None
+        result["accessible"] = postgis_result["accessible"]
+        result["distance_to_road_km"] = (
+            postgis_result["distance_meters"] / 1000.0 if postgis_result["distance_meters"] is not None else None
+        )
+        result["nearest_road_type"] = postgis_result.get("road_type")
+        result["error"] = None
         return True
 
     def _try_osmnx_info(self, result: dict, point: GeoCoordinate, lat: float, lon: float, network_type: str) -> None:

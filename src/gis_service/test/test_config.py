@@ -72,3 +72,12 @@ class TestLoadDbConfig:
 
         assert result == {"host": "legacy-host"}
         assert "DB_CONFIG_PATH is deprecated" in caplog.text
+
+    def test_load_db_config_invalid_toml_raises_runtime_error(self, tmp_path):
+        """Invalid TOML content raises RuntimeError (lines 74-75)."""
+        import pytest
+
+        cfg_file = tmp_path / "broken.toml"
+        cfg_file.write_text("key = [unclosed\n")  # Malformed TOML
+        with pytest.raises(RuntimeError, match="Failed to parse TOML config"):
+            load_db_config(str(cfg_file))

@@ -147,6 +147,17 @@ class TestGisQueryService(unittest.TestCase):
         with self.assertRaises(Exception):
             service.query_locations(LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5))
 
+    def test_query_locations_overpass_network_error_returns_empty(self):
+        """Overpass raises NetworkError → caught and returns empty list (lines 115-116,121)."""
+        self.mock_overpass.query_locations_in_bbox.side_effect = NetworkError("Overpass timeout")
+
+        service = self._make_service(db_config=None)  # No PostGIS → uses Overpass
+        bbox = LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5)
+        results = service.query_locations(bbox, "peak")
+
+        self.assertEqual(results, [])
+        self.mock_overpass.query_locations_in_bbox.assert_called_once()
+
     # ── helper query methods ────────────────────────────────
 
     def test_query_towns_delegates(self):
@@ -292,14 +303,16 @@ class TestOverpassBackendFallback(unittest.TestCase):
         self.assertEqual(self.mock_post.call_count, 3)
 
     def test_request_all_urls_fail(self):
-        """All URLs fail → returns empty list."""
+        """All URLs fail → raises NetworkError (no more silent [].)"""
         from requests.exceptions import HTTPError
+
+        from models import NetworkError as NetExc
 
         mock_resp = self.mock_post.return_value
         mock_resp.raise_for_status.side_effect = HTTPError("500 Server Error")
 
-        result = self.backend._request("[out:json];node;out;", "town")
-        self.assertEqual(result, [])
+        with self.assertRaises(NetExc):
+            self.backend._request("[out:json];node;out;", "town")
         # 2 URLs × 2 retries = 4 calls
         self.assertEqual(self.mock_post.call_count, 4)
 

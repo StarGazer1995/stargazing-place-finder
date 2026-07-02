@@ -74,6 +74,7 @@ class StargazingLocationAnalyzer:
             config: Centralised StargazingConfig instance. When provided, its
                 values override the individual keyword defaults above.
         """
+        self._config = config
         if config is not None:
             min_height_difference = config.min_height_difference
             road_search_radius_km = config.road_search_radius_km
@@ -248,7 +249,7 @@ class StargazingLocationAnalyzer:
         """Fetch towns data for town density computation (optional)."""
         try:
             return self.mountain_finder.gis_service.query_locations(bbox, "town")
-        except (NoDataError, Exception) as e:
+        except Exception as e:
             logger.warning("Failed to fetch towns data: %s", e)
             return []
 
@@ -487,12 +488,16 @@ class StargazingLocationAnalyzer:
         """
         Calculate comprehensive score for stargazing location.
 
-        Scoring weights (total 100 points):
-        - Light pollution  (0-35): Bortle scale — the most critical factor
-        - Town isolation   (0-20): Distance to nearest town + density penalty
-        - Road access      (0-20): Practical usability
-        - Elevation+terrain(0-15): Altitude + height above surrounding towns
-        - Location type    (0-10): Mountain prominence, observatory, viewpoint
+        Scoring weights (total 100 points, configurable via StargazingConfig):
+        - Light pollution  (default 35): Bortle scale — the most critical factor
+        - Town isolation   (default 20): Distance to nearest town + density penalty
+        - Road access      (default 20): Practical usability
+        - Elevation+terrain(default 15): Altitude + height above surrounding towns
+        - Location type    (default 10): Mountain prominence, observatory, viewpoint
+
+        Road distance now uses a smooth sigmoid decay instead of a hard
+        200m threshold, and town isolation uses a continuous logarithmic
+        function instead of discrete buckets.
 
         Args:
             location: Stargazing location object
@@ -500,38 +505,40 @@ class StargazingLocationAnalyzer:
         Returns:
             Comprehensive score (0-100 points)
         """
+        cfg = self._config
         score = 0.0
-        score += self._score_light_pollution(location)
-        score += self._score_town_isolation(location)
-        score += self._score_road_accessibility(location)
-        score += self._score_elevation_terrain(location)
-        score += self._score_location_type(location)
+        score += self._score_light_pollution(location, cfg.weight_light_pollution if cfg else 35)
+        score += self._score_town_isolation(location, cfg)
+        score += self._score_road_accessibility(location, cfg)
+        score += self._score_elevation_terrain(location, cfg.weight_elevation if cfg else 15)
+        score += self._score_location_type(location, cfg.weight_location_type if cfg else 10)
         return round(score, 1)
 
-    def _score_light_pollution(self, location: StargazingLocation) -> float:
-        """Light Pollution (0-35 points) — Bortle-based or brightness fallback."""
+    def _score_light_pollution(self, location: StargazingLocation, max_weight: float = 35) -> float:
+        """Light Pollution — Bortle-based or brightness fallback. Weight configurable."""
+        scale = max_weight / 35.0
         if location.light_pollution_bortle is not None:
-            return self._BORTLE_SCORES.get(location.light_pollution_bortle, 18)
+            return self._BORTLE_SCORES.get(location.light_pollution_bortle, 18) * scale
 
         if location.light_pollution_brightness is not None:
             b = location.light_pollution_brightness
             if b < 30:
-                return 35  # ~Bortle 1
+                return 35 * scale
             if b < 60:
-                return 31  # ~Bortle 2
+                return 31 * scale
             if b < 90:
-                return 26  # ~Bortle 3
+                return 26 * scale
             if b < 120:
-                return 20  # ~Bortle 4
+                return 20 * scale
             if b < 150:
-                return 14  # ~Bortle 5
+                return 14 * scale
             if b < 180:
-                return 8  # ~Bortle 6
+                return 8 * scale
             if b < 210:
-                return 3  # ~Bortle 7
+                return 3 * scale
             if b < 240:
-                return 1  # ~Bortle 8
-            return 0  # ~Bortle 9
+                return 1 * scale
+            return 0
 
         if location.light_pollution_level:
             legacy = {
@@ -543,71 +550,79 @@ class StargazingLocationAnalyzer:
                 "Very High": 8,
                 "Extremely High": 3,
             }
-            return legacy.get(location.light_pollution_level, 18)
+            return legacy.get(location.light_pollution_level, 18) * scale
 
         logger.warning("⚠️  Warning: %s lacks light pollution data, scoring accuracy affected", location.name)
-        return 18  # Conservative middle
+        return 18 * scale
 
-    def _score_town_isolation(self, location: StargazingLocation) -> float:
-        """Town Isolation (0-20 points) — Distance from nearest town + density penalty."""
+    def _score_town_isolation(self, location: StargazingLocation, cfg=None) -> float:
+        """Town Isolation — continuous logarithmic function of distance.
+
+        Replaces discrete distance buckets with a smooth curve:
+        ~0 at 0km, ~10 at 20km, ~16 at 50km, ~20 at 100km+.
+        """
+        import math
+
+        max_weight = cfg.weight_town_isolation if cfg else 20
         town_dist = location.distance_to_nearest_town
         if town_dist is None or town_dist <= 0:
-            return 8  # Unknown distance → medium
+            return max_weight * 0.4  # Unknown → 40% of max
 
-        if town_dist >= 50:
-            dist_score = 16
-        elif town_dist >= 30:
-            dist_score = 14
-        elif town_dist >= 20:
-            dist_score = 11
-        elif town_dist >= 10:
-            dist_score = 7
-        elif town_dist >= 5:
-            dist_score = 3
-        else:
-            dist_score = 0
+        # Logarithmic scale: scores ~60% of max at 20km, ~80% at 50km
+        dist_score = max_weight * min(1.0, math.log(town_dist + 1) / math.log(51))
 
         # Density penalty: -2 per additional town within 20km (max -8)
         density_penalty = min(location.nearby_town_count * 2, 8)
         return max(0.0, float(dist_score - density_penalty))
 
-    def _score_road_accessibility(self, location: StargazingLocation) -> float:
-        """Road Accessibility (0-20 points). Threshold ≤200m = accessible."""
-        if location.road_accessible is None:
-            return 10  # Unknown status
-        if not location.road_accessible:
-            return 0  # Not accessible (>200m from road)
-        if location.distance_to_road_km is None:
-            return 12  # Accessible but distance unknown
-        d = location.distance_to_road_km
-        if d <= 0.05:
-            return 14  # ≤50m — convenient but potential road noise/light
-        if d <= 0.2:
-            return 20  # 50-200m — ideal
-        return 10  # Beyond threshold, should not happen by logic
+    def _score_road_accessibility(self, location: StargazingLocation, cfg=None) -> float:
+        """Road Accessibility — smooth sigmoid decay instead of hard 200m cutoff.
 
-    def _score_elevation_terrain(self, location: StargazingLocation) -> float:
-        """Elevation + Terrain (0-15 points). Combines altitude and height above towns."""
+        Uses a smooth decay centred on the half-decay distance (default 200m).
+        Locations closer than the half-decay distance score >50%;
+        locations farther score progressively less, without a cliff.
+        """
+        max_weight = cfg.weight_road_access if cfg else 20
+        # Explicitly not accessible → zero score regardless of distance
+        if location.road_accessible is False:
+            return 0
+        if location.distance_to_road_km is None:
+            return max_weight * 0.5  # Unknown → middle
+        d = location.distance_to_road_km
+        half = cfg.road_distance_decay_km if cfg else 0.2
+        # Logistic decay: score = max / (1 + (d/half)^2)
+        # d=0 → max, d=half → max/2, d→∞ → 0
+        ratio = d / half
+        score = max_weight / (1.0 + ratio * ratio)
+        # Bonus for ideal range (50-200m by default): slight bump near half
+        if 0.25 <= ratio <= 1.0:
+            score *= 1.1
+        return round(min(max_weight, score), 1)
+
+    def _score_elevation_terrain(self, location: StargazingLocation, max_weight: float = 15) -> float:
+        """Elevation + Terrain. Combines altitude and height above towns."""
         if not location.elevation:
             return 0
+        scale = max_weight / 15.0
         elevation_score = min(location.elevation / 200.0, 8.0)
         height_bonus = 0.0
         if location.height_difference:
             height_bonus = min(location.height_difference / 200.0, 7.0)
-        return elevation_score + height_bonus
+        return (elevation_score + height_bonus) * scale
 
-    def _score_location_type(self, location: StargazingLocation) -> float:
-        """Location Type (0-10 points)."""
+    def _score_location_type(self, location: StargazingLocation, max_weight: float = 10) -> float:
+        """Location Type. Weight configurable."""
+        scale = max_weight / 10.0
         if location.is_mountain_peak():
             if location.prominence:
-                return min(location.prominence / 200.0, 10.0)
+                return min(location.prominence / 200.0, 10.0) * scale
             return 0
         if location.is_observatory():
-            return 6  # Observatory base
+            return 6 * scale
         if location.is_viewpoint():
             if location.height_difference:
-                return min(location.height_difference / 150.0, 10.0)
-            return 5
+                return min(location.height_difference / 150.0, 10.0) * scale
+            return 5 * scale
         return 0
 
     def _get_recommendation_level_with_warning(self, location: StargazingLocation) -> str:
