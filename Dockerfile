@@ -24,7 +24,6 @@ COPY config/ ./config/
 
 EXPOSE 5001
 
-# Gunicorn with Flask app: light_pollution.light_pollution_api:app
-CMD [".venv/bin/gunicorn", "--bind", "0.0.0.0:5001", "--workers", "4", \
-     "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", \
-     "light_pollution.light_pollution_api:app"]
+# FastAPI with uvicorn: server.main:app
+CMD [".venv/bin/uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "5001", \
+     "--workers", "2", "--timeout-keep-alive", "120", "--access-log", "-", "--error-log", "-"]
