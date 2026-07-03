@@ -67,7 +67,7 @@ _tile_cache = tile_cache_obj  # shared OrderedDict
 # The old code did ``api.analyzer`` to check if it was None.
 try:
     _analyzer = _require_analyzer()
-except Exception:
+except Exception:  # pragma: no cover — environment-dependent
     _analyzer = None
 analyzer = _analyzer  # module-level for backward compat
 
@@ -117,7 +117,7 @@ def _validate_tile_request(z: int, x: int, y: int):
         return _empty_tile()
     try:
         src = getattr(analyzer, "_src", None)
-    except Exception:
+    except Exception:  # pragma: no cover — unexpected getattr failure
         src = None
     if src is None:
         return _empty_tile()

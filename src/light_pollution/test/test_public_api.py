@@ -503,6 +503,64 @@ class TestFastApiRoutes:
             assert data["count"] == 0
             assert data["images"] == []
 
+    def test_light_pollution_images_invalid_lat(self):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        with TestClient(app) as client:
+            resp = client.get("/api/light_pollution_images?north=91&south=39&east=117&west=115")
+            assert resp.status_code == 400
+
+    def test_light_pollution_images_north_not_gt_south(self):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        with TestClient(app) as client:
+            resp = client.get("/api/light_pollution_images?north=30&south=40&east=117&west=115")
+            assert resp.status_code == 400
+
+    def test_coordinate_analysis_invalid_coords(self):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        # lat out of range
+        with TestClient(app) as client:
+            resp = client.get("/api/coordinate_analysis?lat=100&lng=200")
+            assert resp.status_code == 400
+
+    def test_coordinate_analysis_invalid_lng(self):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        # lng out of range (lat valid)
+        with TestClient(app) as client:
+            resp = client.get("/api/coordinate_analysis?lat=40&lng=200")
+            assert resp.status_code == 400
+
+    @patch("server.routes.pollution._require_analyzer", side_effect=RuntimeError("boom"))
+    def test_light_pollution_analyzer_failure(self, mock_req):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        with TestClient(app) as client:
+            resp = client.get("/api/light_pollution?north=41&south=39&east=117&west=115")
+            assert resp.status_code == 500
+
+    @patch("server.routes.pollution._require_analyzer", side_effect=RuntimeError("boom"))
+    def test_coordinate_analysis_analyzer_failure(self, mock_req):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        with TestClient(app) as client:
+            resp = client.get("/api/coordinate_analysis?lat=40.0&lng=116.0")
+            assert resp.status_code == 500
+
     def test_light_pollution_images_missing_params(self):
         from fastapi.testclient import TestClient
 
@@ -530,6 +588,165 @@ class TestFastApiRoutes:
             assert resp.status_code == 200
             data = resp.json()
             assert data["success"] is True
+
+    @patch("server.routes.stargazing.analyze_stargazing_area", side_effect=RuntimeError("analysis failed"))
+    @patch("server.routes.stargazing._default_geotiff_path")
+    @patch("server.routes.stargazing.os.path.exists", return_value=True)
+    def test_stargazing_analysis_failure(self, mock_exists, mock_geotiff, mock_analyze):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        mock_geotiff.return_value = "/fake/path.tif"
+        with TestClient(app) as client:
+            resp = client.post(
+                "/api/analyze_stargazing_area",
+                json={"bbox": {"north": 41, "south": 39, "east": 117, "west": 115}},
+            )
+            assert resp.status_code == 500
+
+    # ── Main app ─────────────────────────────────────────────────────
+
+    def test_root_returns_html(self):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        with TestClient(app) as client:
+            resp = client.get("/")
+            assert resp.status_code == 200
+            assert "html" in resp.headers["content-type"]
+
+    @patch("server.main._STATIC_DIR", autospec=False)
+    def test_root_template_missing_returns_404(self, mock_dir):
+
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        # Use a temp dir that doesn't have template.html
+        mock_dir.__truediv__.return_value = mock_dir
+        mock_dir.is_file.return_value = False
+        with TestClient(app) as client:
+            resp = client.get("/")
+            assert resp.status_code == 404
+
+    @patch("light_pollution.public_api.init_light_pollution_analyzer", side_effect=RuntimeError("init failed"))
+    def test_lifespan_init_failure_graceful(self, mock_init):
+        """Server starts even when analyzer init fails."""
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        with TestClient(app) as client:
+            resp = client.get("/api/health")
+            assert resp.status_code == 200
+
+    @patch("server.routes.stargazing.analyze_stargazing_area", side_effect=RuntimeError("fail"))
+    @patch("server.routes.stargazing._default_geotiff_path")
+    @patch("server.routes.stargazing.os.path.exists", return_value=True)
+    def test_get_stargazing_analysis_failure(self, mock_exists, mock_geotiff, mock_analyze):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        mock_geotiff.return_value = "/fake/path.tif"
+        with TestClient(app) as client:
+            resp = client.get("/api/analyze_stargazing_area?south=39&west=115&north=41&east=117")
+            assert resp.status_code == 500
+
+    def test_stargazing_options(self):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        with TestClient(app) as client:
+            resp = client.options("/api/analyze_stargazing_area")
+            assert resp.status_code == 200
+
+    @patch.dict("os.environ", {"STARGAZING_DB_CONFIG": "/fake/db.toml"})
+    @patch("server.routes.stargazing.analyze_stargazing_area")
+    @patch("server.routes.stargazing._default_geotiff_path")
+    @patch("server.routes.stargazing.os.path.exists", return_value=True)
+    def test_stargazing_with_db_config(self, mock_exists, mock_geotiff, mock_analyze):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        mock_geotiff.return_value = "/fake/path.tif"
+        mock_analyze.return_value = []
+        with TestClient(app) as client:
+            resp = client.get("/api/analyze_stargazing_area?south=39&west=115&north=41&east=117")
+            assert resp.status_code == 200
+
+    # ── Tile slow path ───────────────────────────────────────────────
+
+    @patch("server.routes.tiles.get_cached_tile", return_value=b"cached_png_data")
+    def test_tile_fast_path_cache_hit(self, mock_cache):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        with TestClient(app) as client:
+            resp = client.get("/api/light_pollution/tiles/3/1/1.png")
+            assert resp.status_code == 200
+            assert resp.content == b"cached_png_data"
+            assert resp.headers["content-type"] == "image/png"
+
+    @patch("server.routes.tiles._require_analyzer")
+    @patch("server.routes.tiles.render_tile")
+    @patch("server.routes.tiles.get_cached_tile", return_value=None)
+    def test_tile_slow_path(self, mock_cache, mock_render, mock_req):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        mock_req.return_value = MagicMock()
+        mock_render.return_value = b"\x89PNGfake"
+        with TestClient(app) as client:
+            resp = client.get("/api/light_pollution/tiles/3/1/1.png")
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/png"
+            mock_render.assert_called_once()
+
+    @patch("server.routes.tiles._require_analyzer")
+    @patch("server.routes.tiles.render_tile", return_value=None)
+    @patch("server.routes.tiles.get_cached_tile", return_value=None)
+    def test_tile_slow_path_empty(self, mock_cache, mock_render, mock_req):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        mock_req.return_value = MagicMock()
+        with TestClient(app) as client:
+            resp = client.get("/api/light_pollution/tiles/3/1/1.png")
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/png"
+
+    # ── Health error ─────────────────────────────────────────────────
+
+    @patch("server.routes.health._require_analyzer", side_effect=RuntimeError("no analyzer"))
+    def test_health_analyzer_failure(self, mock_req):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        with TestClient(app) as client:
+            resp = client.get("/api/health")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["analyzer_initialized"] is False
+
+    # ── Light pollution images edge ──────────────────────────────────
+
+    def test_light_pollution_images_invalid_lon(self):
+        from fastapi.testclient import TestClient
+
+        from server.main import app
+
+        with TestClient(app) as client:
+            resp = client.get("/api/light_pollution_images?north=41&south=39&east=200&west=115")
+            assert resp.status_code == 400
 
     @patch("server.routes.stargazing.analyze_stargazing_area")
     @patch("server.routes.stargazing._default_geotiff_path")
@@ -720,3 +937,48 @@ class TestTileCacheFunctions:
         assert response.mimetype == "image/png"
         # Verify the result was cached
         assert cache_key in api._tile_cache
+
+    # ── Shim wrapper functions ──────────────────────────────────────
+
+    def test_tile_coord_wrappers(self):
+        """_tile_to_lat, _tile_to_lng, _tile_bounds delegate correctly."""
+        import light_pollution.light_pollution_api as api
+
+        assert api._tile_to_lat(0, 1) > 80
+        assert api._tile_to_lng(0, 1) == -180.0
+        n, s, e, w = api._tile_bounds(0, 0, 1)
+        assert n > s and e > w
+
+    def test_build_cmap_lut_wrapper(self):
+        """_build_tile_cmap_lut returns a valid LUT."""
+        import light_pollution.light_pollution_api as api
+
+        lut = api._build_tile_cmap_lut()
+        assert lut.shape == (256, 4)
+
+    def test_clamp_tile_bounds_wrapper(self):
+        """_clamp_tile_bounds delegates correctly."""
+        import light_pollution.light_pollution_api as api
+
+        src = MagicMock()
+        src.bounds.left = -180
+        src.bounds.right = 180
+        src.bounds.bottom = -90
+        src.bounds.top = 90
+        result = api._clamp_tile_bounds(50, 40, 120, 110, src)
+        assert result == (50, 40, 120, 110)
+
+    def test_read_tile_window_wrapper(self):
+        """_read_tile_window delegates correctly."""
+        import light_pollution.light_pollution_api as api
+
+        src = MagicMock()
+        src.width = 10
+        src.height = 10
+        src.bounds.left = -180
+        src.bounds.right = 180
+        src.bounds.bottom = -90
+        src.bounds.top = 90
+        src.index.return_value = (5, 5)
+        result = api._read_tile_window(src, -10, 10, 30, 50)
+        assert result is None

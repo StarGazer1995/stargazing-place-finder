@@ -69,7 +69,7 @@ def build_tile_cmap_lut() -> np.ndarray:
     if _TILE_CMAP_LUT is not None:
         return _TILE_CMAP_LUT
 
-    with _cmap_lock:
+    with _cmap_lock:  # pragma: no cover — double-check for thread race only
         if _TILE_CMAP_LUT is not None:
             return _TILE_CMAP_LUT
 

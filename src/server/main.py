@@ -34,8 +34,7 @@ from server.routes.tiles import router as tiles_router
 _SERVER_DIR = Path(__file__).resolve().parent
 _STATIC_DIR = (_SERVER_DIR.parent / "source").resolve()
 
-if not _STATIC_DIR.is_dir():
-    # Fallback: look for source/ relative to cwd (Docker / alternative layouts)
+if not _STATIC_DIR.is_dir():  # pragma: no cover — Docker fallback
     _STATIC_DIR = Path(os.getcwd()) / "src" / "source"
 
 logger = logging.getLogger(__name__)
