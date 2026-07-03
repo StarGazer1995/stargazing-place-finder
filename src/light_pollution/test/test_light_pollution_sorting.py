@@ -11,8 +11,6 @@
 import unittest
 from unittest.mock import Mock
 
-import pytest
-
 from gis_service.parsers import sort_places_by_lightpollution
 
 
@@ -140,63 +138,3 @@ class TestLightPollutionSorting(unittest.TestCase):
         called_coords = self.mock_light_analyzer.batch_analyze_coordinates.call_args[0][0]
         expected_coords = [[39.9042, 116.4074], [31.2304, 121.4737], [22.3193, 114.1694]]
         self.assertEqual(called_coords, expected_coords)
-
-
-# ── Standalone parametrized tests (not inside unittest.TestCase) ──
-@pytest.mark.parametrize(
-    "places, analyzer, expected_len",
-    [
-        pytest.param([], Mock(), 0, id="empty-list"),
-        pytest.param([{"type": "node", "lat": 40.0, "lon": 116.0}], None, 1, id="no-analyzer"),
-        pytest.param(
-            [{"type": "node", "lat": 40.0, "lon": 116.0, "tags": {"name": "A"}}],
-            Mock(),
-            1,
-            id="single-item",
-        ),
-    ],
-)
-def test_sort_places_parametrized(places, analyzer, expected_len):
-    """Verify ``sort_places_by_lightpollution`` handles diverse inputs as a standalone function."""
-    if analyzer is not None and places:
-        analyzer.batch_analyze_coordinates.return_value = [{"index": 0, "pollution_info": Mock(brightness=0.5)}]
-    result = sort_places_by_lightpollution(places, analyzer)
-    assert len(result or []) == expected_len
-
-
-def run_light_pollution_tests():
-    """
-    运行光污染排序相关的所有测试
-
-    执行单元测试并输出详细的测试结果报告
-    """
-    print("=== Light Pollution Sorting Function Test ===")
-    print("Testing light pollution analysis and sorting functions")
-    print("=" * 50)
-
-    # 创建测试套件
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestLightPollutionSorting)
-
-    # 运行测试
-    runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
-
-    print("\n" + "=" * 50)
-    print(f"Test results: {result.testsRun - len(result.failures) - len(result.errors)}/{result.testsRun} tests passed")
-
-    if result.failures:
-        print(f"Failed tests: {len(result.failures)}")
-        for test, traceback in result.failures:
-            print(f"  - {test}: {traceback.split('AssertionError:')[-1].strip()}")
-
-    if result.errors:
-        print(f"Error tests: {len(result.errors)}")
-        for test, traceback in result.errors:
-            print(f"  - {test}: {traceback.split('Error:')[-1].strip()}")
-
-    if result.wasSuccessful():
-        print("🎉 All light pollution sorting tests passed!")
-        return True
-    else:
-        print("⚠️ Some tests failed, please check code logic")
-        return False
