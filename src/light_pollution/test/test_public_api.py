@@ -969,12 +969,12 @@ class TestTileCacheFunctions:
         assert result == (50, 40, 120, 110)
 
     def test_read_tile_window_wrapper(self):
-        """_read_tile_window delegates correctly."""
+        """_read_tile_window delegates correctly (returns None for empty window)."""
         import light_pollution.light_pollution_api as api
 
         src = MagicMock()
-        src.width = 10
-        src.height = 10
+        src.width = 0
+        src.height = 0
         src.bounds.left = -180
         src.bounds.right = 180
         src.bounds.bottom = -90

@@ -208,8 +208,9 @@ class TestReadTileWindow:
         analyzer.get_skyglow_for_window.assert_called_once()
 
     def test_read_invalid_window(self):
-        src = self._fake_src(width=1, height=1)
+        src = self._fake_src(width=0, height=0)
         analyzer = MagicMock()
+        analyzer._skyglow_grid = None
         result = read_tile_window(src, -10, 10, -50, -30, analyzer)
         assert result is None
 
