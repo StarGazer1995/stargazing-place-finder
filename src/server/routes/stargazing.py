@@ -27,6 +27,7 @@ class StargazingAreaRequest(BaseModel):
     max_locations: int = Field(default=30, ge=1, le=200)
     min_height_diff: float = Field(default=100.0, ge=0)
     road_radius_km: float = Field(default=10.0, ge=0)
+    max_distance_to_road_km: float = Field(default=0.2, ge=0)
     network_type: str = Field(default="drive")
 
 
@@ -77,6 +78,7 @@ async def analyze_stargazing_area_post(request: Request, body: StargazingAreaReq
         max_locations=body.max_locations,
         min_height_diff=body.min_height_diff,
         road_radius_km=body.road_radius_km,
+        max_distance_to_road_km=body.max_distance_to_road_km,
         network_type=body.network_type,
     )
 
@@ -95,6 +97,7 @@ async def analyze_stargazing_area_get(
     max_locations: int = Query(30, ge=1, le=200),
     min_height_diff: float = Query(100.0, ge=0),
     road_radius_km: float = Query(10.0, ge=0),
+    max_distance_to_road_km: float = Query(0.2, ge=0),
     network_type: str = Query("drive"),
 ) -> dict:
     """分析指定区域的观星地点（GET 查询参数）。"""
@@ -106,6 +109,7 @@ async def analyze_stargazing_area_get(
         max_locations=max_locations,
         min_height_diff=min_height_diff,
         road_radius_km=road_radius_km,
+        max_distance_to_road_km=max_distance_to_road_km,
         network_type=network_type,
     )
 
@@ -134,6 +138,7 @@ async def _run_stargazing_analysis(
     max_locations: int,
     min_height_diff: float,
     road_radius_km: float,
+    max_distance_to_road_km: float,
     network_type: str,
 ) -> dict:
     """Run the full stargazing area analysis in a thread pool."""
@@ -164,6 +169,7 @@ async def _run_stargazing_analysis(
             max_locations=max_locations,
             min_height_diff=min_height_diff,
             road_radius_km=road_radius_km,
+            max_distance_to_road_km=max_distance_to_road_km,
             network_type=network_type,
             db_config_path=db_config_path,
         )

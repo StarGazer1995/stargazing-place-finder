@@ -352,14 +352,6 @@ function updateLanguageElements() {
         statsPanelTitle.textContent = getText('darkSkyStats');
     }
     
-    const legendPanelTitle = document.querySelector('.legend-panel h3');
-    if (legendPanelTitle) {
-        legendPanelTitle.textContent = getText('legend');
-    }
-    
-    // 更新图例
-    updateLegend();
-    
     // 更新统计面板
     updateStatsPanel();
 }
@@ -1060,6 +1052,8 @@ function initializeSearch() {
     
     searchInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
+            // In telescope mode, celestial search is handled by initTelescopeMode
+            if (isTelescopeMode) return;
             const query = this.value.trim();
             if (query) {
                 searchLocation(query);
@@ -1188,27 +1182,13 @@ function initializeApp() {
  * 初始化绘制控件
  */
 function initializeDrawControls() {
-    // 创建绘制图层组
     drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
 
-    // 创建绘制控件
     drawControl = new L.Control.Draw({
         position: 'topleft',
         draw: {
-            polygon: {
-                allowIntersection: false,
-                drawError: {
-                    color: '#e1e100',
-                    message: '<strong>错误:</strong> 形状边缘不能交叉!'
-                },
-                shapeOptions: {
-                    color: '#4a90e2',
-                    weight: 3,
-                    opacity: 0.8,
-                    fillOpacity: 0.2
-                }
-            },
+            polygon: false,
             rectangle: {
                 shapeOptions: {
                     color: '#4a90e2',
@@ -1222,10 +1202,7 @@ function initializeDrawControls() {
             marker: false,
             circlemarker: false
         },
-        edit: {
-            featureGroup: drawnItems,
-            remove: true
-        }
+        edit: false
     });
 
     map.addControl(drawControl);
@@ -1302,18 +1279,20 @@ async function analyzeStargazingArea() {
         };
         
         // 获取表单数据
-        const maxPeaks = parseInt(document.getElementById('max-peaks').value) || 10;
+        const maxLocations = parseInt(document.getElementById('max-locations').value) || 30;
         const transportMode = document.getElementById('network-type').value || 'drive';
         const analyzeLightPollution = document.getElementById('include-light-pollution').checked;
         const checkRoadConnectivity = document.getElementById('include-road-connectivity').checked;
 
         // 构建请求数据
-        const requestData = {
+        var requestData = {
             bbox: bbox,
-            max_locations: maxPeaks,
+            max_locations: maxLocations,
             network_type: transportMode,
             include_light_pollution: analyzeLightPollution,
-            include_road_connectivity: checkRoadConnectivity
+            include_road_connectivity: checkRoadConnectivity,
+            road_radius_km: 10.0,
+            max_distance_to_road_km: 0.2
         };
 
         console.log('发送分析请求:', requestData);
@@ -1367,9 +1346,13 @@ function displayAnalysisResults(result) {
     analysisResults = result.locations;
 
     // 在地图上添加标记
-    analysisResults.forEach((location, index) => {
-        const marker = createStargazingMarker(location);
-        drawnItems.addLayer(marker);
+    analysisResults.forEach(function (location, index) {
+        try {
+            var marker = createStargazingMarker(location);
+            drawnItems.addLayer(marker);
+        } catch (err) {
+            console.error('创建标记失败:', location.name, err);
+        }
     });
 
     // 显示结果面板 - 已注释，只显示标记
@@ -1732,6 +1715,7 @@ function updateStatus(message, type = 'info') {
     
     indicator.textContent = message;
     indicator.className = `status-indicator ${type}`;
+    indicator.style.display = 'block';
     statusIndicator = indicator;
     
     // 3秒后自动隐藏成功和错误消息
@@ -1779,14 +1763,16 @@ function toggleMode() {
         controlPanel.style.display = 'none';
         
         // 移除绘制控件
-        if (drawControl && map && map.hasControl(drawControl)) {
-            map.removeControl(drawControl);
+        if (window._drawBtn && map && map.hasControl(window._drawBtn)) {
+            map.removeControl(window._drawBtn);
         }
         
         // 清除所有分析内容
         clearAll();
-        
-        updateStatus('已切换到浏览模式', 'info');
+
+        // Hide status
+        var statusEl = document.querySelector('.status-indicator');
+        if (statusEl) statusEl.style.display = 'none';
     }
 }
 
@@ -1839,6 +1825,459 @@ function initializeStargazingSelector() {
     checkApiHealth();
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  Telescope mode
+// ═══════════════════════════════════════════════════════════════════════
+
+let isTelescopeMode = false;
+let aladinInstance = null;
+let aladinInitialized = false;
+let aladinInitPromise = null;
+let aladinScriptLoaded = false;
+let aladinScriptPromise = null;
+
+// FOV canvas overlay (drawn via CSS on top of Aladin, using world2pix)
+let fovCanvas = null;
+let fovCanvasCtx = null;
+let fovAnimFrame = null;
+
+/**
+ * Dynamically load the Aladin Lite script (only when telescope mode is first
+ * activated).  Returns a promise that resolves when the A global is ready.
+ */
+function loadAladinScript() {
+    if (aladinScriptLoaded) return aladinScriptPromise;
+    if (aladinScriptPromise) return aladinScriptPromise;
+
+    aladinScriptPromise = new Promise(function (resolve, reject) {
+        var script = document.createElement('script');
+        script.src = 'https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js';
+        script.onload = function () {
+            aladinScriptLoaded = true;
+            resolve();
+        };
+        script.onerror = function () {
+            reject(new Error('Aladin Lite 脚本加载失败'));
+        };
+        document.head.appendChild(script);
+    });
+    return aladinScriptPromise;
+}
+
+// 设备预设
+const TELESCOPE_PRESETS = {
+    'custom': { name: '自定义' },
+    'seestar-s50': {
+        name: 'Seestar S50',
+        focalLength: 250,
+        sensorWidth: 7.6,
+        sensorHeight: 5.7,
+    },
+    'redcat51-asi2600': {
+        name: 'RedCat51 + ASI2600',
+        focalLength: 250,
+        sensorWidth: 23.5,
+        sensorHeight: 15.7,
+    },
+    'fullframe-200mm': {
+        name: '全画幅 + 200mm',
+        focalLength: 200,
+        sensorWidth: 36,
+        sensorHeight: 24,
+    },
+    'sct14-reducer': {
+        name: '14" SCT + 减焦',
+        focalLength: 2500,
+        sensorWidth: 23.5,
+        sensorHeight: 15.7,
+    },
+};
+
+/**
+ * Calculate FOV angles from sensor dimensions and focal length.
+ * @returns {{ fovW: number, fovH: number }} FOV width and height in degrees
+ */
+function calculateFov() {
+    const focalLength = parseFloat(document.getElementById('telescope-focal-length').value) || 250;
+    const sensorW = parseFloat(document.getElementById('telescope-sensor-width').value) || 23.5;
+    const sensorH = parseFloat(document.getElementById('telescope-sensor-height').value) || 15.7;
+
+    // FOV = 2 * atan(sensor_dim / (2 * focal_length))
+    const fovW_rad = 2 * Math.atan(sensorW / (2 * focalLength));
+    const fovH_rad = 2 * Math.atan(sensorH / (2 * focalLength));
+
+    return {
+        fovW: (fovW_rad * 180) / Math.PI,
+        fovH: (fovH_rad * 180) / Math.PI,
+    };
+}
+
+/**
+ * Create the transparent canvas overlay that sits on top of Aladin.
+ */
+function setupFovCanvas() {
+    const container = document.getElementById('aladin-lite-div');
+    if (!container) return;
+
+    // Remove old canvas if any
+    if (fovCanvas && fovCanvas.parentNode) {
+        fovCanvas.parentNode.removeChild(fovCanvas);
+    }
+
+    fovCanvas = document.createElement('canvas');
+    fovCanvas.id = 'fov-canvas';
+    fovCanvas.style.cssText =
+        'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;';
+    container.appendChild(fovCanvas);
+    fovCanvasCtx = fovCanvas.getContext('2d');
+}
+
+/**
+ * Draw the FOV rectangle on the canvas overlay using world2pix.
+ */
+function updateFovOverlay() {
+    if (!aladinInstance) return;
+
+    // Check if FOV overlay is enabled
+    var showFov = document.getElementById('show-fov-checkbox');
+    var fovEnabled = showFov ? showFov.checked : true;
+
+    // Update FOV display text regardless
+    var { fovW, fovH } = calculateFov();
+    var display = document.getElementById('fov-display');
+    if (display) {
+        display.textContent = fovW.toFixed(1) + '° × ' + fovH.toFixed(1) + '°';
+    }
+
+    // Clear and exit if FOV is disabled
+    if (!fovEnabled) {
+        if (fovCanvas && fovCanvasCtx) {
+            var r = fovCanvas.getBoundingClientRect();
+            fovCanvasCtx.clearRect(0, 0, r.width, r.height);
+        }
+        return;
+    }
+
+    if (!fovCanvasCtx) setupFovCanvas();
+    if (!fovCanvasCtx) return;
+
+    const canvas = fovCanvas;
+    const ctx = fovCanvasCtx;
+
+    // Match canvas resolution to display size
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // Clear
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    if (rect.width === 0 || rect.height === 0) return;
+
+    var coords = aladinInstance.getRaDec();
+    var raCenter = coords[0], decCenter = coords[1];
+    if (raCenter == null || decCenter == null) return;
+    if (isNaN(raCenter) || isNaN(decCenter)) return;
+
+    // Build FOV corners in celestial coords
+    const decRad = (decCenter * Math.PI) / 180;
+    const cosDec = Math.max(Math.cos(decRad), 0.01);
+    const halfW = (fovW / 2) / cosDec;
+    const halfH = fovH / 2;
+
+    const wrapRa = (ra) => ((ra % 360) + 360) % 360;
+    const corners = [
+        [wrapRa(raCenter - halfW), decCenter + halfH],
+        [wrapRa(raCenter + halfW), decCenter + halfH],
+        [wrapRa(raCenter + halfW), decCenter - halfH],
+        [wrapRa(raCenter - halfW), decCenter - halfH],
+    ];
+
+    // Convert celestial to screen coords
+    const screenPts = [];
+    for (let i = 0; i < 4; i++) {
+        const pt = aladinInstance.world2pix(corners[i][0], corners[i][1]);
+        if (!pt) { screenPts.length = 0; break; }
+        screenPts.push(pt);
+    }
+    if (screenPts.length < 4) return;
+
+    // Draw filled semi-transparent rectangle
+    ctx.beginPath();
+    ctx.moveTo(screenPts[0][0], screenPts[0][1]);
+    for (let i = 1; i < 4; i++) {
+        ctx.lineTo(screenPts[i][0], screenPts[i][1]);
+    }
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(74, 144, 226, 0.12)';
+    ctx.fill();
+    ctx.strokeStyle = '#4a90e2';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw corner circles
+    for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.arc(screenPts[i][0], screenPts[i][1], 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#87ceeb';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // Crosshair at center
+    const centerPt = aladinInstance.world2pix(raCenter, decCenter);
+    if (centerPt) {
+        const cx = centerPt[0], cy = centerPt[1];
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cx - 12, cy); ctx.lineTo(cx + 12, cy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx, cy - 12); ctx.lineTo(cx, cy + 12); ctx.stroke();
+    }
+
+    // Draw FOV label
+    if (screenPts.length === 4) {
+        const midTop = [
+            (screenPts[0][0] + screenPts[1][0]) / 2,
+            screenPts[0][1] - 14,
+        ];
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#87ceeb';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${fovW.toFixed(1)}° × ${fovH.toFixed(1)}°`, midTop[0], Math.max(14, midTop[1]));
+    }
+
+}
+
+/**
+ * Apply a preset configuration to the input fields.
+ */
+function applyPreset(presetKey) {
+    const preset = TELESCOPE_PRESETS[presetKey];
+    if (!preset || presetKey === 'custom') return;
+
+    document.getElementById('telescope-focal-length').value = preset.focalLength;
+    document.getElementById('telescope-sensor-width').value = preset.sensorWidth;
+    document.getElementById('telescope-sensor-height').value = preset.sensorHeight;
+}
+
+/**
+ * Initialize Aladin Lite (lazy — only when telescope mode is first activated).
+ * Returns a promise that resolves when Aladin is ready.
+ */
+function ensureAladinReady() {
+    if (aladinInitialized) {
+        return aladinInitPromise;
+    }
+    if (aladinInitPromise) {
+        return aladinInitPromise;
+    }
+
+    aladinInitPromise = loadAladinScript().then(function () {
+        return A.init;
+    }).then(function () {
+        aladinInstance = A.aladin('#aladin-lite-div', {
+            target: 'M 31',
+            fov: 2.5,
+            survey: 'P/DSS2/color',
+            cooFrame: 'equatorial',
+            showCooGridControl: true,
+            showSimbadPointerControl: true,
+            showProjectionControl: false,
+            showFullscreenControl: false,
+        });
+
+        // Update FOV when view changes — capture DOM events before Aladin's canvas
+        var aladinDiv = document.getElementById('aladin-lite-div');
+        var scheduleFovUpdate = function () {
+            setTimeout(function () { updateFovOverlay(); }, 100);
+        };
+        if (aladinDiv) {
+            aladinDiv.addEventListener('pointerup', scheduleFovUpdate, true);
+            aladinDiv.addEventListener('wheel', scheduleFovUpdate, true);
+            aladinDiv.addEventListener('touchend', scheduleFovUpdate, true);
+        }
+
+        aladinInitialized = true;
+        return aladinInstance;
+    });
+
+    return aladinInitPromise;
+}
+
+/**
+ * Wire up telescope panel interactions (runs once at page load).
+ */
+function initTelescopeMode() {
+    // ── Telescope preset selector ──
+    const presetSelect = document.getElementById('telescope-preset');
+    if (presetSelect) {
+        presetSelect.addEventListener('change', function () {
+            applyPreset(this.value);
+            updateFovOverlay();
+        });
+    }
+
+    // ── Manual input changes ──
+    ['telescope-focal-length', 'telescope-sensor-width', 'telescope-sensor-height']
+        .forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', function () {
+                    const presetSelect = document.getElementById('telescope-preset');
+                    if (presetSelect) presetSelect.value = 'custom';
+                    updateFovOverlay();
+                });
+            }
+        });
+
+    // ── Aladin object search ──
+    // ── Celestial search via the unified search bar ──
+    var searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function (e) {
+            if (e.key !== 'Enter' || !isTelescopeMode || !aladinInstance) return;
+            var query = this.value.trim();
+            if (!query) return;
+            aladinInstance.gotoObject(query, {
+                success: function () {
+                    setTimeout(function () { updateFovOverlay(); }, 300);
+                },
+                error: function () {
+                    showToast('未找到天体: ' + query, 'error');
+                },
+            });
+        });
+    }
+
+    // ── Show FOV checkbox ──
+    var showFovCb = document.getElementById('show-fov-checkbox');
+    if (showFovCb) {
+        showFovCb.addEventListener('change', function () {
+            updateFovOverlay();
+        });
+    }
+
+    // ── Collapsible panel ──
+    var panelHeader = document.getElementById('telescope-panel-header');
+    var telescopePanel = document.getElementById('telescope-control-panel');
+    if (panelHeader && telescopePanel) {
+        panelHeader.addEventListener('click', function () {
+            telescopePanel.classList.toggle('collapsed');
+        });
+    }
+
+    // ── Telescope toggle button ──
+    const telescopeBtn = document.getElementById('telescope-toggle-btn');
+    if (telescopeBtn) {
+        telescopeBtn.addEventListener('click', toggleTelescopeMode);
+    }
+}
+
+/**
+ * Toggle between map mode and telescope (sky chart) mode.
+ */
+function toggleTelescopeMode() {
+    isTelescopeMode = !isTelescopeMode;
+
+    const mapEl = document.getElementById('map');
+    const aladinContainer = document.getElementById('aladin-container');
+    const telescopePanel = document.getElementById('telescope-control-panel');
+    const telescopeBtn = document.getElementById('telescope-toggle-btn');
+    // Map-only panels — hide in telescope mode, restore in map mode
+    const mapPanelSelectors = [
+        '.bortle-bar-container',
+        '.stats-panel',
+        '.info-panel',
+        '.status-indicator',
+        '.results-panel',
+        '.control-panel',
+    ];
+
+    if (isTelescopeMode) {
+        // Switch to telescope mode
+        if (mapEl) mapEl.style.display = 'none';
+        if (aladinContainer) aladinContainer.style.display = 'block';
+        if (telescopePanel) telescopePanel.style.display = 'block';
+        if (telescopeBtn) {
+            telescopeBtn.textContent = '🗺️ 返回地图';
+            telescopeBtn.classList.add('active');
+        }
+        const modeBtn = document.getElementById('mode-toggle-btn');
+        if (modeBtn) modeBtn.style.display = 'none';
+
+        // Hide the separate aladin search (we reuse the main search bar)
+        var aladinSearch = document.getElementById('aladin-search-container');
+        if (aladinSearch) aladinSearch.style.display = 'none';
+
+        // Remove analysis draw control while in telescope mode
+        if (drawControl && map && map.hasControl(drawControl)) {
+            map.removeControl(drawControl);
+        }
+
+        // Repurpose main search bar for celestial objects
+        var searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.dataset.mapPlaceholder = searchInput.placeholder;
+            searchInput.placeholder = '搜索天体 (如 M31, M42, NGC 7000)...';
+        }
+
+        // Hide all map-specific panels
+        mapPanelSelectors.forEach(function (sel) {
+            var el = document.querySelector(sel);
+            if (el) el.style.display = 'none';
+        });
+
+        // Lazy-init Aladin on first activation
+        ensureAladinReady().then(function () {
+            setTimeout(function () { updateFovOverlay(); }, 400);
+        }).catch(function (err) {
+            console.error('Aladin init failed:', err);
+            showToast('星图加载失败，请刷新页面重试', 'error');
+        });
+    } else {
+        // Switch back to map mode
+        if (mapEl) mapEl.style.display = 'block';
+        if (aladinContainer) aladinContainer.style.display = 'none';
+        if (telescopePanel) telescopePanel.style.display = 'none';
+        if (telescopeBtn) {
+            telescopeBtn.textContent = '🔭 望远镜模式';
+            telescopeBtn.classList.remove('active');
+        }
+        if (document.getElementById('mode-toggle-btn')) {
+            document.getElementById('mode-toggle-btn').style.display = '';
+        }
+
+        // Restore analysis draw control if in analysis mode
+        if (isAnalysisMode && drawControl && map && !map.hasControl(drawControl)) {
+            map.addControl(drawControl);
+        }
+
+        // Restore search bar
+        var searchInput = document.getElementById('search-input');
+        if (searchInput && searchInput.dataset.mapPlaceholder) {
+            searchInput.placeholder = searchInput.dataset.mapPlaceholder;
+        }
+
+        // Restore map panels
+        mapPanelSelectors.forEach(function (sel) {
+            var el = document.querySelector(sel);
+            if (el) el.style.display = '';
+        });
+
+        // Clean up FOV canvas
+        if (fovCanvas && fovCanvas.parentNode) {
+            fovCanvas.parentNode.removeChild(fovCanvas);
+            fovCanvas = null;
+            fovCanvasCtx = null;
+        }
+    }
+}
+
 // ==================== 应用初始化 ====================
 
 // 初始化应用
@@ -1846,8 +2285,10 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         initializeApp();
         initializeStargazingSelector();
+        initTelescopeMode();
     });
 } else {
     initializeApp();
     initializeStargazingSelector();
+    initTelescopeMode();
 }
