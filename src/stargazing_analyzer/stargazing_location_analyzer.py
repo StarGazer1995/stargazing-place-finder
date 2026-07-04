@@ -208,6 +208,8 @@ class StargazingLocationAnalyzer:
         )
 
         stargazing_locations.sort(key=lambda x: x.stargazing_score or 0, reverse=True)
+        if len(stargazing_locations) > max_locations:
+            stargazing_locations = stargazing_locations[:max_locations]
         logger.info("Analysis completed, total %s stargazing locations", len(stargazing_locations))
         return stargazing_locations
 

@@ -435,7 +435,11 @@ class TestAnalyzeAreaWithMockData:
     """Test _search_locations and analyze_area pipeline with mocked data."""
 
     def test_search_locations_truncates(self, analyzer):
-        """_search_locations truncates to max_locations."""
+        """_search_locations collects all from each type without per-type cap.
+
+        The max_locations limit is applied *after* scoring in analyze_area,
+        not inside _search_locations.
+        """
         from models import LatLonBox
 
         peak = MagicMock()
@@ -450,11 +454,11 @@ class TestAnalyzeAreaWithMockData:
         peak.location_type = "mountain_peak"
         peak.description = None
 
-        # Return 2 peaks but max_locations=1 → should truncate to 1
         analyzer.mountain_finder.find_peaks_in_area.return_value = [peak, peak]
         bbox = LatLonBox(south=39.0, west=115.0, north=41.0, east=117.0)
         result = analyzer._search_locations(bbox, max_locations=1, location_types=["mountain_peak"])
-        assert len(result) == 1
+        # Both peaks pass — _search_locations no longer truncates to max_locations
+        assert len(result) == 2
 
     def test_unsupported_location_type(self, analyzer, caplog):
         """Unsupported location types log a warning."""
