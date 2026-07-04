@@ -352,14 +352,6 @@ function updateLanguageElements() {
         statsPanelTitle.textContent = getText('darkSkyStats');
     }
     
-    const legendPanelTitle = document.querySelector('.legend-panel h3');
-    if (legendPanelTitle) {
-        legendPanelTitle.textContent = getText('legend');
-    }
-    
-    // 更新图例
-    updateLegend();
-    
     // 更新统计面板
     updateStatsPanel();
 }
@@ -1190,27 +1182,13 @@ function initializeApp() {
  * 初始化绘制控件
  */
 function initializeDrawControls() {
-    // 创建绘制图层组
     drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
 
-    // 创建绘制控件
     drawControl = new L.Control.Draw({
         position: 'topleft',
         draw: {
-            polygon: {
-                allowIntersection: false,
-                drawError: {
-                    color: '#e1e100',
-                    message: '<strong>错误:</strong> 形状边缘不能交叉!'
-                },
-                shapeOptions: {
-                    color: '#4a90e2',
-                    weight: 3,
-                    opacity: 0.8,
-                    fillOpacity: 0.2
-                }
-            },
+            polygon: false,
             rectangle: {
                 shapeOptions: {
                     color: '#4a90e2',
@@ -1224,10 +1202,7 @@ function initializeDrawControls() {
             marker: false,
             circlemarker: false
         },
-        edit: {
-            featureGroup: drawnItems,
-            remove: true
-        }
+        edit: false
     });
 
     map.addControl(drawControl);
@@ -1304,18 +1279,20 @@ async function analyzeStargazingArea() {
         };
         
         // 获取表单数据
-        const maxPeaks = parseInt(document.getElementById('max-peaks').value) || 10;
+        const maxLocations = parseInt(document.getElementById('max-locations').value) || 30;
         const transportMode = document.getElementById('network-type').value || 'drive';
         const analyzeLightPollution = document.getElementById('include-light-pollution').checked;
         const checkRoadConnectivity = document.getElementById('include-road-connectivity').checked;
 
         // 构建请求数据
-        const requestData = {
+        var requestData = {
             bbox: bbox,
-            max_locations: maxPeaks,
+            max_locations: maxLocations,
             network_type: transportMode,
             include_light_pollution: analyzeLightPollution,
-            include_road_connectivity: checkRoadConnectivity
+            include_road_connectivity: checkRoadConnectivity,
+            road_radius_km: 10.0,
+            max_distance_to_road_km: 0.2
         };
 
         console.log('发送分析请求:', requestData);
@@ -1369,9 +1346,13 @@ function displayAnalysisResults(result) {
     analysisResults = result.locations;
 
     // 在地图上添加标记
-    analysisResults.forEach((location, index) => {
-        const marker = createStargazingMarker(location);
-        drawnItems.addLayer(marker);
+    analysisResults.forEach(function (location, index) {
+        try {
+            var marker = createStargazingMarker(location);
+            drawnItems.addLayer(marker);
+        } catch (err) {
+            console.error('创建标记失败:', location.name, err);
+        }
     });
 
     // 显示结果面板 - 已注释，只显示标记
@@ -1734,6 +1715,7 @@ function updateStatus(message, type = 'info') {
     
     indicator.textContent = message;
     indicator.className = `status-indicator ${type}`;
+    indicator.style.display = 'block';
     statusIndicator = indicator;
     
     // 3秒后自动隐藏成功和错误消息
@@ -1781,14 +1763,16 @@ function toggleMode() {
         controlPanel.style.display = 'none';
         
         // 移除绘制控件
-        if (drawControl && map && map.hasControl(drawControl)) {
-            map.removeControl(drawControl);
+        if (window._drawBtn && map && map.hasControl(window._drawBtn)) {
+            map.removeControl(window._drawBtn);
         }
         
         // 清除所有分析内容
         clearAll();
-        
-        updateStatus('已切换到浏览模式', 'info');
+
+        // Hide status
+        var statusEl = document.querySelector('.status-indicator');
+        if (statusEl) statusEl.style.display = 'none';
     }
 }
 
@@ -2206,7 +2190,7 @@ function toggleTelescopeMode() {
     const telescopeBtn = document.getElementById('telescope-toggle-btn');
     // Map-only panels — hide in telescope mode, restore in map mode
     const mapPanelSelectors = [
-        '.legend-panel',
+        '.bortle-bar-container',
         '.stats-panel',
         '.info-panel',
         '.status-indicator',
@@ -2229,6 +2213,11 @@ function toggleTelescopeMode() {
         // Hide the separate aladin search (we reuse the main search bar)
         var aladinSearch = document.getElementById('aladin-search-container');
         if (aladinSearch) aladinSearch.style.display = 'none';
+
+        // Remove analysis draw control while in telescope mode
+        if (drawControl && map && map.hasControl(drawControl)) {
+            map.removeControl(drawControl);
+        }
 
         // Repurpose main search bar for celestial objects
         var searchInput = document.getElementById('search-input');
@@ -2261,6 +2250,11 @@ function toggleTelescopeMode() {
         }
         if (document.getElementById('mode-toggle-btn')) {
             document.getElementById('mode-toggle-btn').style.display = '';
+        }
+
+        // Restore analysis draw control if in analysis mode
+        if (isAnalysisMode && drawControl && map && !map.hasControl(drawControl)) {
+            map.addControl(drawControl);
         }
 
         // Restore search bar

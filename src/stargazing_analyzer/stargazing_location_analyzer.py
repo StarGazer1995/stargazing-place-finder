@@ -240,8 +240,8 @@ class StargazingLocationAnalyzer:
             logger.info("No qualifying stargazing locations found")
             return []
 
-        if len(all_locations) > max_locations:
-            all_locations = all_locations[:max_locations]
+        # Collect all qualifying locations from all types — no per-type cap.
+        # The final scoring + sort + top-N happens after scoring in analyze_area.
         logger.info("Total %s locations found, starting detailed analysis...", len(all_locations))
         return all_locations
 
@@ -425,8 +425,16 @@ class StargazingLocationAnalyzer:
         include_road_connectivity: bool,
         network_type: str,
     ) -> None:
-        """Enrich with road accessibility info (Stage 2c)."""
+        """Enrich with road accessibility info (Stage 2c).
+
+        Only checks road connectivity for natural features (mountain_peak).
+        Observatories and viewpoints are man-made and always have road access.
+        """
         if not include_road_connectivity:
+            return
+        if raw_location.location_type != "mountain_peak":
+            stargazing_loc.road_accessible = True
+            stargazing_loc.distance_to_road_km = 0.0
             return
         try:
             road_info = self.road_checker.get_accessibility_info(

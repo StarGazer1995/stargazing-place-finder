@@ -61,8 +61,14 @@ echo "📦 检查项目依赖..."
 echo "📦 Checking project dependencies..."
 uv sync
 
+# 数据库和配置路径
+export STARGAZING_DB_CONFIG="${PROJECT_ROOT}/config/postgis_config.toml"
+export STARGAZING_CONFIG="${PROJECT_ROOT}/config/stargazing_config.toml"
+
 echo "🚀 启动 FastAPI 服务 (API + 前端)..."
 echo "🚀 Starting FastAPI server (API + frontend)..."
+echo "📦 DB config: ${STARGAZING_DB_CONFIG}"
+echo "📦 SG config: ${STARGAZING_CONFIG}"
 uv run uvicorn server.main:app --host 0.0.0.0 --port "${API_PORT}" --reload &
 API_PID=$!
 

@@ -65,12 +65,11 @@
         </div>
     </div>
 
-    <!-- 图例面板 -->
-    <div class="legend-panel" role="complementary">
-        <h3>波特尔暗空分类</h3>
-        <div class="legend-content">
-            <!-- 图例内容将由JavaScript动态生成 -->
-        </div>
+    <!-- 光污染图例 — 紧凑渐变条 -->
+    <div class="bortle-bar-container" role="complementary">
+        <span class="bortle-bar-label">1 暗空</span>
+        <div class="bortle-gradient-bar"></div>
+        <span class="bortle-bar-label">9 内城</span>
     </div>
 
     <!-- 观星区域分析控制面板 -->
@@ -80,13 +79,13 @@
         <div class="control-group">
             <label>📍 绘制分析区域</label>
             <p style="font-size: 12px; color: #b8b8d1; margin-bottom: 10px;">
-                使用地图上的绘制工具选择要分析的区域
+                使用左上角的矩形工具在地图上拖拽绘制分析区域
             </p>
         </div>
 
         <div class="control-group">
-            <label for="max-peaks">🏔️ 最大山峰数量</label>
-            <input type="number" id="max-peaks" min="5" max="100" value="30">
+            <label for="max-locations">📍 最大返回地点数</label>
+            <input type="number" id="max-locations" min="5" max="100" value="30">
         </div>
 
         <div class="control-group">

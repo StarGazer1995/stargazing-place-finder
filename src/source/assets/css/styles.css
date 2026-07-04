@@ -265,50 +265,37 @@ body {
     color: #ffffff;
 }
 
-/* 图例面板 */
-.legend-panel {
+/* 光污染图例 — 紧凑渐变条 */
+.bortle-bar-container {
     position: absolute;
     bottom: 20px;
-    left: 20px;
-    background: rgba(0, 0, 0, 0.85);
-    color: white;
-    padding: 20px;
-    border-radius: 12px;
+    right: 20px;
     z-index: 1000;
-    backdrop-filter: blur(15px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    max-width: 350px;
-}
-
-.legend-panel h3 {
-    margin-bottom: 15px;
-    color: #64b5f6;
-    font-size: 18px;
-    font-weight: 600;
-    border-bottom: 2px solid rgba(100, 181, 246, 0.3);
-    padding-bottom: 8px;
-}
-
-.legend-item {
     display: flex;
     align-items: center;
-    margin-bottom: 10px;
-    font-size: 14px;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.82);
+    border-radius: 8px;
+    padding: 8px 12px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.legend-color {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
-    margin-right: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    flex-shrink: 0;
+.bortle-bar-label {
+    font-size: 11px;
+    color: #ccc;
+    white-space: nowrap;
+    line-height: 1;
 }
 
-.legend-text {
-    line-height: 1.4;
-    color: #e0e0e0;
+.bortle-gradient-bar {
+    width: 160px;
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(to right,
+        #0a0a2e, #1a2a5a, #2d4a7a, #4a4a00, #666600, #cc6600, #cc3300, #ff0066, #ff00ff
+    );
+    border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 /* 搜索框 */
@@ -653,54 +640,52 @@ body {
 /* 响应式设计 */
 @media (max-width: 768px) {
     .info-panel,
-    .stats-panel,
-    .legend-panel {
+    .stats-panel {
         position: relative;
         margin: 10px;
         max-width: none;
         width: calc(100% - 20px);
     }
-    
+
+    .bortle-bar-container {
+        bottom: 10px;
+        right: 10px;
+    }
+
+    .bortle-gradient-bar {
+        width: 100px;
+    }
+
     .search-container {
         top: 10px;
         padding: 0 10px;
     }
-    
+
     .language-toggle {
         top: 70px;
         right: 10px;
     }
-    
+
     .stats-panel {
         top: 10px;
         left: 10px;
     }
-    
+
     .info-panel {
         top: 10px;
         right: 10px;
     }
-    
-    .legend-panel {
-        bottom: 10px;
-        left: 10px;
-    }
 }
 
 @media (max-width: 480px) {
-    .info-panel,
-    .stats-panel,
-    .legend-panel {
-        padding: 15px;
-        font-size: 13px;
+    .bortle-gradient-bar {
+        width: 80px;
     }
-    
-    .info-panel h3,
-    .stats-panel h3,
-    .legend-panel h3 {
-        font-size: 16px;
+
+    .bortle-bar-label {
+        font-size: 10px;
     }
-    
+
     #search-input {
         font-size: 14px;
         padding: 10px 16px;
@@ -809,7 +794,7 @@ body {
 @media (prefers-contrast: high) {
     .info-panel,
     .stats-panel,
-    .legend-panel {
+    .bortle-bar-container {
         background: rgba(0, 0, 0, 0.95);
         border: 2px solid white;
     }
@@ -839,8 +824,9 @@ body {
 /* 控制面板样式 */
 .control-panel {
     position: absolute;
-    top: 20px;
+    top: 50%;
     right: 20px;
+    transform: translateY(-50%);
     background: rgba(26, 26, 46, 0.95);
     border: 2px solid #4a90e2;
     border-radius: 12px;
@@ -949,14 +935,17 @@ body {
 .status-indicator {
     position: absolute;
     bottom: 20px;
-    left: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     background: rgba(26, 26, 46, 0.95);
     border: 1px solid #4a90e2;
     border-radius: 8px;
-    padding: 10px 15px;
+    padding: 10px 20px;
     z-index: 1000;
     font-size: 14px;
     color: #b8b8d1;
+    white-space: nowrap;
+    display: none;
 }
 
 .status-indicator.loading {
