@@ -27,6 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
+  "stargazing-core @ git+https://github.com/StarGazer1995/stargazing-core.git",
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.34.0",
   "folium>=0.14.0",

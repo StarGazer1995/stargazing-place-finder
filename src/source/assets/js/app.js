@@ -2005,6 +2005,24 @@ function updateFovOverlay() {
     }
     if (screenPts.length < 4) return;
 
+    // Apply screen-space rotation
+    var rotSlider = document.getElementById('telescope-rotation');
+    var rotDeg = rotSlider ? parseFloat(rotSlider.value) || 0 : 0;
+    if (Math.abs(rotDeg) > 0.01) {
+        var rotRad = (-rotDeg * Math.PI) / 180;  // negative = clockwise
+        var cosR = Math.cos(rotRad), sinR = Math.sin(rotRad);
+        // Compute screen center
+        var scx = 0, scy = 0;
+        for (var j = 0; j < 4; j++) { scx += screenPts[j][0]; scy += screenPts[j][1]; }
+        scx /= 4; scy /= 4;
+        // Rotate each corner around center
+        for (var k = 0; k < 4; k++) {
+            var dx = screenPts[k][0] - scx;
+            var dy = screenPts[k][1] - scy;
+            screenPts[k] = [scx + dx * cosR - dy * sinR, scy + dx * sinR + dy * cosR];
+        }
+    }
+
     // Draw filled semi-transparent rectangle
     ctx.beginPath();
     ctx.moveTo(screenPts[0][0], screenPts[0][1]);
@@ -2039,16 +2057,16 @@ function updateFovOverlay() {
         ctx.beginPath(); ctx.moveTo(cx, cy - 12); ctx.lineTo(cx, cy + 12); ctx.stroke();
     }
 
-    // Draw FOV label
+    // Draw FOV label above the topmost edge
     if (screenPts.length === 4) {
-        const midTop = [
-            (screenPts[0][0] + screenPts[1][0]) / 2,
-            screenPts[0][1] - 14,
-        ];
+        // Find the top two corners by screen Y (lowest Y = highest on screen)
+        var sorted = screenPts.slice().sort(function (a, b) { return a[1] - b[1]; });
+        var midTopX = (sorted[0][0] + sorted[1][0]) / 2;
+        var midTopY = sorted[0][1] - 14;
         ctx.font = '12px sans-serif';
         ctx.fillStyle = '#87ceeb';
         ctx.textAlign = 'center';
-        ctx.fillText(`${fovW.toFixed(1)}° × ${fovH.toFixed(1)}°`, midTop[0], Math.max(14, midTop[1]));
+        ctx.fillText(fovW.toFixed(1) + '° × ' + fovH.toFixed(1) + '°', midTopX, Math.max(14, midTopY));
     }
 
 }
@@ -2151,6 +2169,16 @@ function initTelescopeMode() {
                     showToast('未找到天体: ' + query, 'error');
                 },
             });
+        });
+    }
+
+    // ── Rotation slider ──
+    var rotSlider = document.getElementById('telescope-rotation');
+    var rotLabel = document.getElementById('rotation-value');
+    if (rotSlider) {
+        rotSlider.addEventListener('input', function () {
+            if (rotLabel) rotLabel.textContent = this.value + '°';
+            updateFovOverlay();
         });
     }
 
