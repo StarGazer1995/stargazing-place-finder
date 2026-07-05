@@ -57,7 +57,7 @@
 
 | # | 任务 | 说明 |
 |---|------|------|
-| 2.1 | 天体角直径数据 enrich | 混合方案：Messier 110 全量 + 亮 NGC 星系/星云 ~200 个预先 enrich，其余 SIMBAD 按需 |
+| 2.1 | 天体角直径数据 enrich | SIMBAD `galdim_*` 字段批量查询 ~10,000 天体（~90% 覆盖率），无数据天体回退类型估算 |
 | 2.2 | 匹配管线实现 | 在 `mcp-stargazing/src/functions/telescope/impl.py`，直接 import 本地 celestial，不需要共享包 |
 | 2.3 | MCP 工具暴露 | `get_telescope_targets` 工具，天然双用：SPF 前端通过 HTTP 调，AI 客户端通过 MCP 协议调 |
 | 2.4 | 前端对接 | Aladin `addCatalog()` 标记推荐目标 + 推荐列表 + 详情 popup |
@@ -159,41 +159,48 @@
 
 ## 4. 核心数据缺口（Phase 2 阻塞项）
 
-### 3.1 天体角直径（angular size）
+### 4.1 天体角直径（angular size）✅ 已调研
 
-`objects.json`（10,000+ Messier/NGC）当前字段：
+`objects.json`（10,000+ Messier/NGC）当前字段缺少 `angular_size`。经过 SIMBAD 调研（2026-07-04），**`galdim_*` 字段对所有类型天体有效**：
 
-```json
-{
-  "name": "M  31",
-  "type": "Galaxy",
-  "ra": 10.6847,
-  "dec": 41.2692,
-  "magnitude": 3.44,
-  "catalog": "Messier"
-}
+| SIMBAD 字段 | 含义 | 单位 |
+|-------------|------|------|
+| `galdim_majaxis` | 长轴角直径 | arcmin |
+| `galdim_minaxis` | 短轴角直径 | arcmin |
+| `galdim_angle` | 位置角 (PA) | degree |
+
+**实测覆盖率 9/10**：
+
+| 对象 | 类型 | majaxis | minaxis | PA |
+|------|------|---------|---------|-----|
+| M31 | Galaxy | 199.5' | 70.8' | 35° |
+| M42 | HII Nebula | 66.0' | 66.0' | 90° |
+| M13 | Globular Cluster | 33.0' | 33.0' | — |
+| M57 | Planetary Nebula | 1.2' | 1.2' | 90° |
+| M1 | Supernova Remnant | 7.0' | 5.0' | — |
+| NGC 7000 | Emission Nebula | — | — | 无数据 |
+
+仅超大不规则天体（如北美洲星云）无数据。
+
+**Phase 2 实现策略**：
+
+```python
+Simbad.add_votable_fields('galdim_majaxis', 'galdim_minaxis', 'galdim_angle')
 ```
 
-**缺少 `angular_size` 字段**，而这是望远镜匹配最关键的参数——决定了天体在画幅中的占比。
+- **批量 enrich**：对 ~10,000 天体批量查询 SIMBAD，预计 ~90% 有数据
+- **本地缓存**：写入 `angular_size_maj_arcmin`、`angular_size_min_arcmin`、`angular_size_pa_deg`
+- **回退**：无数据天体标记 `null`，匹配时按类型估算
 
-获取途径：
+### 4.2 天体表面亮度（surface brightness）
 
-| 途径 | 优点 | 缺点 |
-|------|------|------|
-| **SIMBAD 按需查询** | 数据准确、实时 | 慢（网络请求），已有 `_resolve_simbad_object` 可参考 |
-| **按类型粗略估算** | 快，不需要改数据 | 不准确，同类型天体大小差异可达 10 倍 |
-| **预先 enrich objects.json** | 快且准确，一劳永逸 | 需要找数据源（VizieR/HyperLeda），10,000+ 对象批量处理 |
-| **混合方案** | 常用对象预计算 + 冷门对象 SIMBAD 回退 | 实现复杂度中等 |
+有长轴/短轴后可直接计算椭圆面积，精度优于圆形近似：
 
-**倾向：混合方案**——先 enrich 一份常用对象（Messier 110 + 亮 NGC ~500 个），其余按需 SIMBAD。
+```
+SB = m + 2.5 × log₁₀(π × a × b)   [mag/arcmin²]
+```
 
-### 3.2 天体表面亮度（surface brightness）
-
-`magnitude` 是**累积星等**（integrated magnitude），对于展源（星系、星云）会严重低估观测难度。例如 M33（三角座星系）累积星等 5.7 看起来挺亮，但因为角直径 ~70×40 角分，表面亮度极低，在小望远镜里几乎看不见。
-
-表面亮度计算：`SB = m + 2.5 × log₁₀(area)`，其中 area 是椭球面积（角分²）。
-
-需要 angular_size 才能计算，所以**依赖 3.1 先解决**。
+其中 a、b 为长轴/短轴半径（arcmin）。
 
 ## 5. 望远镜配置模型（Phase 1+2 共用）
 
