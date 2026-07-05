@@ -25,6 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from server.routes.health import router as health_router
 from server.routes.pollution import router as pollution_router
 from server.routes.stargazing import router as stargazing_router
+from server.routes.telescope import router as telescope_router
 from server.routes.tiles import router as tiles_router
 
 # ---------------------------------------------------------------------------
@@ -79,6 +80,7 @@ app.include_router(health_router)
 app.include_router(tiles_router)
 app.include_router(pollution_router)
 app.include_router(stargazing_router)
+app.include_router(telescope_router)
 
 # Static assets (JS / CSS)
 _assets_dir = _STATIC_DIR / "assets"
