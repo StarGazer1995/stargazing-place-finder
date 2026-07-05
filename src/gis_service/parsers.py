@@ -10,7 +10,7 @@ and sorting by light pollution.
 import math
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
-from models import GeoCoordinate, Observatory, Peak, TownInfo, Viewpoint
+from models import GeoPoint, Observatory, Peak, TownInfo, Viewpoint
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Shared conversion utilities (single source of truth)
@@ -99,7 +99,7 @@ if TYPE_CHECKING:
     from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 
 
-def extract_coordinates(data: Dict) -> Optional[GeoCoordinate]:
+def extract_coordinates(data: Dict) -> Optional[GeoPoint]:
     """
     Extract coordinates from location data dict (Overpass API format).
 
@@ -107,20 +107,20 @@ def extract_coordinates(data: Dict) -> Optional[GeoCoordinate]:
         data: Location data dictionary with 'type', 'lat', 'lon' or 'center' keys.
 
     Returns:
-        A GeoCoordinate, or None if extraction fails.
+        A GeoPoint, or None if extraction fails.
     """
     try:
         if data["type"] == "node":
-            return GeoCoordinate(latitude=data["lat"], longitude=data["lon"])
+            return GeoPoint(lat=data["lat"], lon=data["lon"])
         elif "center" in data:
-            return GeoCoordinate(latitude=data["center"]["lat"], longitude=data["center"]["lon"])
+            return GeoPoint(lat=data["center"]["lat"], lon=data["center"]["lon"])
         else:
             return None
     except KeyError:
         return None
 
 
-def calculate_distance(p1: GeoCoordinate, p2: GeoCoordinate) -> float:
+def calculate_distance(p1: GeoPoint, p2: GeoPoint) -> float:
     """
     Calculate distance between two geographic coordinates using Haversine formula.
 
@@ -132,8 +132,8 @@ def calculate_distance(p1: GeoCoordinate, p2: GeoCoordinate) -> float:
         Distance in kilometers.
     """
     R = 6371  # Earth radius (kilometers)
-    lat1, lon1 = p1.latitude, p1.longitude
-    lat2, lon2 = p2.latitude, p2.longitude
+    lat1, lon1 = p1.lat, p1.lon
+    lat2, lon2 = p2.lat, p2.lon
 
     lat1_rad = math.radians(lat1)
     lat2_rad = math.radians(lat2)
@@ -149,7 +149,7 @@ def calculate_distance(p1: GeoCoordinate, p2: GeoCoordinate) -> float:
 
 
 def find_nearest_town(
-    point: GeoCoordinate,
+    point: GeoPoint,
     towns: List[Dict],
     elevation_func: Optional[Callable[[float, float], Optional[float]]] = None,
 ) -> TownInfo:
@@ -182,7 +182,7 @@ def find_nearest_town(
         except KeyError:
             continue
 
-        distance = calculate_distance(point, GeoCoordinate(latitude=town_lat, longitude=town_lon))
+        distance = calculate_distance(point, GeoPoint(lat=town_lat, lon=town_lon))
 
         if distance < min_distance:
             min_distance = distance
@@ -248,7 +248,7 @@ def sort_places_by_lightpollution(
 
 def process_peak_data(
     name: str,
-    point: GeoCoordinate,
+    point: GeoPoint,
     elevation: float,
     tags: Dict,
     nearest_town: str,
@@ -265,7 +265,7 @@ def process_peak_data(
         min_height_difference: Minimum height difference (m) from nearest
                                town; peaks below this threshold are skipped.
     """
-    lat, lon = point.latitude, point.longitude
+    lat, lon = point.lat, point.lon
     height_difference = None
     if town_elevation is not None:
         height_difference = elevation - town_elevation
@@ -274,8 +274,8 @@ def process_peak_data(
 
     return Peak(
         name=name,
-        latitude=lat,
-        longitude=lon,
+        lat=lat,
+        lon=lon,
         elevation=elevation,
         nearest_town_name=nearest_town,
         distance_to_nearest_town=distance_to_town,
@@ -287,7 +287,7 @@ def process_peak_data(
 
 def process_observatory_data(
     name: str,
-    point: GeoCoordinate,
+    point: GeoPoint,
     elevation: float,
     tags: Dict,
     nearest_town: str,
@@ -297,7 +297,7 @@ def process_observatory_data(
     index: int,
 ) -> Observatory:
     """Build an Observatory object from raw data."""
-    lat, lon = point.latitude, point.longitude
+    lat, lon = point.lat, point.lon
     observatory_type = "Unknown type"
     if tags.get("man_made") == "observatory":
         observatory_type = "Astronomical observatory"
@@ -312,8 +312,8 @@ def process_observatory_data(
 
     return Observatory(
         name=name,
-        latitude=lat,
-        longitude=lon,
+        lat=lat,
+        lon=lon,
         elevation=elevation,
         nearest_town_name=nearest_town,
         distance_to_nearest_town=distance_to_town,
@@ -326,7 +326,7 @@ def process_observatory_data(
 
 def process_viewpoint_data(
     name: str,
-    point: GeoCoordinate,
+    point: GeoPoint,
     elevation: float,
     tags: Dict,
     nearest_town: str,
@@ -336,7 +336,7 @@ def process_viewpoint_data(
     index: int,
 ) -> Viewpoint:
     """Build a Viewpoint object from raw data."""
-    lat, lon = point.latitude, point.longitude
+    lat, lon = point.lat, point.lon
     viewpoint_type = "Viewpoint"
     if tags.get("tourism") == "viewpoint":
         viewpoint_type = "Viewpoint"
@@ -348,8 +348,8 @@ def process_viewpoint_data(
 
     return Viewpoint(
         name=name,
-        latitude=lat,
-        longitude=lon,
+        lat=lat,
+        lon=lon,
         elevation=elevation,
         nearest_town_name=nearest_town,
         distance_to_nearest_town=distance_to_town,

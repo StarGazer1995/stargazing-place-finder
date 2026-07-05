@@ -30,8 +30,8 @@ def _make_peak(name: str, lat: float, lon: float, ele: float, hdiff: float = 200
     """Build a Peak with minimal fields."""
     return Peak(
         name=name,
-        latitude=lat,
-        longitude=lon,
+        lat=lat,
+        lon=lon,
         elevation=ele,
         height_difference=hdiff,
         distance_to_nearest_town=5.0,
@@ -43,8 +43,8 @@ def _make_peak(name: str, lat: float, lon: float, ele: float, hdiff: float = 200
 def _make_obs(name: str, lat: float, lon: float, ele: float = 1500.0) -> Observatory:
     return Observatory(
         name=name,
-        latitude=lat,
-        longitude=lon,
+        lat=lat,
+        lon=lon,
         elevation=ele,
         location_type="observatory",
         nearest_town_name="MockTown",
@@ -56,8 +56,8 @@ def _make_obs(name: str, lat: float, lon: float, ele: float = 1500.0) -> Observa
 def _make_viewpoint(name: str, lat: float, lon: float, ele: float = 1200.0) -> Viewpoint:
     return Viewpoint(
         name=name,
-        latitude=lat,
-        longitude=lon,
+        lat=lat,
+        lon=lon,
         elevation=ele,
         location_type="viewpoint",
         nearest_town_name="MockTown",
@@ -93,8 +93,8 @@ def mock_towns_data():
     """Minimal town data for _fetch_towns_data."""
     town = MagicMock()
     town.name = "MockTown"
-    town.latitude = 40.1
-    town.longitude = 116.1
+    town.lat = 40.1
+    town.lon = 116.1
     town.elevation_m = 300.0
     return [town]
 

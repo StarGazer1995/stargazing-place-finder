@@ -3,12 +3,12 @@
 from typing import Optional, Tuple
 
 from pydantic import Field
+from stargazing_core import GeoPoint
 
-from .geo import GeoCoordinate
 from .location import LocationType
 
 
-class StargazingLocation(GeoCoordinate):
+class StargazingLocation(GeoPoint):
     """Fully analyzed stargazing location with light pollution, road, and scoring data.
 
     This is THE output model — returned by StargazingLocationAnalyzer.analyze_area()

@@ -13,7 +13,7 @@ import warnings
 from typing import List, Optional, Tuple
 
 from config import StargazingConfig
-from models import GeoCoordinate
+from models import GeoPoint
 
 from .geo_fence import GeoFence
 from .road_connectivity_checker import RoadConnectivityChecker
@@ -66,12 +66,12 @@ class SimpleRoadChecker:
 
     def is_connected(self, lat: float, lon: float) -> bool:
         """检查坐标是否有道路连通（已弃用，委托给 RoadConnectivityChecker）。"""
-        point = GeoCoordinate(latitude=lat, longitude=lon)
+        point = GeoPoint(lat=lat, lon=lon)
         return self._inner.is_road_accessible(point)
 
     def batch_check(self, coordinates: List[Tuple[float, float]]) -> List[bool]:
         """批量检查道路连通性（已弃用，委托给 RoadConnectivityChecker）。"""
-        points = [GeoCoordinate(latitude=lat, longitude=lon) for lat, lon in coordinates]
+        points = [GeoPoint(lat=lat, lon=lon) for lat, lon in coordinates]
         return self._inner.batch_check_accessibility(points)
 
 

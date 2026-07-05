@@ -8,7 +8,7 @@ Uses mocked data to avoid real OSM network downloads during test runs.
 import pickle
 from unittest.mock import MagicMock, mock_open, patch
 
-from models import GeoCoordinate
+from models import GeoPoint
 from road_connectivity.road_connectivity_checker import RoadAccessInfoCache, RoadConnectivityChecker
 from road_connectivity.simple_road_checker import batch_road_check, quick_road_check
 
@@ -41,7 +41,7 @@ def test_detailed_checker_returns_accessibility_info():
 
     geo_fence = GeoFence(enabled=True)
     checker = RoadConnectivityChecker(search_radius_km=8.0, geo_fence=geo_fence)
-    point = GeoCoordinate(latitude=40.3242, longitude=116.6312)
+    point = GeoPoint(lat=40.3242, lon=116.6312)
     info = checker.get_accessibility_info(point)
 
     assert "accessible" in info

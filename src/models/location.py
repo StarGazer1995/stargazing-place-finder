@@ -3,13 +3,12 @@
 from typing import Literal, Optional
 
 from pydantic import Field
-
-from .geo import GeoCoordinate
+from stargazing_core import GeoPoint
 
 LocationType = Literal["mountain_peak", "observatory", "viewpoint"]
 
 
-class Location(GeoCoordinate):
+class Location(GeoPoint):
     """Unified location — the intermediate data object passed from finders to analyzer.
 
     Created by StarGazingPlaceFinder methods (find_peaks_in_area, etc.)

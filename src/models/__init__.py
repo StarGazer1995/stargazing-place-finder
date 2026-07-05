@@ -15,7 +15,7 @@ from .exceptions import (
     StargazingError,
     ValidationError,
 )
-from .geo import GeoCoordinate, GroundOverlay, Icon, LatLonBox
+from .geo import GeoPoint, GroundOverlay, Icon, LatLonBox  # noqa: F401
 from .light_pollution import LightPollutionInfo
 from .location import Location, LocationType, Observatory, Peak, Viewpoint
 from .road import RoadAccessInfo
@@ -24,7 +24,7 @@ from .town import TownInfo
 
 __all__ = [
     # Geo / KML
-    "GeoCoordinate",
+    "GeoPoint",
     "LatLonBox",
     "Icon",
     "GroundOverlay",

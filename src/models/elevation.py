@@ -3,11 +3,10 @@
 from typing import Optional
 
 from pydantic import Field
+from stargazing_core import GeoPoint
 
-from .geo import GeoCoordinate
 
-
-class ElevationResult(GeoCoordinate):
+class ElevationResult(GeoPoint):
     """Result of a single elevation query."""
 
     elevation: Optional[float] = None

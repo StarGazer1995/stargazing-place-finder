@@ -1371,7 +1371,7 @@ function displayAnalysisResults(result) {
  */
 function createStargazingMarker(location) {
     const { 
-        latitude, longitude, stargazing_score, name, elevation, 
+        lat, lon, stargazing_score, name, elevation,
         light_pollution_level, light_pollution_brightness,
         road_accessible, distance_to_road_km, recommendation_level,
         analysis_notes, prominence, distance_to_nearest_town,
@@ -1398,7 +1398,7 @@ function createStargazingMarker(location) {
     });
     
     // 创建标记
-    const marker = L.marker([latitude, longitude], { icon });
+    const marker = L.marker([lat, lon], { icon });
     
     // 构建详细的弹出窗口内容
     const popupContent = `
@@ -1411,7 +1411,7 @@ function createStargazingMarker(location) {
             <div class="popup-content">
                 <div class="info-section">
                     <h5>📍 位置信息</h5>
-                    <p><strong>坐标:</strong> ${latitude.toFixed(4)}, ${longitude.toFixed(4)}</p>
+                    <p><strong>坐标:</strong> ${lat.toFixed(4)}, ${lon.toFixed(4)}</p>
                     <p><strong>海拔:</strong> ${elevation ? elevation.toFixed(0) + 'm' : '未知'}</p>
                     ${prominence ? `<p><strong>地形突出度:</strong> ${prominence.toFixed(0)}m</p>` : ''}
                     ${nearest_town_name ? `<p><strong>最近城镇:</strong> ${nearest_town_name} (${distance_to_nearest_town ? distance_to_nearest_town.toFixed(1) + 'km' : '未知距离'})</p>` : ''}
@@ -1541,7 +1541,7 @@ function showResultsPanel(result) {
                 const score = location.stargazing_score || 0;
                 const scoreClass = score >= 8 ? 'excellent' : score >= 6 ? 'good' : score >= 4 ? 'fair' : 'poor';
                 return `
-                    <div class="location-item ${scoreClass}" onclick="focusOnLocation(${location.latitude}, ${location.longitude})">
+                    <div class="location-item ${scoreClass}" onclick="focusOnLocation(${location.lat}, ${location.lon})">
                         <div class="location-header">
                             <div class="location-name">${location.name || `观星地点 ${index + 1}`}</div>
                             <div class="location-score ${scoreClass}">${score.toFixed(1)}/10</div>
@@ -1549,7 +1549,7 @@ function showResultsPanel(result) {
                         <div class="location-details">
                             <div class="detail-row">
                                 <span class="detail-icon">📍</span>
-                                <span>坐标: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}</span>
+                                <span>坐标: ${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}</span>
                             </div>
                             ${location.elevation ? `
                             <div class="detail-row">

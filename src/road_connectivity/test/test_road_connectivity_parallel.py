@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import road_connectivity.road_connectivity_checker
-from models import GeoCoordinate, LatLonBox, NetworkError
+from models import GeoPoint, LatLonBox, NetworkError
 from road_connectivity.road_connectivity_checker import RoadAccessInfoCache, RoadConnectivityChecker
 
 
@@ -38,7 +38,7 @@ class TestBatchCheckAccessibilityParallel(unittest.TestCase):
         """Create a deterministic mock based on coordinate -> result mapping."""
 
         def side_effect(point, *args):
-            lat, lon = point.latitude, point.longitude
+            lat, lon = point.lat, point.lon
             return result_map.get((lat, lon), False)
 
         self.mock_road.side_effect = side_effect
@@ -48,9 +48,9 @@ class TestBatchCheckAccessibilityParallel(unittest.TestCase):
         self._make_coord_mock({(39.9, 116.4): True, (40.0, 116.5): True, (40.1, 116.6): True})
         checker = self._make_checker()
         coords = [
-            GeoCoordinate(latitude=39.9, longitude=116.4),
-            GeoCoordinate(latitude=40.0, longitude=116.5),
-            GeoCoordinate(latitude=40.1, longitude=116.6),
+            GeoPoint(lat=39.9, lon=116.4),
+            GeoPoint(lat=40.0, lon=116.5),
+            GeoPoint(lat=40.1, lon=116.6),
         ]
         results = checker.batch_check_accessibility(coords)
         self.assertEqual(results, [True, True, True])
@@ -60,10 +60,10 @@ class TestBatchCheckAccessibilityParallel(unittest.TestCase):
         self._make_coord_mock({(39.9, 116.4): True, (0.0, 160.0): False, (40.0, 116.5): True, (0.0, 180.0): False})
         checker = self._make_checker()
         coords = [
-            GeoCoordinate(latitude=39.9, longitude=116.4),
-            GeoCoordinate(latitude=0.0, longitude=160.0),
-            GeoCoordinate(latitude=40.0, longitude=116.5),
-            GeoCoordinate(latitude=0.0, longitude=180.0),
+            GeoPoint(lat=39.9, lon=116.4),
+            GeoPoint(lat=0.0, lon=160.0),
+            GeoPoint(lat=40.0, lon=116.5),
+            GeoPoint(lat=0.0, lon=180.0),
         ]
         results = checker.batch_check_accessibility(coords)
         self.assertEqual(results, [True, False, True, False])
@@ -73,8 +73,8 @@ class TestBatchCheckAccessibilityParallel(unittest.TestCase):
         self._make_coord_mock({(0.0, 160.0): False, (0.0, 180.0): False})
         checker = self._make_checker()
         coords = [
-            GeoCoordinate(latitude=0.0, longitude=160.0),
-            GeoCoordinate(latitude=0.0, longitude=180.0),
+            GeoPoint(lat=0.0, lon=160.0),
+            GeoPoint(lat=0.0, lon=180.0),
         ]
         results = checker.batch_check_accessibility(coords)
         self.assertEqual(results, [False, False])
@@ -90,9 +90,9 @@ class TestBatchCheckAccessibilityParallel(unittest.TestCase):
         self._make_coord_mock({(0.0, 0.0): False, (39.9, 116.4): True, (0.0, 180.0): False})
         checker = self._make_checker()
         coords = [
-            GeoCoordinate(latitude=0.0, longitude=0.0),
-            GeoCoordinate(latitude=39.9, longitude=116.4),
-            GeoCoordinate(latitude=0.0, longitude=180.0),
+            GeoPoint(lat=0.0, lon=0.0),
+            GeoPoint(lat=39.9, lon=116.4),
+            GeoPoint(lat=0.0, lon=180.0),
         ]
         results = checker.batch_check_accessibility(coords)
         self.assertEqual(results, [False, True, False])
@@ -101,14 +101,14 @@ class TestBatchCheckAccessibilityParallel(unittest.TestCase):
         """Mock returns result that is falsy → False."""
         self.mock_road.return_value = False
         checker = self._make_checker()
-        results = checker.batch_check_accessibility([GeoCoordinate(latitude=39.9, longitude=116.4)])
+        results = checker.batch_check_accessibility([GeoPoint(lat=39.9, lon=116.4)])
         self.assertEqual(results, [False])
 
     def test_batch_check_without_gis_service(self):
         """Basic batch check works without GIS service (is_road_accessible is mocked)."""
         self.mock_road.return_value = True
         checker = self._make_checker()
-        coords = [GeoCoordinate(latitude=39.9, longitude=116.4)]
+        coords = [GeoPoint(lat=39.9, lon=116.4)]
         results = checker.batch_check_accessibility(coords)
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], bool)
@@ -128,7 +128,7 @@ class TestCheckViaPostgis(unittest.TestCase):
             "road_type": "residential",
         }
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
-        result = checker._check_via_postgis(GeoCoordinate(latitude=39.9, longitude=116.4))
+        result = checker._check_via_postgis(GeoPoint(lat=39.9, lon=116.4))
         self.assertTrue(result["accessible"])
         self.assertEqual(result["distance_meters"], 50.0)
         self.assertEqual(result["road_type"], "residential")
@@ -144,7 +144,7 @@ class TestCheckViaPostgis(unittest.TestCase):
             "road_type": None,
         }
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
-        result = checker._check_via_postgis(GeoCoordinate(latitude=0.0, longitude=160.0))
+        result = checker._check_via_postgis(GeoPoint(lat=0.0, lon=160.0))
         self.assertFalse(result["accessible"])
         self.assertEqual(result["distance_meters"], 100000.0)
         self.assertIsNone(result["road_type"])
@@ -153,7 +153,7 @@ class TestCheckViaPostgis(unittest.TestCase):
         """No gis_service → returns None."""
 
         checker = RoadConnectivityChecker(search_radius_km=10.0)
-        result = checker._check_via_postgis(GeoCoordinate(latitude=39.9, longitude=116.4))
+        result = checker._check_via_postgis(GeoPoint(lat=39.9, lon=116.4))
         self.assertIsNone(result)
 
     def test_check_via_postgis_postgis_disabled(self):
@@ -162,7 +162,7 @@ class TestCheckViaPostgis(unittest.TestCase):
         gis = MagicMock()
         gis.postgis_enabled = False
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
-        result = checker._check_via_postgis(GeoCoordinate(latitude=39.9, longitude=116.4))
+        result = checker._check_via_postgis(GeoPoint(lat=39.9, lon=116.4))
         self.assertIsNone(result)
 
     def test_check_via_postgis_fallback_needed(self):
@@ -172,7 +172,7 @@ class TestCheckViaPostgis(unittest.TestCase):
         gis.postgis_enabled = True
         gis.query_road_connectivity.return_value = {"fallback_needed": True}
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
-        result = checker._check_via_postgis(GeoCoordinate(latitude=39.9, longitude=116.4))
+        result = checker._check_via_postgis(GeoPoint(lat=39.9, lon=116.4))
         self.assertIsNone(result)
 
 
@@ -288,7 +288,7 @@ class TestPreloadNetwork(unittest.TestCase):
             checker = self._make_checker()
             checker._shared_graph = None
             result = checker._get_road_network(
-                GeoCoordinate(latitude=39.9, longitude=116.4),
+                GeoPoint(lat=39.9, lon=116.4),
                 network_type="drive",
             )
 
@@ -315,7 +315,7 @@ class TestPreloadNetwork(unittest.TestCase):
             # Bypass disk cache
             with patch.object(checker.location_cache, "get_cached_result", return_value=None):
                 result = checker.is_road_accessible(
-                    GeoCoordinate(latitude=39.9, longitude=116.4),
+                    GeoPoint(lat=39.9, lon=116.4),
                     network_type="drive",
                 )
 
@@ -329,7 +329,7 @@ class TestPreloadNetwork(unittest.TestCase):
         checker._shared_graph = mock_graph
 
         result = checker._get_road_network(
-            GeoCoordinate(latitude=39.9, longitude=116.4),
+            GeoPoint(lat=39.9, lon=116.4),
             network_type="drive",
         )
         self.assertIs(result, mock_graph)
@@ -354,7 +354,7 @@ class TestTryPostgisInfo(unittest.TestCase):
 
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=self.mock_gis)
         result = {"accessible": False, "distance_to_road_km": None, "nearest_road_type": None, "error": None}
-        point = GeoCoordinate(latitude=39.9, longitude=116.4)
+        point = GeoPoint(lat=39.9, lon=116.4)
 
         success = checker._try_postgis_info(result, point, "drive")
         self.assertTrue(success)
@@ -368,7 +368,7 @@ class TestTryPostgisInfo(unittest.TestCase):
 
         checker = RoadConnectivityChecker(search_radius_km=10.0)  # No gis_service
         result = {"accessible": False}
-        point = GeoCoordinate(latitude=39.9, longitude=116.4)
+        point = GeoPoint(lat=39.9, lon=116.4)
 
         success = checker._try_postgis_info(result, point, "drive")
         self.assertFalse(success)
@@ -383,7 +383,7 @@ class TestTryPostgisInfo(unittest.TestCase):
         }
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=self.mock_gis)
         result = {"accessible": True, "distance_to_road_km": None, "nearest_road_type": None, "error": None}
-        point = GeoCoordinate(latitude=39.9, longitude=116.4)
+        point = GeoPoint(lat=39.9, lon=116.4)
 
         success = checker._try_postgis_info(result, point, "drive")
         self.assertTrue(success)
@@ -408,7 +408,7 @@ class TestIsRoadAccessiblePostgisPath(unittest.TestCase):
         checker = RoadConnectivityChecker(search_radius_km=10.0, gis_service=gis)
         # Bypass cache
         with patch.object(checker.location_cache, "get_cached_result", return_value=None):
-            result = checker.is_road_accessible(GeoCoordinate(latitude=39.9, longitude=116.4))
+            result = checker.is_road_accessible(GeoPoint(lat=39.9, lon=116.4))
         self.assertTrue(result)
 
 
@@ -420,7 +420,7 @@ class TestRoadAccessInfoCacheCleanup(unittest.TestCase):
         from models import RoadAccessInfo
 
         cache = RoadAccessInfoCache(cache_expiry_hours=24)
-        data = [RoadAccessInfo(latitude=39.9, longitude=116.4, is_road_accessible=True)]
+        data = [RoadAccessInfo(lat=39.9, lon=116.4, is_road_accessible=True)]
 
         # Ensure we get past mkdir and into the write block
         cache._generate_cache_key = MagicMock(return_value="test_cleanup_key")
@@ -440,7 +440,7 @@ class TestRoadAccessInfoCacheCleanup(unittest.TestCase):
         from models import RoadAccessInfo
 
         cache = RoadAccessInfoCache(cache_expiry_hours=24)
-        data = [RoadAccessInfo(latitude=39.9, longitude=116.4, is_road_accessible=True)]
+        data = [RoadAccessInfo(lat=39.9, lon=116.4, is_road_accessible=True)]
 
         cache._generate_cache_key = MagicMock(return_value="test_cleanup_oserror")
         cache._get_cache_file_path = MagicMock(return_value=MagicMock())
@@ -537,7 +537,7 @@ class TestPreloadPostgisPath(unittest.TestCase):
         checker = self._make_checker()
         checker._shared_graph = None
 
-        result = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+        result = checker._get_road_network(GeoPoint(lat=39.9, lon=116.4), "drive")
         self.assertIs(result, self.mock_graph)
         self.gis.query_road_graph_by_point.assert_called_once_with(39.9, 116.4, 10.0, "drive")
 
@@ -547,7 +547,7 @@ class TestPreloadPostgisPath(unittest.TestCase):
         shared = MagicMock()
         checker._shared_graph = shared
 
-        result = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+        result = checker._get_road_network(GeoPoint(lat=39.9, lon=116.4), "drive")
         self.assertIs(result, shared)
         self.gis.query_road_graph_by_point.assert_not_called()
 
@@ -560,7 +560,7 @@ class TestPreloadPostgisPath(unittest.TestCase):
             checker = self._make_checker()
             checker._shared_graph = None
 
-            result = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+            result = checker._get_road_network(GeoPoint(lat=39.9, lon=116.4), "drive")
             self.assertIs(result, self.mock_graph)
             mock_gfp.assert_called_once()
 
@@ -571,7 +571,7 @@ class TestPreloadPostgisPath(unittest.TestCase):
             checker = RoadConnectivityChecker(search_radius_km=10.0)
             checker._shared_graph = None
 
-            result = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+            result = checker._get_road_network(GeoPoint(lat=39.9, lon=116.4), "drive")
             self.assertIs(result, self.mock_graph)
             mock_gfp.assert_called_once()
 
@@ -580,8 +580,8 @@ class TestPreloadPostgisPath(unittest.TestCase):
         checker = self._make_checker()
         checker._shared_graph = None
 
-        _ = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+        _ = checker._get_road_network(GeoPoint(lat=39.9, lon=116.4), "drive")
         self.gis.query_road_graph_by_point.reset_mock()
-        result2 = checker._get_road_network(GeoCoordinate(latitude=39.9, longitude=116.4), "drive")
+        result2 = checker._get_road_network(GeoPoint(lat=39.9, lon=116.4), "drive")
         self.assertIs(result2, self.mock_graph)
         self.gis.query_road_graph_by_point.assert_not_called()

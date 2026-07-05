@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 import pytest
 
 # Ensure src is on path
-from models import GeoCoordinate, LatLonBox, Observatory, Peak, Viewpoint
+from models import GeoPoint, LatLonBox, Observatory, Peak, Viewpoint
 from stargazing_analyzer.stargazing_place_finder import StarGazingPlaceFinder
 
 
@@ -114,8 +114,8 @@ class TestFindPeaksInArea:
         peak = peaks[0]
         assert isinstance(peak, Peak)
         assert peak.name == "Test Peak"
-        assert peak.latitude == 40.0
-        assert peak.longitude == 116.0
+        assert peak.lat == 40.0
+        assert peak.lon == 116.0
 
 
 class TestFindObservatoriesInArea:
@@ -189,8 +189,8 @@ class TestCacheAndUtils:
         assert finder.get_cache_info() is None
 
     def test_calculate_distance(self, finder):
-        p1 = GeoCoordinate(latitude=40.0, longitude=116.0)
-        p2 = GeoCoordinate(latitude=41.0, longitude=117.0)
+        p1 = GeoPoint(lat=40.0, lon=116.0)
+        p2 = GeoPoint(lat=41.0, lon=117.0)
         dist = finder.calculate_distance(p1, p2)
         assert dist > 0
         # Rough distance Beijing-ish area: ~130 km
@@ -200,8 +200,8 @@ class TestCacheAndUtils:
         peaks = [
             Peak(
                 name="P1",
-                latitude=40.0,
-                longitude=116.0,
+                lat=40.0,
+                lon=116.0,
                 elevation=1000,
                 distance_to_nearest_town=25.0,
                 nearest_town_name="Test Town",
@@ -210,8 +210,8 @@ class TestCacheAndUtils:
             ),
             Peak(
                 name="P2",
-                latitude=41.0,
-                longitude=117.0,
+                lat=41.0,
+                lon=117.0,
                 elevation=800,
                 distance_to_nearest_town=15.0,
                 nearest_town_name="Another Town",
@@ -231,7 +231,7 @@ class TestCacheAndUtils:
 
     def test_resolve_elevation_with_invalid_ele_tag(self, finder):
         """_resolve_elevation logs warning on invalid ele tag and falls through to gis_service."""
-        point = GeoCoordinate(latitude=40.0, longitude=116.0)
+        point = GeoPoint(lat=40.0, lon=116.0)
         tags = {"ele": "not_a_number", "name": "Test"}
         result = finder._resolve_elevation(tags, point)
         assert result == 500.0  # Falls through to mocked gis_service.find_elevation
@@ -276,8 +276,8 @@ class TestElevationPreFetch:
         def processor(n, pt, el, tg, tn, dt, te, lp, ix):
             return Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",
@@ -313,8 +313,8 @@ class TestElevationPreFetch:
         def processor(n, pt, el, tg, tn, dt, te, lp, ix):
             return Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",
@@ -357,8 +357,8 @@ class TestElevationPreFetch:
             captured_tags.append(tg)
             return Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",
@@ -400,8 +400,8 @@ class TestElevationPreFetch:
         def processor(n, pt, el, tg, tn, dt, te, lp, ix):
             return Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",
@@ -443,8 +443,8 @@ class TestElevationPreFetch:
         def processor(n, pt, el, tg, tn, dt, te, lp, ix):
             return Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",
@@ -494,8 +494,8 @@ class TestElevationPreFetch:
             max_locations=10,
             location_processor_func=lambda n, pt, el, tg, tn, dt, te, lp, ix: Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",
@@ -524,8 +524,8 @@ class TestElevationPreFetch:
         def processor(n, pt, el, tg, tn, dt, te, lp, ix):
             return Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",
@@ -572,8 +572,8 @@ class TestElevationPreFetch:
             max_locations=10,
             location_processor_func=lambda n, pt, el, tg, tn, dt, te, lp, ix: Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",
@@ -607,8 +607,8 @@ class TestElevationPreFetch:
             captured_tags.append(tg)
             return Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",
@@ -650,8 +650,8 @@ class TestElevationPreFetch:
         def processor(n, pt, el, tg, tn, dt, te, lp, ix):
             return Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",
@@ -692,8 +692,8 @@ class TestElevationPreFetch:
             captured_tags.append(tg)
             return Peak(
                 name=tg.get("name", "Unknown"),
-                latitude=pt.latitude,
-                longitude=pt.longitude,
+                lat=pt.lat,
+                lon=pt.lon,
                 elevation=int(tg.get("ele", 0)),
                 distance_to_nearest_town=0,
                 nearest_town_name="",

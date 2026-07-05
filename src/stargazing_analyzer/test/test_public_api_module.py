@@ -93,7 +93,7 @@ class TestAnalyzeArea:
         mock_require.return_value = mock_analyzer
 
         mock_location = MagicMock()
-        mock_location.model_dump.return_value = {"name": "Test", "latitude": 40.0}
+        mock_location.model_dump.return_value = {"name": "Test", "lat": 40.0}
         mock_analyzer.analyze_area.return_value = [mock_location]
 
         result = analyze_area(

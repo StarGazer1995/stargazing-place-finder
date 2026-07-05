@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: GIS",
     "Topic :: Scientific/Engineering :: Astronomy",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
   "stargazing-core @ git+https://github.com/StarGazer1995/stargazing-core.git",
   "fastapi>=0.115.0",

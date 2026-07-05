@@ -266,8 +266,8 @@ class PostgisBackend:
                 _id, lat, lon, name, elev, source, dist, ftype = row
                 results.append(
                     ElevationResult(
-                        latitude=lat,
-                        longitude=lon,
+                        lat=lat,
+                        lon=lon,
                         elevation=elev,
                         source_name=source or "unknown",
                         distance_meters=dist,

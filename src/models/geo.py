@@ -1,18 +1,12 @@
-"""Geographic data models — KML internal structures and geo coordinate base."""
+"""Geographic data models — KML internal structures.
 
-from pydantic import BaseModel, Field
+``GeoPoint`` from ``stargazing_core`` replaces the legacy ``GeoCoordinate``.
+New code should use :class:`stargazing_core.GeoPoint` (``lat`` / ``lon`` naming)
+which carries the same coordinate constraints and adds optional elevation support.
+"""
 
-
-class GeoCoordinate(BaseModel):
-    """Shared base: latitude/longitude with standard validation.
-
-    All location models (Location, StargazingLocation, LightPollutionInfo,
-    ElevationResult, RoadAccessInfo) inherit from this to avoid duplicating
-    the coordinate fields and their constraints.
-    """
-
-    latitude: float = Field(ge=-90, le=90)
-    longitude: float = Field(ge=-180, le=180)
+from pydantic import BaseModel
+from stargazing_core import GeoPoint  # noqa: F401 — re-export for convenience
 
 
 class LatLonBox(BaseModel):

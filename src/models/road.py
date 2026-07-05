@@ -3,11 +3,10 @@
 from typing import Optional
 
 from pydantic import Field
+from stargazing_core import GeoPoint
 
-from .geo import GeoCoordinate
 
-
-class RoadAccessInfo(GeoCoordinate):
+class RoadAccessInfo(GeoPoint):
     """Cached road accessibility check result."""
 
     is_road_accessible: bool = False

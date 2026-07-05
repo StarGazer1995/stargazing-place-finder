@@ -23,8 +23,8 @@ from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
 from models import (
     ConfigError,
     DataError,
-    GeoCoordinate,
     GeoError,
+    GeoPoint,
     LatLonBox,
     LightPollutionInfo,
     Location,
@@ -265,7 +265,7 @@ class StargazingLocationAnalyzer:
         if not include_light_pollution or not self.light_pollution_analyzer:
             return batch
         try:
-            coords = [(loc.latitude, loc.longitude) for loc in locations]
+            coords = [(loc.lat, loc.lon) for loc in locations]
             batch_results = self.light_pollution_analyzer.batch_analyze_coordinates(coords)
             for r in batch_results:
                 lat, lon = r["coordinates"]
@@ -377,8 +377,8 @@ class StargazingLocationAnalyzer:
         """Build a StargazingLocation from a raw Location (Stage 1)."""
         return StargazingLocation(
             name=location.name,
-            latitude=location.latitude,
-            longitude=location.longitude,
+            lat=location.lat,
+            lon=location.lon,
             elevation=location.elevation,
             prominence=location.prominence or 0.0,
             distance_to_nearest_town=location.distance_to_nearest_town,
@@ -397,7 +397,7 @@ class StargazingLocationAnalyzer:
         """Enrich with nearby town count (Stage 2a)."""
         if towns_data:
             stargazing_loc.nearby_town_count = self._count_nearby_towns(
-                GeoCoordinate(latitude=raw_location.latitude, longitude=raw_location.longitude),
+                GeoPoint(lat=raw_location.lat, lon=raw_location.lon),
                 towns_data,
                 radius_km=20.0,
             )
@@ -411,7 +411,7 @@ class StargazingLocationAnalyzer:
         """Enrich with light pollution data from pre-batched results (Stage 2b)."""
         if not light_pollution_batch:
             return
-        light_info = light_pollution_batch.get((raw_location.latitude, raw_location.longitude))
+        light_info = light_pollution_batch.get((raw_location.lat, raw_location.lon))
         if light_info:
             stargazing_loc.light_pollution_rgb = light_info.rgb
             stargazing_loc.light_pollution_hex = light_info.hex
@@ -440,7 +440,7 @@ class StargazingLocationAnalyzer:
             return
         try:
             road_info = self.road_checker.get_accessibility_info(
-                GeoCoordinate(latitude=raw_location.latitude, longitude=raw_location.longitude),
+                GeoPoint(lat=raw_location.lat, lon=raw_location.lon),
                 network_type=network_type,
             )
             stargazing_loc.road_accessible = road_info["accessible"]
@@ -457,7 +457,7 @@ class StargazingLocationAnalyzer:
         stargazing_loc.recommendation_level = self._get_recommendation_level_with_warning(stargazing_loc)
         stargazing_loc.analysis_notes = self._generate_analysis_notes(stargazing_loc)
 
-    def _count_nearby_towns(self, point: GeoCoordinate, towns: List[Dict], radius_km: float = 20.0) -> int:
+    def _count_nearby_towns(self, point: GeoPoint, towns: List[Dict], radius_km: float = 20.0) -> int:
         """Count additional towns within a given radius (excluding the nearest).
 
         Args:
@@ -483,7 +483,7 @@ class StargazingLocationAnalyzer:
             except (KeyError, TypeError):
                 continue
 
-            town_point = GeoCoordinate(latitude=t_lat, longitude=t_lon)
+            town_point = GeoPoint(lat=t_lat, lon=t_lon)
             distance = self.mountain_finder.calculate_distance(point, town_point)
             if distance <= radius_km:
                 distances.append(distance)
@@ -806,7 +806,7 @@ class StargazingLocationAnalyzer:
         logger.info("\n=== Top 5 Recommended Locations ===")
         for i, location in enumerate(top_locations, 1):
             logger.info("\n%s. %s", i, location.name)
-            logger.info("   Coordinates: (%.4f, %.4f)", location.latitude, location.longitude)
+            logger.info("   Coordinates: (%.4f, %.4f)", location.lat, location.lon)
             logger.info("   Elevation: %.1fm", location.elevation)
             logger.info("   Overall Score: %s/100", location.stargazing_score)
             logger.info("   Recommendation Level: %s", location.recommendation_level)

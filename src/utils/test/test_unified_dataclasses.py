@@ -20,8 +20,8 @@ def test_unified_location_class():
     # 测试直接使用Location类创建山峰
     peak_location = Location(
         name="测试山峰",
-        latitude=40.0,
-        longitude=116.0,
+        lat=40.0,
+        lon=116.0,
         elevation=1500.0,
         distance_to_nearest_town=15.0,
         nearest_town_name="测试城镇",
@@ -42,8 +42,8 @@ def test_unified_location_class():
     # 测试直接使用Location类创建天文台
     observatory_location = Location(
         name="测试天文台",
-        latitude=39.0,
-        longitude=115.0,
+        lat=39.0,
+        lon=115.0,
         elevation=1200.0,
         distance_to_nearest_town=20.0,
         nearest_town_name="天文城",
@@ -65,8 +65,8 @@ def test_unified_location_class():
     # 测试直接使用Location类创建观景台
     viewpoint_location = Location(
         name="测试观景台",
-        latitude=38.0,
-        longitude=114.0,
+        lat=38.0,
+        lon=114.0,
         elevation=800.0,
         distance_to_nearest_town=5.0,
         nearest_town_name="观景镇",
@@ -93,8 +93,8 @@ def test_backward_compatibility():
     # 测试Peak别名
     peak = Peak(
         name="兼容性山峰",
-        latitude=41.0,
-        longitude=117.0,
+        lat=41.0,
+        lon=117.0,
         elevation=2000.0,
         distance_to_nearest_town=25.0,
         nearest_town_name="兼容城镇",
@@ -110,8 +110,8 @@ def test_backward_compatibility():
     # 测试Observatory别名
     observatory = Observatory(
         name="兼容性天文台",
-        latitude=42.0,
-        longitude=118.0,
+        lat=42.0,
+        lon=118.0,
         elevation=1800.0,
         distance_to_nearest_town=30.0,
         nearest_town_name="兼容天文城",
@@ -127,8 +127,8 @@ def test_backward_compatibility():
     # 测试Viewpoint别名
     viewpoint = Viewpoint(
         name="兼容性观景台",
-        latitude=43.0,
-        longitude=119.0,
+        lat=43.0,
+        lon=119.0,
         elevation=1000.0,
         distance_to_nearest_town=8.0,
         nearest_town_name="兼容观景镇",
@@ -149,8 +149,8 @@ def test_type_checking_methods():
     locations = [
         Location(
             name="山峰",
-            latitude=40.0,
-            longitude=116.0,
+            lat=40.0,
+            lon=116.0,
             elevation=1500.0,
             distance_to_nearest_town=10.0,
             nearest_town_name="城镇A",
@@ -158,8 +158,8 @@ def test_type_checking_methods():
         ),
         Location(
             name="天文台",
-            latitude=39.0,
-            longitude=115.0,
+            lat=39.0,
+            lon=115.0,
             elevation=1200.0,
             distance_to_nearest_town=15.0,
             nearest_town_name="城镇B",
@@ -167,8 +167,8 @@ def test_type_checking_methods():
         ),
         Location(
             name="观景台",
-            latitude=38.0,
-            longitude=114.0,
+            lat=38.0,
+            lon=114.0,
             elevation=800.0,
             distance_to_nearest_town=5.0,
             nearest_town_name="城镇C",
@@ -197,8 +197,8 @@ def test_location_type_dispatch(name, lat, lon, elevation, loc_type, expected_ty
     """Verify ``Location`` type-checking methods dispatch correctly."""
     loc = Location(
         name=name,
-        latitude=lat,
-        longitude=lon,
+        lat=lat,
+        lon=lon,
         elevation=elevation,
         distance_to_nearest_town=10.0,
         nearest_town_name="Town",
@@ -224,8 +224,8 @@ def test_backward_compatible_aliases(alias_cls, loc_type):
     """Verify backward-compatible aliases produce valid ``Location`` instances."""
     loc = alias_cls(
         name="Test",
-        latitude=40.0,
-        longitude=116.0,
+        lat=40.0,
+        lon=116.0,
         elevation=1000.0,
         distance_to_nearest_town=5.0,
         nearest_town_name="Town",
