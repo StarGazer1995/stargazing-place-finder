@@ -2492,8 +2492,10 @@ async function matchTelescopeTargets() {
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         var data = await resp.json();
         var targets = data.targets || [];
+        var moon = data.moon || null;
 
         countEl.textContent = '(' + targets.length + ' 个目标)';
+        renderMoonCard(moon);
         renderTargetResults(targets, list);
         overlayTargetsOnAladin(targets);
     } catch (e) {
@@ -2507,8 +2509,49 @@ async function matchTelescopeTargets() {
 }
 
 /**
- * Render target result cards in the panel.
+ * Render moon phase card above target results.
+ * @param {Object|null} moon — moon data from API {illumination, phase, altitude_curve, always_down, always_up, dark_fraction}
  */
+function renderMoonCard(moon) {
+    var container = document.getElementById('target-results-list');
+    if (!moon || !container) return;
+
+    var illum = moon.illumination * 100;
+    var phaseEmoji = illum < 1 ? '\u{1F311}' : illum < 25 ? '\u{1F312}' : illum < 50 ? '\u{1F313}' : illum < 75 ? '\u{1F314}' : illum < 99 ? '\u{1F315}' : '\u{1F316}';
+
+    var level, levelColor, tip;
+    if (moon.always_down || illum <= 30) {
+        level = '\u{1F7E2} 低干扰';
+        levelColor = '#2ecc71';
+        tip = '月光对拍摄影响很小';
+    } else if (moon.dark_fraction > 0.5) {
+        level = '\u{1F7E0} 中干扰';
+        levelColor = '#f39c12';
+        tip = '后半夜暗夜窗口较好';
+    } else if (moon.dark_fraction > 0.15) {
+        level = '\u{1F7E0} 中高干扰';
+        levelColor = '#e67e22';
+        tip = '暗夜窗口较短，拍窄带或早起拍';
+    } else {
+        level = '\u{1F534} 高干扰';
+        levelColor = '#e74c3c';
+        tip = moon.always_up ? '月球整晚可见，建议窄带滤镜' : '暗夜窗口极短，优先窄带拍摄';
+    }
+
+    var html = '<div class="moon-card">' +
+        '<div class="moon-card-header">' +
+            '<span class="moon-emoji">' + phaseEmoji + '</span>' +
+            '<span class="moon-phase">' + moon.phase + '</span>' +
+            '<span class="moon-illum">' + illum.toFixed(0) + '%</span>' +
+        '</div>' +
+        '<div class="moon-card-body">' +
+            '<div class="moon-level" style="color:' + levelColor + '">' + level + '</div>' +
+            '<div class="moon-tip">\u{1F4A1} ' + tip + '</div>' +
+        '</div>' +
+        '</div>';
+
+    container.insertAdjacentHTML('beforebegin', html);
+}
 function renderTargetResults(targets, container) {
     if (!targets.length) {
         container.innerHTML = '<p class="target-empty">当前天区未找到适合拍摄的目标</p>';

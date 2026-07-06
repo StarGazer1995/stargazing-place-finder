@@ -67,7 +67,8 @@ async def get_targets(body: dict) -> dict:
 
     results = match_telescope_targets(config, observer, t, limit)
     return {
-        "targets": results,
+        "targets": results["targets"],
+        "moon": results["moon"],
         "config": config.model_dump(exclude_none=True),
-        "total": len(results),
+        "total": len(results["targets"]),
     }
