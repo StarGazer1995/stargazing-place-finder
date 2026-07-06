@@ -75,3 +75,84 @@ class TestTelescopeOptics:
         data = resp.json()
         assert data["fov_width_deg"] is None
         assert data["limiting_magnitude"] is not None
+
+
+class TestTelescopeTargets:
+    def test_get_targets_returns_structure(self, client: TestClient, monkeypatch) -> None:
+        """Targets endpoint returns expected response shape."""
+        from server.routes import telescope
+
+        mock_result = [
+            {
+                "name": "M 31",
+                "ra": 10.68,
+                "dec": 41.27,
+                "type": "Gx",
+                "magnitude": 3.4,
+                "surface_brightness": 13.5,
+                "angular_size_arcmin": 199.5,
+                "altitude": 45.0,
+                "azimuth": 180.0,
+                "fov_fill_ratio": 0.5,
+                "fov_fit_score": 1.0,
+                "surface_brightness_score": 0.8,
+                "filter_match_score": 1.0,
+                "altitude_score": 0.5,
+                "suitability_score": 85.0,
+                "mosaic_recommended": True,
+                "catalog": "Messier",
+            }
+        ]
+        monkeypatch.setattr(telescope, "match_telescope_targets", lambda *a, **kw: mock_result)
+
+        body = {
+            "focal_length_mm": 250,
+            "sensor_width_mm": 23.5,
+            "sensor_height_mm": 15.7,
+            "lon": 116.4,
+            "lat": 39.9,
+            "time": "2024-01-25T22:00:00",
+            "time_zone": "Asia/Shanghai",
+            "limit": 5,
+        }
+        resp = client.post("/api/telescope/targets", json=body)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert len(data["targets"]) == 1
+        assert data["targets"][0]["name"] == "M 31"
+        assert "config" in data
+
+    def test_get_targets_defaults(self, client: TestClient, monkeypatch) -> None:
+        """Targets endpoint applies defaults for time_zone and limit."""
+        from server.routes import telescope
+
+        monkeypatch.setattr(telescope, "match_telescope_targets", lambda *a, **kw: [])
+
+        body = {
+            "focal_length_mm": 250,
+            "lon": 0,
+            "lat": 51,
+            "time": "2024-01-25T22:00:00",
+        }
+        resp = client.post("/api/telescope/targets", json=body)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["targets"] == []
+
+    def test_get_targets_fallback_timezone(self, client: TestClient, monkeypatch) -> None:
+        """Targets endpoint falls back to direct Time parse for invalid tz."""
+        from server.routes import telescope
+
+        monkeypatch.setattr(telescope, "match_telescope_targets", lambda *a, **kw: [])
+
+        body = {
+            "focal_length_mm": 250,
+            "lon": 0,
+            "lat": 51,
+            "time": "2024-01-25T22:00:00",
+            "time_zone": "Mars/Olympus",
+        }
+        resp = client.post("/api/telescope/targets", json=body)
+        assert resp.status_code == 200
