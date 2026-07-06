@@ -2493,6 +2493,7 @@ async function matchTelescopeTargets() {
         var data = await resp.json();
         var targets = data.targets || [];
         var moon = data.moon || null;
+        window._lastMoon = moon;  // shared with altitude chart
 
         countEl.textContent = '(' + targets.length + ' 个目标)';
         renderMoonCard(moon);
@@ -2632,10 +2633,18 @@ function showAltitudeChart(target) {
     var pw = w - pad.left - pad.right;
     var ph = h - pad.top - pad.bottom;
 
-    // Find alt range
+    // Find alt range (include moon if available)
     var alts = curve.map(function (p) { return p.alt; });
     var minAlt = Math.max(0, Math.floor(Math.min.apply(null, alts) / 5) * 5);
     var maxAlt = Math.min(90, Math.ceil(Math.max.apply(null, alts) / 5) * 5);
+    var moonCurve = window._lastMoon ? window._lastMoon.altitude_curve : null;
+    var hasMoon = moonCurve && moonCurve.length > 1;
+    if (hasMoon) {
+        var moonMin = Math.max(0, Math.floor(Math.min.apply(null, moonCurve.map(function (p) { return p.alt; })) / 5) * 5);
+        var moonMax = Math.min(90, Math.ceil(Math.max.apply(null, moonCurve.map(function (p) { return p.alt; })) / 5) * 5);
+        minAlt = Math.min(minAlt, moonMin);
+        maxAlt = Math.max(maxAlt, moonMax);
+    }
     if (maxAlt - minAlt < 10) { maxAlt = minAlt + 10; }
 
     var xScale = function (i) { return pad.left + (i / (curve.length - 1)) * pw; };
@@ -2685,6 +2694,28 @@ function showAltitudeChart(target) {
         if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
     }
     ctx.stroke();
+
+    // Moon altitude curve (dashed gray)
+    if (hasMoon) {
+        ctx.strokeStyle = 'rgba(200,200,220,0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        for (var i4 = 0; i4 < moonCurve.length; i4++) {
+            var px4 = xScale(i4);
+            var py4 = yScale(moonCurve[i4].alt);
+            if (i4 === 0) ctx.moveTo(px4, py4); else ctx.lineTo(px4, py4);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Moon label
+        var labelIdx = Math.floor(moonCurve.length * 0.65);
+        ctx.fillStyle = 'rgba(200,200,220,0.75)';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('\u{1F319} Moon', xScale(labelIdx), yScale(moonCurve[labelIdx].alt) - 8);
+    }
 
     // Dusk/dawn markers
     if (target.civil_dusk) {
