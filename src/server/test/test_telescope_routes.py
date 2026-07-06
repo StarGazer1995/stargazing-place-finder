@@ -103,7 +103,21 @@ class TestTelescopeTargets:
                 "catalog": "Messier",
             }
         ]
-        monkeypatch.setattr(telescope, "match_telescope_targets", lambda *a, **kw: mock_result)
+        monkeypatch.setattr(
+            telescope,
+            "match_telescope_targets",
+            lambda *a, **kw: {
+                "targets": mock_result,
+                "moon": {
+                    "illumination": 0.5,
+                    "phase": "First Quarter",
+                    "altitude_curve": [],
+                    "always_down": False,
+                    "always_up": False,
+                    "dark_fraction": 0.4,
+                },
+            },
+        )
 
         body = {
             "focal_length_mm": 250,
@@ -127,7 +141,11 @@ class TestTelescopeTargets:
         """Targets endpoint applies defaults for time_zone and limit."""
         from server.routes import telescope
 
-        monkeypatch.setattr(telescope, "match_telescope_targets", lambda *a, **kw: [])
+        monkeypatch.setattr(
+            telescope,
+            "match_telescope_targets",
+            lambda *a, **kw: {"targets": [], "moon": {}},
+        )
 
         body = {
             "focal_length_mm": 250,
@@ -145,7 +163,11 @@ class TestTelescopeTargets:
         """Targets endpoint falls back to direct Time parse for invalid tz."""
         from server.routes import telescope
 
-        monkeypatch.setattr(telescope, "match_telescope_targets", lambda *a, **kw: [])
+        monkeypatch.setattr(
+            telescope,
+            "match_telescope_targets",
+            lambda *a, **kw: {"targets": [], "moon": {}},
+        )
 
         body = {
             "focal_length_mm": 250,
