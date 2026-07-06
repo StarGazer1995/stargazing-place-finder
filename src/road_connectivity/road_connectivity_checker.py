@@ -680,25 +680,3 @@ def simple_road_check(point: GeoPoint) -> bool:
     )
     checker = RoadConnectivityChecker(search_radius_km=5.0)
     return checker.is_road_accessible(point)
-
-
-if __name__ == "__main__":
-    # Example usage
-    checker = RoadConnectivityChecker(search_radius_km=10.0)
-
-    # Test some coordinates
-    test_coordinates = [
-        (39.9042, 116.4074),  # Beijing Tiananmen
-        (31.2304, 121.4737),  # Shanghai Bund
-        (90.0, 0.0),  # North Pole (should be inaccessible)
-    ]
-
-    for lat, lon in test_coordinates:
-        point = GeoPoint(lat=lat, lon=lon)
-        logger.info(f"Detecting coordinates ({lat}, {lon}):")
-        info = checker.get_accessibility_info(point)
-        logger.info(f"Accessibility: {info['accessible']}")
-        if info["distance_to_road_km"] is not None:
-            logger.info(f"Distance to nearest road: {info['distance_to_road_km']:.2f} km")
-        if info["error"]:
-            logger.info(f"Error: {info['error']}")

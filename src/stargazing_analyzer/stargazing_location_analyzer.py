@@ -892,37 +892,3 @@ def analyze_stargazing_area(
     analyzer.print_analysis_summary(locations)
 
     return locations
-
-
-if __name__ == "__main__":
-    # Example: Analyze stargazing locations around Beijing
-    logger.info("=== Stargazing Location Comprehensive Analyzer Example ===")
-
-    # Define analysis area (around Beijing)
-    bbox = (39.5, 115.5, 40.5, 117.5)  # (south, west, north, east)
-
-    # Create analyzer (no KML file provided here, so skip light pollution analysis)
-    analyzer = StargazingLocationAnalyzer(
-        kml_file_path=None,  # If you have light pollution KML file, provide path here
-        min_height_difference=100.0,
-        road_search_radius_km=10.0,
-    )
-
-    # Analyze area
-    locations = analyzer.analyze_area(
-        bbox=bbox,
-        max_locations=20,
-        location_types=["mountain_peak", "observatory", "viewpoint"],
-        network_type="drive",
-        include_light_pollution=False,  # Set to False when no KML file
-        include_road_connectivity=True,
-    )
-
-    # Save results
-    if locations:
-        analyzer.save_results_to_json(locations, "stargazing_analysis_results.json")
-
-        # Print summary
-        analyzer.print_analysis_summary(locations)
-    else:
-        logger.info("No qualified stargazing locations found")

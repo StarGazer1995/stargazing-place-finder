@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from models import GeoPoint, LatLonBox, StargazingLocation
+from models import LatLonBox, StargazingLocation
 
 # ═══════════════════════════════════════════════════════════════════
 # Standard geographic coordinates (used across multiple test modules)
@@ -27,18 +27,6 @@ def bbox_beijing():
 def latlon_box_beijing() -> LatLonBox:
     """Standard ``LatLonBox`` for Beijing-region integration tests."""
     return LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5)
-
-
-@pytest.fixture
-def coord_tiananmen() -> GeoPoint:
-    """Tiananmen Square coordinate for road connectivity tests."""
-    return GeoPoint(lat=39.9042, lon=116.4074)
-
-
-@pytest.fixture
-def coord_beijing() -> GeoPoint:
-    """Generic Beijing coordinate for general-purpose tests."""
-    return GeoPoint(lat=40.0, lon=116.0)
 
 
 # ═══════════════════════════════════════════════════════════════════

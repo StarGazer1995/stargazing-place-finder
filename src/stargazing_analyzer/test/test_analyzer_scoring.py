@@ -825,3 +825,16 @@ class TestAnalyzerClose:
             a.light_pollution_analyzer = None
             a.mountain_finder = mock_finder
             a.close()  # should not raise
+
+
+class TestPrintAnalysisSummary:
+    """Test print_analysis_summary with various inputs."""
+
+    def test_print_summary_with_locations(self, analyzer, sample_location):
+        """print_analysis_summary handles a list of StargazingLocation."""
+        locations = [sample_location]
+        analyzer.print_analysis_summary(locations)  # should not raise
+
+    def test_print_summary_empty_list(self, analyzer):
+        """print_analysis_summary handles an empty list."""
+        analyzer.print_analysis_summary([])  # should not raise

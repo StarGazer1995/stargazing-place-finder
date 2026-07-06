@@ -307,31 +307,3 @@ def find_viewpoints(south: float, west: float, north: float, east: float, max_vi
         min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer(geotiff_path=geotiff_path)
     )
     return finder.find_viewpoints_in_area(LatLonBox(south=south, west=west, north=north, east=east), max_viewpoints)
-
-
-if __name__ == "__main__":
-    # Example: Search for peaks around Beijing
-    logger.info("=== Peak Finder Example ===")
-
-    bbox = LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5)
-
-    geotiff_path = str(res.files("light_pollution").joinpath("resources", "viirs_china_2025.tif"))
-    finder = StarGazingPlaceFinder(
-        min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer(geotiff_path=geotiff_path)
-    )
-
-    peaks = finder.find_peaks_in_area(bbox, max_locations=20)
-
-    if peaks:
-        logger.info("\n=== Qualified Peaks ===")
-        for i, peak in enumerate(peaks, 1):
-            logger.info("%s. %s", i, peak.name)
-            logger.info("   Coordinates: (%.4f, %.4f)", peak.lat, peak.lon)
-            logger.info("   Elevation: %.1fm", peak.elevation)
-            logger.info("   Height difference from %s: %.1fm", peak.nearest_town_name, peak.height_difference)
-            logger.info("   Distance to nearest town: %.1fkm", peak.distance_to_nearest_town)
-            logger.info("")
-
-        finder.save_results_to_json(peaks, "mountain_peaks_results.json")
-    else:
-        logger.info("No qualified peaks found")
