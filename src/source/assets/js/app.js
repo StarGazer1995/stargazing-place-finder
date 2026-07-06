@@ -2254,6 +2254,7 @@ function syncPanelVisibility() {
     var chartPanel = document.getElementById('altitude-chart-panel');
     var modeBtn = document.getElementById('mode-toggle-btn');
     var searchInput = document.getElementById('search-input');
+    var searchContainer = document.getElementById('search-container');
 
     // ── Browse-mode panels ──
     var statsPanel = document.querySelector('.stats-panel');
@@ -2275,6 +2276,7 @@ function syncPanelVisibility() {
         if (telescopeStatus) telescopeStatus.style.display = 'block';
         if (telescopeBtn) { telescopeBtn.textContent = '🗺️ 返回地图'; telescopeBtn.classList.add('active'); }
         if (modeBtn) modeBtn.style.display = 'none';
+        if (searchContainer) searchContainer.style.display = 'none';
         if (searchInput) { searchInput.dataset.mapPlaceholder = searchInput.placeholder; searchInput.placeholder = '搜索天体 (如 M31, M42, NGC 7000)...'; }
 
         // Restore location display if set
@@ -2312,6 +2314,7 @@ function syncPanelVisibility() {
         if (telescopeBtn) { telescopeBtn.textContent = '🔭 望远镜模式'; telescopeBtn.classList.remove('active'); }
         if (modeBtn) modeBtn.style.display = '';
         if (searchInput && searchInput.dataset.mapPlaceholder) { searchInput.placeholder = searchInput.dataset.mapPlaceholder; }
+        if (searchContainer) searchContainer.style.display = '';
 
         // Clean up FOV canvas
         if (fovCanvas && fovCanvas.parentNode) { fovCanvas.parentNode.removeChild(fovCanvas); fovCanvas = null; fovCanvasCtx = null; }
@@ -2348,6 +2351,7 @@ function syncPanelVisibility() {
         if (telescopeBtn) { telescopeBtn.textContent = '🔭 望远镜模式'; telescopeBtn.classList.remove('active'); }
         if (modeBtn) modeBtn.style.display = '';
         if (searchInput && searchInput.dataset.mapPlaceholder) { searchInput.placeholder = searchInput.dataset.mapPlaceholder; }
+        if (searchContainer) searchContainer.style.display = '';
 
         // Clean up FOV canvas
         if (fovCanvas && fovCanvas.parentNode) { fovCanvas.parentNode.removeChild(fovCanvas); fovCanvas = null; fovCanvasCtx = null; }
