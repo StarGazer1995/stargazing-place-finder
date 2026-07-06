@@ -49,22 +49,6 @@
                aria-label="搜索地点" autocomplete="off" />
     </div>
 
-    <!-- 统计面板 -->
-    <div class="stats-panel" role="complementary">
-        <h3>光污染统计</h3>
-        <div class="stats-content">
-            <!-- 统计内容将由JavaScript动态生成 -->
-        </div>
-    </div>
-
-    <!-- 信息面板 -->
-    <div class="info-panel" role="complementary">
-        <h3>位置信息</h3>
-        <div class="info-content">
-            <!-- 信息内容将由JavaScript动态生成 -->
-        </div>
-    </div>
-
     <!-- 光污染图例 — 紧凑渐变条 -->
     <div class="bortle-bar-container" role="complementary">
         <span class="bortle-bar-label">1 暗空</span>
@@ -195,6 +179,12 @@
             <h4 id="target-results-header" class="target-results-header">🎯 推荐拍摄目标 <span class="target-count"></span> <span class="collapse-arrow">▼</span></h4>
             <div id="target-results-list" class="target-results-body"></div>
         </div>
+    </div>
+
+    <!-- 高度角曲线面板 -->
+    <div id="altitude-chart-panel" class="altitude-chart-panel" style="display: none;">
+        <h4 id="altitude-chart-title">📈 高度角变化</h4>
+        <canvas id="altitude-chart-canvas"></canvas>
     </div>
 
     <!-- 望远镜模式状态指示器 -->

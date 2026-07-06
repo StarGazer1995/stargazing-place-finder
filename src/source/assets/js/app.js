@@ -702,6 +702,12 @@ function updateStatsPanel(stats = null) {
         `;
     }
     bortleDistributionDiv.innerHTML = distributionHTML;
+
+    // Show panel in browse mode when data is available
+    if (!isAnalysisMode && !isTelescopeMode) {
+        const statsPanel = document.querySelector('.stats-panel');
+        if (statsPanel) statsPanel.style.display = 'block';
+    }
 }
 
 /**
@@ -981,6 +987,11 @@ function updateInfoPanel(lat, lng, bortleClass) {
         <p><strong>${getText('bortleClass')}:</strong> ${getText(`bortleDescriptions.${bortleClass}`)}</p>
         <p><strong>${getText('observationSuitability')}:</strong> ${getText(`suitabilityLevels.${suitability}`)}</p>
     `;
+
+    // Show panel only in browse mode
+    if (!isAnalysisMode && !isTelescopeMode) {
+        infoPanel.style.display = 'block';
+    }
 }
 
 /**
@@ -1705,6 +1716,9 @@ function clearAll() {
  * 更新状态指示器
  */
 function updateStatus(message, type = 'info') {
+    // Guard: status indicator must NEVER be shown outside analysis mode
+    if (!isAnalysisMode || isTelescopeMode) return;
+
     let indicator = document.getElementById('status-indicator');
     if (!indicator) {
         indicator = document.createElement('div');
@@ -1712,7 +1726,7 @@ function updateStatus(message, type = 'info') {
         indicator.className = 'status-indicator';
         document.body.appendChild(indicator);
     }
-    
+
     indicator.textContent = message;
     indicator.className = `status-indicator ${type}`;
     indicator.style.display = 'block';
@@ -1735,45 +1749,21 @@ function updateStatus(message, type = 'info') {
  */
 function toggleMode() {
     isAnalysisMode = !isAnalysisMode;
-    
+
     const modeBtn = document.getElementById('mode-toggle-btn');
-    const controlPanel = document.querySelector('.control-panel');
-    
+
     if (isAnalysisMode) {
-        // 切换到分析模式
         modeBtn.textContent = '切换到浏览模式';
         modeBtn.classList.add('active');
-        controlPanel.style.display = 'block';
-        
-        // 初始化绘制控件
-        if (!drawControl) {
-            initializeDrawControls();
-        } else {
-            // 确保绘制控件已添加到地图
-            if (map && !map.hasControl(drawControl)) {
-                map.addControl(drawControl);
-            }
-        }
-        
+        if (!drawControl) initializeDrawControls();
         updateStatus('已切换到分析模式，请绘制分析区域', 'info');
     } else {
-        // 切换到浏览模式
         modeBtn.textContent = '切换到分析模式';
         modeBtn.classList.remove('active');
-        controlPanel.style.display = 'none';
-        
-        // 移除绘制控件
-        if (window._drawBtn && map && map.hasControl(window._drawBtn)) {
-            map.removeControl(window._drawBtn);
-        }
-        
-        // 清除所有分析内容
         clearAll();
-
-        // Hide status
-        var statusEl = document.querySelector('.status-indicator');
-        if (statusEl) statusEl.style.display = 'none';
     }
+
+    syncPanelVisibility();
 }
 
 /**
@@ -2224,101 +2214,153 @@ function initTelescopeMode() {
 /**
  * Toggle between map mode and telescope (sky chart) mode.
  */
-function toggleTelescopeMode() {
-    isTelescopeMode = !isTelescopeMode;
+/**
+ * Sync panel visibility based on current mode (browse / analysis / telescope).
+ *
+ * This is the SINGLE SOURCE OF TRUTH for all panel visibility.
+ * Each mode shows ONLY its own panels — no overlap, no leakage.
+ *
+ * Browse mode:
+ *   Visible: map, search, bortle-bar (legend), top-right buttons
+ *   Data-driven: .stats-panel (shown by updateStatsPanel), .info-panel (shown by updateInfoPanel)
+ *   Hidden: analysis panels, telescope panels, draw control
+ *
+ * Analysis mode:
+ *   Visible: map, search, .control-panel, bortle-bar (legend), draw control, top-right buttons
+ *   Data-driven: .status-indicator (shown by updateStatus), .results-panel (shown by displayAnalysisResults)
+ *   Hidden: browse panels (.stats-panel, .info-panel, .bortle-bar-container), telescope panels
+ *
+ * Telescope mode:
+ *   Visible: Aladin sky chart, telescope config panel, telescope status, top-right buttons
+ *   Data-driven: altitude chart (shown by showAltitudeChart), target results (shown by matchTelescopeTargets)
+ *   Hidden: map, search (uses Aladin search), browse panels, analysis panels, draw control, mode-toggle-btn
+ */
+function syncPanelVisibility() {
+    var mapEl = document.getElementById('map');
+    var aladinContainer = document.getElementById('aladin-container');
+    var telescopePanel = document.getElementById('telescope-control-panel');
+    var telescopeBtn = document.getElementById('telescope-toggle-btn');
+    var telescopeStatus = document.getElementById('telescope-status');
+    var chartPanel = document.getElementById('altitude-chart-panel');
+    var modeBtn = document.getElementById('mode-toggle-btn');
+    var searchInput = document.getElementById('search-input');
 
-    const mapEl = document.getElementById('map');
-    const aladinContainer = document.getElementById('aladin-container');
-    const telescopePanel = document.getElementById('telescope-control-panel');
-    const telescopeBtn = document.getElementById('telescope-toggle-btn');
-    // Map-only panels — hide in telescope mode, restore in map mode
-    const mapPanelSelectors = [
-        '.bortle-bar-container',
-        '.stats-panel',
-        '.info-panel',
-        '.status-indicator',
-        '.results-panel',
-        '.control-panel',
-    ];
+    // ── Browse-mode panels ──
+    var statsPanel = document.querySelector('.stats-panel');
+    var infoPanel = document.querySelector('.info-panel');
+    var bortleBar = document.querySelector('.bortle-bar-container');
+
+    // ── Analysis-mode panels ──
+    var controlPanel = document.querySelector('.control-panel');
+    var resultsPanel = document.querySelector('.results-panel');
+    var statusIndicator = document.querySelector('.status-indicator');
 
     if (isTelescopeMode) {
-        // Switch to telescope mode
+        // ═══════════════════════════════════════════════════════════════
+        //  Telescope mode
+        // ═══════════════════════════════════════════════════════════════
         if (mapEl) mapEl.style.display = 'none';
         if (aladinContainer) aladinContainer.style.display = 'block';
         if (telescopePanel) telescopePanel.style.display = 'block';
-        if (telescopeBtn) {
-            telescopeBtn.textContent = '🗺️ 返回地图';
-            telescopeBtn.classList.add('active');
-        }
-        const modeBtn = document.getElementById('mode-toggle-btn');
+        if (telescopeStatus) telescopeStatus.style.display = 'block';
+        if (telescopeBtn) { telescopeBtn.textContent = '🗺️ 返回地图'; telescopeBtn.classList.add('active'); }
         if (modeBtn) modeBtn.style.display = 'none';
+        if (searchInput) { searchInput.dataset.mapPlaceholder = searchInput.placeholder; searchInput.placeholder = '搜索天体 (如 M31, M42, NGC 7000)...'; }
 
-        // Hide the separate aladin search (we reuse the main search bar)
-        var aladinSearch = document.getElementById('aladin-search-container');
-        if (aladinSearch) aladinSearch.style.display = 'none';
+        // Hide browse panels
+        if (statsPanel) statsPanel.style.display = 'none';
+        if (infoPanel) infoPanel.style.display = 'none';
+        if (bortleBar) bortleBar.style.display = 'none';
 
-        // Remove analysis draw control while in telescope mode
-        if (drawControl && map && map.hasControl(drawControl)) {
-            map.removeControl(drawControl);
-        }
+        // Hide analysis panels
+        if (controlPanel) controlPanel.style.display = 'none';
+        if (resultsPanel) resultsPanel.style.display = 'none';
+        if (statusIndicator) statusIndicator.style.display = 'none';
 
-        // Repurpose main search bar for celestial objects
-        var searchInput = document.getElementById('search-input');
-        if (searchInput) {
-            searchInput.dataset.mapPlaceholder = searchInput.placeholder;
-            searchInput.placeholder = '搜索天体 (如 M31, M42, NGC 7000)...';
-        }
+        // Remove and destroy draw control
+        try { if (drawControl && map) map.removeControl(drawControl); } catch (e) {}
+        drawControl = null;
+        drawnItems = null;
+        currentPolygon = null;
 
-        // Hide all map-specific panels
-        mapPanelSelectors.forEach(function (sel) {
-            var el = document.querySelector(sel);
-            if (el) el.style.display = 'none';
-        });
-
-        // Lazy-init Aladin on first activation
+        // Lazy-init Aladin
         ensureAladinReady().then(function () {
             setTimeout(function () { updateFovOverlay(); }, 400);
         }).catch(function (err) {
             console.error('Aladin init failed:', err);
             showToast('星图加载失败，请刷新页面重试', 'error');
         });
-    } else {
-        // Switch back to map mode
+    } else if (isAnalysisMode) {
+        // ═══════════════════════════════════════════════════════════════
+        //  Analysis mode
+        // ═══════════════════════════════════════════════════════════════
         if (mapEl) mapEl.style.display = 'block';
         if (aladinContainer) aladinContainer.style.display = 'none';
         if (telescopePanel) telescopePanel.style.display = 'none';
-        if (telescopeBtn) {
-            telescopeBtn.textContent = '🔭 望远镜模式';
-            telescopeBtn.classList.remove('active');
-        }
-        if (document.getElementById('mode-toggle-btn')) {
-            document.getElementById('mode-toggle-btn').style.display = '';
-        }
-
-        // Restore analysis draw control if in analysis mode
-        if (isAnalysisMode && drawControl && map && !map.hasControl(drawControl)) {
-            map.addControl(drawControl);
-        }
-
-        // Restore search bar
-        var searchInput = document.getElementById('search-input');
-        if (searchInput && searchInput.dataset.mapPlaceholder) {
-            searchInput.placeholder = searchInput.dataset.mapPlaceholder;
-        }
-
-        // Restore map panels
-        mapPanelSelectors.forEach(function (sel) {
-            var el = document.querySelector(sel);
-            if (el) el.style.display = '';
-        });
+        if (telescopeStatus) telescopeStatus.style.display = 'none';
+        if (chartPanel) chartPanel.style.display = 'none';
+        if (telescopeBtn) { telescopeBtn.textContent = '🔭 望远镜模式'; telescopeBtn.classList.remove('active'); }
+        if (modeBtn) modeBtn.style.display = '';
+        if (searchInput && searchInput.dataset.mapPlaceholder) { searchInput.placeholder = searchInput.dataset.mapPlaceholder; }
 
         // Clean up FOV canvas
-        if (fovCanvas && fovCanvas.parentNode) {
-            fovCanvas.parentNode.removeChild(fovCanvas);
-            fovCanvas = null;
-            fovCanvasCtx = null;
-        }
+        if (fovCanvas && fovCanvas.parentNode) { fovCanvas.parentNode.removeChild(fovCanvas); fovCanvas = null; fovCanvasCtx = null; }
+
+        // Show analysis panels
+        if (controlPanel) controlPanel.style.display = 'block';
+        // resultsPanel is shown by displayAnalysisResults() only when results exist
+
+        // Hide browse-only panels (bortleBar is shared with analysis — keep visible)
+        if (statsPanel) statsPanel.style.display = 'none';
+        if (infoPanel) infoPanel.style.display = 'none';
+        if (bortleBar) bortleBar.style.display = '';
+
+        // Show draw control
+        try {
+            if (!drawControl) initializeDrawControls();
+            if (drawControl && map && !map.hasControl(drawControl)) map.addControl(drawControl);
+        } catch (e) {}
+
+        if (map) setTimeout(function () { map.invalidateSize(); }, 100);
+    } else {
+        // ═══════════════════════════════════════════════════════════════
+        //  Browse mode (default)
+        // ═══════════════════════════════════════════════════════════════
+        if (mapEl) mapEl.style.display = 'block';
+        if (aladinContainer) aladinContainer.style.display = 'none';
+        if (telescopePanel) telescopePanel.style.display = 'none';
+        if (telescopeStatus) telescopeStatus.style.display = 'none';
+        if (chartPanel) chartPanel.style.display = 'none';
+        if (telescopeBtn) { telescopeBtn.textContent = '🔭 望远镜模式'; telescopeBtn.classList.remove('active'); }
+        if (modeBtn) modeBtn.style.display = '';
+        if (searchInput && searchInput.dataset.mapPlaceholder) { searchInput.placeholder = searchInput.dataset.mapPlaceholder; }
+
+        // Clean up FOV canvas
+        if (fovCanvas && fovCanvas.parentNode) { fovCanvas.parentNode.removeChild(fovCanvas); fovCanvas = null; fovCanvasCtx = null; }
+
+        // Hide analysis panels
+        if (controlPanel) controlPanel.style.display = 'none';
+        if (resultsPanel) resultsPanel.style.display = 'none';
+        if (statusIndicator) statusIndicator.style.display = 'none';
+
+        // Show browse panels (stats/info are data-driven — shown by updateStatsPanel/updateInfoPanel)
+        if (bortleBar) bortleBar.style.display = '';
+
+        // Remove and destroy draw control
+        try {
+            if (drawControl && map) map.removeControl(drawControl);
+        } catch (e) {}
+        drawControl = null;
+        drawnItems = null;
+        currentPolygon = null;
+
+        if (map) setTimeout(function () { map.invalidateSize(); }, 100);
     }
+}
+
+function toggleTelescopeMode() {
+    isTelescopeMode = !isTelescopeMode;
+    syncPanelVisibility();
 }
 
 // ==================== 望远镜目标匹配 ====================
@@ -2366,6 +2408,21 @@ async function matchTelescopeTargets() {
             time_zone: tz,
             limit: 100,
         };
+
+        // Reverse geocode: show place name above results
+        var placeName = '';
+        try {
+            var geoResp = await fetch(
+                'https://nominatim.openstreetmap.org/reverse?format=json&lat=' +
+                mapCenter.lat + '&lon=' + mapCenter.lng + '&zoom=10'
+            );
+            var geoData = await geoResp.json();
+            placeName = geoData.display_name || '';
+        } catch (e) { /* ignore */ }
+        countEl.textContent = '';
+        if (placeName) {
+            countEl.textContent = '📍 ' + placeName + ' ';
+        }
 
         var resp = await fetch(API_CONFIG.baseUrl + '/api/telescope/targets', {
             method: 'POST',
@@ -2416,7 +2473,10 @@ function renderTargetResults(targets, container) {
     }
     container.innerHTML = html;
 
-    // Click to goto target on Aladin
+    // Store for chart access
+    window._lastTargets = targets;
+
+    // Click to goto target on Aladin + show altitude chart
     var cards = container.querySelectorAll('.target-card');
     cards.forEach(function (card) {
         card.addEventListener('click', function () {
@@ -2425,6 +2485,7 @@ function renderTargetResults(targets, container) {
             if (aladinInstance && target.ra != null && target.dec != null) {
                 aladinInstance.gotoRaDec(target.ra, target.dec);
             }
+            showAltitudeChart(target);
         });
     });
 }
@@ -2433,6 +2494,106 @@ function renderTargetResults(targets, container) {
  * Overlay matched targets on Aladin as a catalog.
  */
 var _targetCatalog = null;
+/**
+ * Draw altitude curve for the selected target at the bottom of the screen.
+ */
+function showAltitudeChart(target) {
+    var panel = document.getElementById('altitude-chart-panel');
+    var canvas = document.getElementById('altitude-chart-canvas');
+    var title = document.getElementById('altitude-chart-title');
+    if (!panel || !canvas || !target) return;
+
+    var curve = target.altitude_curve;
+    if (!curve || curve.length < 2) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    title.textContent = '\u{1F4C8} ' + target.name + ' — \u{9AD8}\u{5EA6}\u{89D2}\u{53D8}\u{5316}';
+    panel.style.display = 'block';
+
+    // Size canvas to panel width
+    var w = panel.clientWidth - 20;
+    var h = 100;
+    canvas.width = w * (window.devicePixelRatio || 1);
+    canvas.height = h * (window.devicePixelRatio || 1);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+
+    var pad = { top: 15, right: 10, bottom: 25, left: 40 };
+    var pw = w - pad.left - pad.right;
+    var ph = h - pad.top - pad.bottom;
+
+    // Find alt range
+    var alts = curve.map(function (p) { return p.alt; });
+    var minAlt = Math.max(0, Math.floor(Math.min.apply(null, alts) / 5) * 5);
+    var maxAlt = Math.min(90, Math.ceil(Math.max.apply(null, alts) / 5) * 5);
+    if (maxAlt - minAlt < 10) { maxAlt = minAlt + 10; }
+
+    var xScale = function (i) { return pad.left + (i / (curve.length - 1)) * pw; };
+    var yScale = function (alt) { return pad.top + (1 - (alt - minAlt) / (maxAlt - minAlt)) * ph; };
+
+    // Clear
+    ctx.clearRect(0, 0, w, h);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    for (var a = minAlt; a <= maxAlt; a += 10) {
+        var y = yScale(a);
+        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+        ctx.fillStyle = '#888';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(a + '°', pad.left - 4, y + 4);
+    }
+
+    // Time labels (every 2 hours, local time)
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#888';
+    ctx.font = '10px sans-serif';
+    for (var i = 0; i < curve.length; i += 8) {
+        var d = new Date(curve[i].time * 1000);
+        var hh = String(d.getHours()).padStart(2, '0');
+        var mm = String(d.getMinutes()).padStart(2, '0');
+        ctx.fillText(hh + ':' + mm, xScale(i), h - pad.bottom + 14);
+    }
+
+    // Horizon line
+    ctx.strokeStyle = 'rgba(255,80,80,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    var hy = yScale(0);
+    ctx.beginPath(); ctx.moveTo(pad.left, hy); ctx.lineTo(w - pad.right, hy); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Altitude curve
+    ctx.strokeStyle = '#f1c40f';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var i = 0; i < curve.length; i++) {
+        var px = xScale(i);
+        var py = yScale(curve[i].alt);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // Dusk/dawn markers
+    if (target.civil_dusk) {
+        ctx.fillStyle = '#e67e22';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('\u{1F31A} Dusk', pad.left, pad.top - 2);
+    }
+    if (target.civil_dawn) {
+        ctx.fillStyle = '#3498db';
+        ctx.textAlign = 'right';
+        ctx.fillText('Dawn \u{1F305}', w - pad.right, pad.top - 2);
+    }
+}
+
 function overlayTargetsOnAladin(targets) {
     if (!aladinInstance) return;
 
