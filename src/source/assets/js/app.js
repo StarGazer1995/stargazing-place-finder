@@ -2204,6 +2204,21 @@ function initTelescopeMode() {
     if (telescopeBtn) {
         telescopeBtn.addEventListener('click', toggleTelescopeMode);
     }
+
+    // ── Match targets button ──
+    var matchBtn = document.getElementById('match-targets-btn');
+    if (matchBtn) {
+        matchBtn.addEventListener('click', matchTelescopeTargets);
+    }
+
+    // ── Collapsible target results ──
+    var targetHeader = document.getElementById('target-results-header');
+    if (targetHeader) {
+        targetHeader.addEventListener('click', function () {
+            var section = document.getElementById('target-results-section');
+            if (section) section.classList.toggle('collapsed');
+        });
+    }
 }
 
 /**
@@ -2303,6 +2318,158 @@ function toggleTelescopeMode() {
             fovCanvas = null;
             fovCanvasCtx = null;
         }
+    }
+}
+
+// ==================== 望远镜目标匹配 ====================
+
+/**
+ * Call the SPF backend telescope-targets endpoint and render results.
+ */
+async function matchTelescopeTargets() {
+    var btn = document.getElementById('match-targets-btn');
+    var section = document.getElementById('target-results-section');
+    var list = document.getElementById('target-results-list');
+    var countEl = section.querySelector('.target-count');
+
+    btn.disabled = true;
+    btn.textContent = '⏳ 匹配中...';
+    list.innerHTML = '<p class="target-loading">正在分析最佳拍摄目标...</p>';
+    section.style.display = 'block';
+
+    try {
+        var focalLength = parseFloat(document.getElementById('telescope-focal-length').value) || 250;
+        var sensorW = parseFloat(document.getElementById('telescope-sensor-width').value) || 23.5;
+        var sensorH = parseFloat(document.getElementById('telescope-sensor-height').value) || 15.7;
+        var preset = document.getElementById('telescope-preset').value;
+
+        // Use Aladin center as observing direction; map center as observer location
+        var raDec = aladinInstance ? aladinInstance.getRaDec() : [0, 0];
+        var mapCenter = window._stargazingMap ? window._stargazingMap.getCenter() : { lat: 40, lng: 116 };
+        var now = new Date();
+        var timeStr = now.getFullYear() + '-' +
+            String(now.getMonth() + 1).padStart(2, '0') + '-' +
+            String(now.getDate()).padStart(2, '0') + ' ' +
+            String(now.getHours()).padStart(2, '0') + ':' +
+            String(now.getMinutes()).padStart(2, '0') + ':' +
+            String(now.getSeconds()).padStart(2, '0');
+
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+        var body = {
+            focal_length_mm: focalLength,
+            sensor_width_mm: sensorW,
+            sensor_height_mm: sensorH,
+            lon: mapCenter.lng,
+            lat: mapCenter.lat,
+            time: timeStr,
+            time_zone: tz,
+            limit: 100,
+        };
+
+        var resp = await fetch(API_CONFIG.baseUrl + '/api/telescope/targets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        var data = await resp.json();
+        var targets = data.targets || [];
+
+        countEl.textContent = '(' + targets.length + ' 个目标)';
+        renderTargetResults(targets, list);
+        overlayTargetsOnAladin(targets);
+    } catch (e) {
+        console.error('Target matching failed:', e);
+        list.innerHTML = '<p class="target-error">匹配失败: ' + e.message + '</p>';
+        countEl.textContent = '';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🎯 匹配拍摄目标';
+    }
+}
+
+/**
+ * Render target result cards in the panel.
+ */
+function renderTargetResults(targets, container) {
+    if (!targets.length) {
+        container.innerHTML = '<p class="target-empty">当前天区未找到适合拍摄的目标</p>';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < targets.length; i++) {
+        var t = targets[i];
+        var scoreColor = t.suitability_score >= 70 ? '#2ecc71' : t.suitability_score >= 40 ? '#f39c12' : '#e74c3c';
+        var badge = t.mosaic_recommended ? ' <span class="mosaic-badge" title="建议马赛克拼接">🧩</span>' : '';
+        html += '<div class="target-card" data-target-index="' + i + '">' +
+            '<div class="target-rank">' + (i + 1) + '</div>' +
+            '<div class="target-info">' +
+                '<div class="target-name">' + t.name + badge + '</div>' +
+                '<div class="target-type">' + t.type + ' | 星等 ' + (t.magnitude != null ? t.magnitude.toFixed(1) : '?') + '</div>' +
+                '<div class="target-detail">FOV适配 ' + (t.fov_fit_score != null ? (t.fov_fit_score * 100).toFixed(0) + '%' : '-') +
+                ' | 滤镜 ' + (t.filter_match_score != null ? (t.filter_match_score * 100).toFixed(0) + '%' : '-') +
+                '</div>' +
+            '</div>' +
+            '<div class="target-score" style="color:' + scoreColor + '">' + t.suitability_score.toFixed(0) + '</div>' +
+            '</div>';
+    }
+    container.innerHTML = html;
+
+    // Click to goto target on Aladin
+    var cards = container.querySelectorAll('.target-card');
+    cards.forEach(function (card) {
+        card.addEventListener('click', function () {
+            var idx = parseInt(card.getAttribute('data-target-index'));
+            var target = targets[idx];
+            if (aladinInstance && target.ra != null && target.dec != null) {
+                aladinInstance.gotoRaDec(target.ra, target.dec);
+            }
+        });
+    });
+}
+
+/**
+ * Overlay matched targets on Aladin as a catalog.
+ */
+var _targetCatalog = null;
+function overlayTargetsOnAladin(targets) {
+    if (!aladinInstance) return;
+
+    // Remove previous catalog
+    if (_targetCatalog) {
+        try { aladinInstance.removeCatalogs(); } catch (e) {}
+        _targetCatalog = null;
+    }
+
+    var sources = [];
+    for (var i = 0; i < targets.length; i++) {
+        var t = targets[i];
+        if (t.ra == null || t.dec == null) continue;
+        sources.push({
+            ra: t.ra,
+            dec: t.dec,
+            name: t.name,
+            type: t.type,
+            mag: t.magnitude,
+            score: t.suitability_score,
+        });
+    }
+    if (!sources.length) return;
+
+    try {
+        _targetCatalog = A.catalog({
+            name: '推荐目标',
+            sourceSize: 14,
+            color: '#f1c40f',
+            shape: 'cross',
+            limit: 200,
+        });
+        _targetCatalog.addSources(sources);
+        aladinInstance.addCatalog(_targetCatalog);
+    } catch (e) {
+        console.warn('Aladin catalog overlay failed:', e);
+        _targetCatalog = null;
     }
 }
 
