@@ -2430,9 +2430,20 @@ async function matchTelescopeTargets() {
         var sensorH = parseFloat(document.getElementById('telescope-sensor-height').value) || 15.7;
         var preset = document.getElementById('telescope-preset').value;
 
-        // Use Aladin center as observing direction; map center as observer location
+        // Use Aladin center as observing direction; observer from jump target or map center
         var raDec = aladinInstance ? aladinInstance.getRaDec() : [0, 0];
-        var mapCenter = window._stargazingMap ? window._stargazingMap.getCenter() : { lat: 40, lng: 116 };
+        var obsLat, obsLng;
+        if (window._telescopeTargetLocation) {
+            obsLat = window._telescopeTargetLocation.lat;
+            obsLng = window._telescopeTargetLocation.lng;
+        } else if (typeof map !== 'undefined' && map) {
+            var mc = map.getCenter();
+            obsLat = mc.lat;
+            obsLng = mc.lng;
+        } else {
+            obsLat = 40;
+            obsLng = 116;
+        }
         var now = new Date();
         var timeStr = now.getFullYear() + '-' +
             String(now.getMonth() + 1).padStart(2, '0') + '-' +
@@ -2447,8 +2458,8 @@ async function matchTelescopeTargets() {
             focal_length_mm: focalLength,
             sensor_width_mm: sensorW,
             sensor_height_mm: sensorH,
-            lon: mapCenter.lng,
-            lat: mapCenter.lat,
+            lon: obsLng,
+            lat: obsLat,
             time: timeStr,
             time_zone: tz,
             limit: 100,
@@ -2459,7 +2470,7 @@ async function matchTelescopeTargets() {
         try {
             var geoResp = await fetch(
                 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' +
-                mapCenter.lat + '&lon=' + mapCenter.lng + '&zoom=10'
+                obsLat + '&lon=' + obsLng + '&zoom=10'
             );
             var geoData = await geoResp.json();
             placeName = geoData.display_name || '';
@@ -2557,8 +2568,11 @@ function showAltitudeChart(target) {
     title.textContent = '\u{1F4C8} ' + target.name + ' — \u{9AD8}\u{5EA6}\u{89D2}\u{53D8}\u{5316}';
     panel.style.display = 'block';
 
+    // Defer to next frame so the browser can lay out the newly-visible panel
+    requestAnimationFrame(function () {
     // Size canvas to panel width
     var w = panel.clientWidth - 20;
+    if (w <= 0) { w = 280; }  // fallback minimum width
     var h = 100;
     canvas.width = w * (window.devicePixelRatio || 1);
     canvas.height = h * (window.devicePixelRatio || 1);
@@ -2637,6 +2651,7 @@ function showAltitudeChart(target) {
         ctx.textAlign = 'right';
         ctx.fillText('Dawn \u{1F305}', w - pad.right, pad.top - 2);
     }
+    });  // end requestAnimationFrame
 }
 
 function overlayTargetsOnAladin(targets) {
