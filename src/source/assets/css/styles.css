@@ -370,6 +370,46 @@ body {
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }
 
+/* ── Popup action buttons ──────────────────────────────────────────── */
+
+.popup-actions {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    text-align: center;
+}
+
+.btn-jump-telescope {
+    display: inline-block;
+    padding: 6px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-jump-telescope:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* ── Telescope location display ────────────────────────────────────── */
+
+.telescope-location-display {
+    padding: 8px 14px;
+    margin: 0 14px 10px 14px;
+    background: rgba(102, 126, 234, 0.12);
+    border-left: 3px solid #667eea;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #d0d0ff;
+    text-align: center;
+}
+
 .observation-tips {
     margin-top: 15px;
     padding: 12px;

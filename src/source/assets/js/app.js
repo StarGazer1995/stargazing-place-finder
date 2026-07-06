@@ -814,6 +814,9 @@ function createPopupContent(lat, lng, bortleClass) {
             <p><strong>${getText('bortleClass')}:</strong> ${getText(`bortleDescriptions.${bortleClass}`)}</p>
             <p><strong>${getText('observationSuitability')}:</strong> ${getText(`suitabilityLevels.${suitability}`)}</p>
             ${tipsHTML}
+            <div class="popup-actions">
+                <button class="btn-jump-telescope" onclick="event.stopPropagation(); jumpToTelescopeMode(${lat}, ${lng}, '${lat.toFixed(4)}, ${lng.toFixed(4)}')">🔭 ${getText('shootHere') || '在此拍摄'}</button>
+            </div>
         </div>
     `;
 }
@@ -965,6 +968,9 @@ function createDetailedPopupContent(lat, lng, data) {
                 </ul>
             </div>
             ` : ''}
+            <div class="popup-actions">
+                <button class="btn-jump-telescope" onclick="event.stopPropagation(); jumpToTelescopeMode(${lat}, ${lng}, '${lat.toFixed(4)}, ${lng.toFixed(4)}')">🔭 ${getText('shootHere') || '在此拍摄'}</button>
+            </div>
         </div>
     `;
 }
@@ -1453,6 +1459,10 @@ function createStargazingMarker(location) {
                     <p class="analysis-notes">${analysis_notes}</p>
                 </div>
                 ` : ''}
+
+                <div class="popup-actions">
+                    <button class="btn-jump-telescope" onclick="event.stopPropagation(); jumpToTelescopeMode(${lat}, ${lon}, '${(name || '').replace(/'/g, "\\'")}')">🔭 在此拍摄</button>
+                </div>
             </div>
         </div>
     `;
@@ -2267,6 +2277,12 @@ function syncPanelVisibility() {
         if (modeBtn) modeBtn.style.display = 'none';
         if (searchInput) { searchInput.dataset.mapPlaceholder = searchInput.placeholder; searchInput.placeholder = '搜索天体 (如 M31, M42, NGC 7000)...'; }
 
+        // Restore location display if set
+        var locDisplay = document.getElementById('telescope-location-display');
+        if (locDisplay && window._telescopeTargetLocation) {
+            locDisplay.style.display = 'block';
+        }
+
         // Hide browse panels
         if (statsPanel) statsPanel.style.display = 'none';
         if (infoPanel) infoPanel.style.display = 'none';
@@ -2276,12 +2292,6 @@ function syncPanelVisibility() {
         if (controlPanel) controlPanel.style.display = 'none';
         if (resultsPanel) resultsPanel.style.display = 'none';
         if (statusIndicator) statusIndicator.style.display = 'none';
-
-        // Remove and destroy draw control
-        try { if (drawControl && map) map.removeControl(drawControl); } catch (e) {}
-        drawControl = null;
-        drawnItems = null;
-        currentPolygon = null;
 
         // Lazy-init Aladin
         ensureAladinReady().then(function () {
@@ -2305,6 +2315,10 @@ function syncPanelVisibility() {
 
         // Clean up FOV canvas
         if (fovCanvas && fovCanvas.parentNode) { fovCanvas.parentNode.removeChild(fovCanvas); fovCanvas = null; fovCanvasCtx = null; }
+
+        // Clear jump-to-telescope location display
+        var locDisplayA = document.getElementById('telescope-location-display');
+        if (locDisplayA) locDisplayA.style.display = 'none';
 
         // Show analysis panels
         if (controlPanel) controlPanel.style.display = 'block';
@@ -2338,6 +2352,10 @@ function syncPanelVisibility() {
         // Clean up FOV canvas
         if (fovCanvas && fovCanvas.parentNode) { fovCanvas.parentNode.removeChild(fovCanvas); fovCanvas = null; fovCanvasCtx = null; }
 
+        // Clear jump-to-telescope location display
+        var locDisplayB = document.getElementById('telescope-location-display');
+        if (locDisplayB) locDisplayB.style.display = 'none';
+
         // Hide analysis panels
         if (controlPanel) controlPanel.style.display = 'none';
         if (resultsPanel) resultsPanel.style.display = 'none';
@@ -2355,6 +2373,33 @@ function syncPanelVisibility() {
         currentPolygon = null;
 
         if (map) setTimeout(function () { map.invalidateSize(); }, 100);
+    }
+}
+
+/**
+ * Jump from map mode to telescope mode for a specific location.
+ * Preserves analysis state so the user can return to their results.
+ * @param {number} lat - Observer latitude
+ * @param {number} lng - Observer longitude
+ * @param {string} [name] - Location name for context display
+ */
+function jumpToTelescopeMode(lat, lng, name) {
+    // Store the target location for the telescope panel
+    window._telescopeTargetLocation = { lat: lat, lng: lng, name: name || null };
+
+    // Switch to telescope mode without destroying analysis state
+    if (!isTelescopeMode) {
+        isTelescopeMode = true;
+        syncPanelVisibility();
+    }
+
+    // Update the location display in the telescope panel
+    var locDisplay = document.getElementById('telescope-location-display');
+    if (locDisplay) {
+        locDisplay.textContent = name
+            ? '📍 ' + name + ' (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')'
+            : '📍 ' + lat.toFixed(4) + ', ' + lng.toFixed(4);
+        locDisplay.style.display = 'block';
     }
 }
 
