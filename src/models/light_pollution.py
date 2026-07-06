@@ -1,11 +1,10 @@
 """Light pollution info model — structured output from LightPollutionAnalyzer."""
 
 from pydantic import Field
+from stargazing_core import GeoPoint
 
-from .geo import GeoCoordinate
 
-
-class LightPollutionInfo(GeoCoordinate):
+class LightPollutionInfo(GeoPoint):
     """Structured light pollution data at a coordinate point.
 
     Replaces the raw dict previously returned by

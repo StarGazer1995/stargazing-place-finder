@@ -761,8 +761,8 @@ class TestFastApiRoutes:
         mock_geotiff.return_value = "/fake/path.tif"
         loc = StargazingLocation(
             name="Test Peak",
-            latitude=40.5,
-            longitude=116.5,
+            lat=40.5,
+            lon=116.5,
             elevation=1500.0,
             prominence=500.0,
             distance_to_nearest_town=5.0,

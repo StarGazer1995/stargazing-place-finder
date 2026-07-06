@@ -40,8 +40,8 @@ def _location_to_dict(loc) -> dict:
     """Convert a StargazingLocation to a JSON-compatible dictionary."""
     return {
         "name": loc.name,
-        "latitude": loc.latitude,
-        "longitude": loc.longitude,
+        "lat": loc.lat,
+        "lon": loc.lon,
         "elevation": loc.elevation,
         "prominence": loc.prominence,
         "distance_to_nearest_town": loc.distance_to_nearest_town,

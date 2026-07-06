@@ -62,7 +62,7 @@ class BatchElevationQuery:
 
         except (psycopg2.Error, NetworkError, ValueError, KeyError) as e:
             logger.error("批量查询失败: %s", e)
-            return [ElevationResult(latitude=lat, longitude=lon, error=str(e)) for lat, lon in coordinates]
+            return [ElevationResult(lat=lat, lon=lon, error=str(e)) for lat, lon in coordinates]
 
     def get_statistics(self) -> Dict:
         """获取 PostGIS 中海拔数据统计信息。"""

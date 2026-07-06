@@ -415,8 +415,8 @@ class LightPollutionAnalyzer:
                 bortle=bortle,
                 pollution_level=radiance_to_pollution_level(radiance),
                 overlay_name="VIIRS-DNB-2025",
-                latitude=latitude,
-                longitude=longitude,
+                lat=latitude,
+                lon=longitude,
             )
         except GeoError:
             return None
@@ -474,8 +474,8 @@ class LightPollutionAnalyzer:
                         pollution_level=radiance_to_pollution_level(radiance),
                         bortle=bortle,
                         overlay_name="VIIRS-DNB-2025",
-                        latitude=lat,
-                        longitude=lon,
+                        lat=lat,
+                        lon=lon,
                     ),
                     "success": True,
                 }

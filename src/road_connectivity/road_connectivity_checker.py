@@ -23,7 +23,7 @@ from geopy.distance import geodesic
 
 from cache.cache_config import get_cache_dir, setup_osmnx_cache
 from config import StargazingConfig
-from models import DataError, GeoCoordinate, NetworkError, NoDataError, RoadAccessInfo
+from models import DataError, GeoPoint, NetworkError, NoDataError, RoadAccessInfo
 
 from .geo_fence import GeoFence
 
@@ -146,7 +146,7 @@ class RoadAccessInfoCache:
         if cache_data is None:
             return None
         for location in cache_data:
-            if abs(location.latitude - latitude) <= tolerance and abs(location.longitude - longitude) <= tolerance:
+            if abs(location.lat - latitude) <= tolerance and abs(location.lon - longitude) <= tolerance:
                 return location
         return None
 
@@ -200,7 +200,7 @@ class RoadConnectivityChecker:
         self._road_cache_dir = get_cache_dir("road_networks")
         self.location_cache = RoadAccessInfoCache()
 
-    def is_road_accessible(self, point: GeoCoordinate, network_type: str = "drive") -> bool:
+    def is_road_accessible(self, point: GeoPoint, network_type: str = "drive") -> bool:
         """
         Detect whether specified coordinates can be reached by road
 
@@ -211,11 +211,11 @@ class RoadConnectivityChecker:
         Returns:
             bool: True means accessible, False means inaccessible
         """
-        lat, lon = point.latitude, point.longitude
+        lat, lon = point.lat, point.lon
 
         def process_and_return(res):
             # No longer use Location object to save road connectivity info, as RoadAccessInfo is more suitable
-            road_info = RoadAccessInfo(latitude=lat, longitude=lon, is_road_accessible=res)
+            road_info = RoadAccessInfo(lat=lat, lon=lon, is_road_accessible=res)
             self.location_cache.save_road_access_info_to_cache(f"accessible_{network_type}", [road_info])
             return res
 
@@ -271,7 +271,7 @@ class RoadConnectivityChecker:
             logger.error(f"Error detecting accessibility for coordinates ({lat}, {lon}): {str(e)}")
             return False
 
-    def _check_via_postgis(self, point: GeoCoordinate, network_type: str = "drive") -> Optional[dict]:
+    def _check_via_postgis(self, point: GeoPoint, network_type: str = "drive") -> Optional[dict]:
         """
         通过 PostGIS kNN 查询检查道路连通性（毫秒级）。
 
@@ -284,15 +284,15 @@ class RoadConnectivityChecker:
         if not getattr(self.gis_service, "postgis_enabled", False):
             return None
 
-        lat, lon = point.latitude, point.longitude
+        lat, lon = point.lat, point.lon
         result = self.gis_service.query_road_connectivity(lat, lon, self.search_radius_km, network_type)
         if result.get("fallback_needed"):
             return None
 
         accessible = result["accessible"]
         road_info = RoadAccessInfo(
-            latitude=lat,
-            longitude=lon,
+            lat=lat,
+            lon=lon,
             is_road_accessible=accessible,
             distance_to_road_km=(result["distance_meters"] / 1000.0 if result["distance_meters"] is not None else None),
             nearest_road_type=result.get("road_type"),
@@ -460,7 +460,7 @@ class RoadConnectivityChecker:
 
         logger.info("Pre-loaded road network with %d nodes", len(self._shared_graph.nodes()))
 
-    def _get_road_network(self, point: GeoCoordinate, network_type: str) -> Optional[nx.MultiDiGraph]:
+    def _get_road_network(self, point: GeoPoint, network_type: str) -> Optional[nx.MultiDiGraph]:
         """
         Get road network around specified coordinates.
         If a shared graph was pre-loaded via preload_network_for_bbox, uses that
@@ -481,7 +481,7 @@ class RoadConnectivityChecker:
         if shared is not None:
             return shared
 
-        lat, lon = point.latitude, point.longitude
+        lat, lon = point.lat, point.lon
         cache_key = f"{lat:.4f}_{lon:.4f}_{network_type}_{self.search_radius_km}"
 
         # Check cache
@@ -518,12 +518,12 @@ class RoadConnectivityChecker:
             logger.error(f"Failed to download road network: {str(e)}")
             return None
 
-    def batch_check_accessibility(self, coordinates: List[GeoCoordinate], network_type: str = "drive") -> list:
+    def batch_check_accessibility(self, coordinates: List[GeoPoint], network_type: str = "drive") -> list:
         """
         Batch check road accessibility for multiple coordinates
 
         Args:
-            coordinates: List of GeoCoordinate objects.
+            coordinates: List of GeoPoint objects.
             network_type: Network type
 
         Returns:
@@ -532,7 +532,7 @@ class RoadConnectivityChecker:
         results = []
 
         for i, point in enumerate(coordinates):
-            lat, lon = point.latitude, point.longitude
+            lat, lon = point.lat, point.lon
             logger.info(f"Checking coordinate {i + 1}/{len(coordinates)}: ({lat}, {lon})")
             accessible = self.is_road_accessible(point, network_type)
             results.append(accessible)
@@ -542,7 +542,7 @@ class RoadConnectivityChecker:
 
         return results
 
-    def get_accessibility_info(self, point: GeoCoordinate, network_type: str = "drive") -> dict:
+    def get_accessibility_info(self, point: GeoPoint, network_type: str = "drive") -> dict:
         """
         Get detailed accessibility information.
 
@@ -555,7 +555,7 @@ class RoadConnectivityChecker:
         Returns:
             dict: Dictionary containing accessibility and detailed information
         """
-        lat, lon = point.latitude, point.longitude
+        lat, lon = point.lat, point.lon
         result = {
             "accessible": False,
             "distance_to_road_km": None,
@@ -606,7 +606,7 @@ class RoadConnectivityChecker:
         logger.info("Read road accessible info from cache")
         return True
 
-    def _try_postgis_info(self, result: dict, point: GeoCoordinate, network_type: str) -> bool:
+    def _try_postgis_info(self, result: dict, point: GeoPoint, network_type: str) -> bool:
         """PostGIS kNN 快速路径。返回 True 表示成功获取结果。"""
         postgis_result = self._check_via_postgis(point, network_type)
         if postgis_result is None:
@@ -619,7 +619,7 @@ class RoadConnectivityChecker:
         result["error"] = None
         return True
 
-    def _try_osmnx_info(self, result: dict, point: GeoCoordinate, lat: float, lon: float, network_type: str) -> None:
+    def _try_osmnx_info(self, result: dict, point: GeoPoint, lat: float, lon: float, network_type: str) -> None:
         """OSMnx 回退路径：下载路网图并查询最近道路节点。"""
         graph = self._get_road_network(point, network_type)
         if graph is None or len(graph.nodes()) == 0:
@@ -652,13 +652,13 @@ class RoadConnectivityChecker:
             nearest_road_type=result["nearest_road_type"],
             network_nodes_count=result["network_nodes_count"],
             error=result["error"],
-            latitude=lat,
-            longitude=lon,
+            lat=lat,
+            lon=lon,
         )
         self.location_cache.save_road_access_info_to_cache(f"access_info_{network_type}", [cache])
 
 
-def simple_road_check(point: GeoCoordinate) -> bool:
+def simple_road_check(point: GeoPoint) -> bool:
     """
     Simple road connectivity detection function
 
@@ -680,25 +680,3 @@ def simple_road_check(point: GeoCoordinate) -> bool:
     )
     checker = RoadConnectivityChecker(search_radius_km=5.0)
     return checker.is_road_accessible(point)
-
-
-if __name__ == "__main__":
-    # Example usage
-    checker = RoadConnectivityChecker(search_radius_km=10.0)
-
-    # Test some coordinates
-    test_coordinates = [
-        (39.9042, 116.4074),  # Beijing Tiananmen
-        (31.2304, 121.4737),  # Shanghai Bund
-        (90.0, 0.0),  # North Pole (should be inaccessible)
-    ]
-
-    for lat, lon in test_coordinates:
-        point = GeoCoordinate(latitude=lat, longitude=lon)
-        logger.info(f"Detecting coordinates ({lat}, {lon}):")
-        info = checker.get_accessibility_info(point)
-        logger.info(f"Accessibility: {info['accessible']}")
-        if info["distance_to_road_km"] is not None:
-            logger.info(f"Distance to nearest road: {info['distance_to_road_km']:.2f} km")
-        if info["error"]:
-            logger.info(f"Error: {info['error']}")

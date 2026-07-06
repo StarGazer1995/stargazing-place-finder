@@ -8,7 +8,7 @@ Uses mocked data to avoid real OSM network downloads during test runs.
 import pickle
 from unittest.mock import MagicMock, mock_open, patch
 
-from models import GeoCoordinate
+from models import GeoPoint, RoadAccessInfo
 from road_connectivity.road_connectivity_checker import RoadAccessInfoCache, RoadConnectivityChecker
 from road_connectivity.simple_road_checker import batch_road_check, quick_road_check
 
@@ -41,7 +41,7 @@ def test_detailed_checker_returns_accessibility_info():
 
     geo_fence = GeoFence(enabled=True)
     checker = RoadConnectivityChecker(search_radius_km=8.0, geo_fence=geo_fence)
-    point = GeoCoordinate(latitude=40.3242, longitude=116.6312)
+    point = GeoPoint(lat=40.3242, lon=116.6312)
     info = checker.get_accessibility_info(point)
 
     assert "accessible" in info
@@ -72,3 +72,33 @@ def test_cache_unlink_error_is_logged():
         result = cache.get_cached_result("test_type")
         assert result is None
         assert any("Failed to delete" in str(c) for c in mock_log.warning.call_args_list)
+
+
+def test_get_location_by_coordinates_finds_match():
+    """get_location_by_coordinates returns matching RoadAccessInfo by lat/lon."""
+    cache = RoadAccessInfoCache(cache_expiry_hours=1)
+    data = [
+        RoadAccessInfo(lat=39.9, lon=116.4, is_road_accessible=True),
+        RoadAccessInfo(lat=40.0, lon=116.0, is_road_accessible=False),
+        RoadAccessInfo(lat=31.2, lon=121.4, is_road_accessible=True),
+    ]
+
+    # Exact match
+    result = cache.get_location_by_coordinates(data, 40.0, 116.0)
+    assert result is not None
+    assert result.lat == 40.0
+    assert result.lon == 116.0
+    assert result.is_road_accessible is False
+
+    # Match within tolerance
+    result = cache.get_location_by_coordinates(data, 39.9001, 116.4001)
+    assert result is not None
+    assert result.is_road_accessible is True
+
+    # No match
+    result = cache.get_location_by_coordinates(data, 25.0, 125.0)
+    assert result is None
+
+    # None cache_data
+    result = cache.get_location_by_coordinates(None, 40.0, 116.0)
+    assert result is None

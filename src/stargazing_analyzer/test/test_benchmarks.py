@@ -28,8 +28,8 @@ def peak_location() -> StargazingLocation:
     """A typical mountain-peak location."""
     return StargazingLocation(
         name="Benchmark Peak",
-        latitude=40.0,
-        longitude=116.0,
+        lat=40.0,
+        lon=116.0,
         elevation=1500.0,
         prominence=600.0,
         distance_to_nearest_town=35.0,
@@ -48,8 +48,8 @@ def dim_location() -> StargazingLocation:
     """A high-light-pollution location (worst case for scoring)."""
     return StargazingLocation(
         name="City Adjacent",
-        latitude=39.9,
-        longitude=116.4,
+        lat=39.9,
+        lon=116.4,
         elevation=50.0,
         prominence=0.0,
         distance_to_nearest_town=2.0,
@@ -169,9 +169,9 @@ class TestRoadConnectivityBenchmarks:
 
     def test_get_accessibility_info(self, geo_fence_checker, benchmark):
         """Accessibility info for a single coordinate (GeoFence fast path)."""
-        from models import GeoCoordinate
+        from models import GeoPoint
 
-        point = GeoCoordinate(latitude=40.3242, longitude=116.6312)
+        point = GeoPoint(lat=40.3242, lon=116.6312)
         info = benchmark(geo_fence_checker.get_accessibility_info, point)
         assert "accessible" in info
 
@@ -198,8 +198,8 @@ class TestFullPipelineBenchmarks:
             return_value=[
                 StargazingLocation(
                     name="Mocked Peak",
-                    latitude=40.0,
-                    longitude=116.0,
+                    lat=40.0,
+                    lon=116.0,
                     elevation=1000.0,
                     prominence=300.0,
                     distance_to_nearest_town=25.0,

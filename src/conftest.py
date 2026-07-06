@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from models import GeoCoordinate, LatLonBox, StargazingLocation
+from models import LatLonBox, StargazingLocation
 
 # ═══════════════════════════════════════════════════════════════════
 # Standard geographic coordinates (used across multiple test modules)
@@ -27,18 +27,6 @@ def bbox_beijing():
 def latlon_box_beijing() -> LatLonBox:
     """Standard ``LatLonBox`` for Beijing-region integration tests."""
     return LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5)
-
-
-@pytest.fixture
-def coord_tiananmen() -> GeoCoordinate:
-    """Tiananmen Square coordinate for road connectivity tests."""
-    return GeoCoordinate(latitude=39.9042, longitude=116.4074)
-
-
-@pytest.fixture
-def coord_beijing() -> GeoCoordinate:
-    """Generic Beijing coordinate for general-purpose tests."""
-    return GeoCoordinate(latitude=40.0, longitude=116.0)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -100,8 +88,8 @@ def sample_stargazing_location() -> StargazingLocation:
     """A single ``StargazingLocation`` with moderate attributes."""
     return StargazingLocation(
         name="Test Peak",
-        latitude=40.0,
-        longitude=116.0,
+        lat=40.0,
+        lon=116.0,
         elevation=1000.0,
         prominence=500.0,
         distance_to_nearest_town=30.0,
@@ -118,8 +106,8 @@ def sample_locations_list() -> list[StargazingLocation]:
     return [
         StargazingLocation(
             name="Low Score",
-            latitude=40.0,
-            longitude=116.0,
+            lat=40.0,
+            lon=116.0,
             elevation=500.0,
             prominence=200.0,
             distance_to_nearest_town=5.0,
@@ -129,8 +117,8 @@ def sample_locations_list() -> list[StargazingLocation]:
         ),
         StargazingLocation(
             name="Mid Score",
-            latitude=40.2,
-            longitude=116.2,
+            lat=40.2,
+            lon=116.2,
             elevation=1000.0,
             prominence=500.0,
             distance_to_nearest_town=25.0,
@@ -140,8 +128,8 @@ def sample_locations_list() -> list[StargazingLocation]:
         ),
         StargazingLocation(
             name="High Score",
-            latitude=40.1,
-            longitude=116.1,
+            lat=40.1,
+            lon=116.1,
             elevation=1500.0,
             prominence=800.0,
             distance_to_nearest_town=50.0,

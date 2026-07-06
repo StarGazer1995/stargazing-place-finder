@@ -22,7 +22,7 @@ from gis_service.parsers import (
 )
 from gis_service.query_service import GisQueryService
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-from models import GeoCoordinate, LatLonBox, Location, Observatory, Peak, Viewpoint
+from models import GeoPoint, LatLonBox, Location, Observatory, Peak, Viewpoint
 
 logger = logging.getLogger(__name__)
 
@@ -172,17 +172,17 @@ class StarGazingPlaceFinder:
             name, point, elevation, tags, nearest_town, distance_to_town, town_elevation, light_pollution_level, index
         )
 
-    def _resolve_elevation(self, tags: dict, point: GeoCoordinate) -> float:
+    def _resolve_elevation(self, tags: dict, point: GeoPoint) -> float:
         """从 tags 或 gis_service 获取海拔。"""
         if "ele" in tags:
             try:
                 return float(tags["ele"])
             except ValueError as e:
                 logger.warning("Invalid elevation value in tags: %s", e)
-        elevation = self.gis_service.find_elevation(point.latitude, point.longitude)
+        elevation = self.gis_service.find_elevation(point.lat, point.lon)
         return elevation if elevation is not None else 0.0
 
-    def _resolve_nearest_town(self, point: GeoCoordinate, towns_data: List[dict]) -> tuple:
+    def _resolve_nearest_town(self, point: GeoPoint, towns_data: List[dict]) -> tuple:
         """查找最近城镇。返回 (name, distance_km, elevation_m)。
 
         海拔只从 OSM tags 获取（若有的话），不再通过 PostGIS kNN 逐点查询。
@@ -231,8 +231,8 @@ class StarGazingPlaceFinder:
             "peaks": [
                 {
                     "name": peak.name,
-                    "latitude": peak.latitude,
-                    "longitude": peak.longitude,
+                    "lat": peak.lat,
+                    "lon": peak.lon,
                     "elevation": peak.elevation,
                     "height_difference": peak.height_difference,
                     "distance_to_nearest_town": peak.distance_to_nearest_town,
@@ -259,7 +259,7 @@ class StarGazingPlaceFinder:
             return {"elevation_statistics": stats, "note": "Cache is managed internally by GisQueryService"}
         return None
 
-    def calculate_distance(self, p1: GeoCoordinate, p2: GeoCoordinate) -> float:
+    def calculate_distance(self, p1: GeoPoint, p2: GeoPoint) -> float:
         """Calculate Haversine distance (km). Delegates to parsers."""
         from gis_service.parsers import calculate_distance as _calc_dist
 
@@ -307,31 +307,3 @@ def find_viewpoints(south: float, west: float, north: float, east: float, max_vi
         min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer(geotiff_path=geotiff_path)
     )
     return finder.find_viewpoints_in_area(LatLonBox(south=south, west=west, north=north, east=east), max_viewpoints)
-
-
-if __name__ == "__main__":
-    # Example: Search for peaks around Beijing
-    logger.info("=== Peak Finder Example ===")
-
-    bbox = LatLonBox(south=39.5, west=115.5, north=40.5, east=117.5)
-
-    geotiff_path = str(res.files("light_pollution").joinpath("resources", "viirs_china_2025.tif"))
-    finder = StarGazingPlaceFinder(
-        min_height_difference=100.0, light_pollution_analyzer=LightPollutionAnalyzer(geotiff_path=geotiff_path)
-    )
-
-    peaks = finder.find_peaks_in_area(bbox, max_locations=20)
-
-    if peaks:
-        logger.info("\n=== Qualified Peaks ===")
-        for i, peak in enumerate(peaks, 1):
-            logger.info("%s. %s", i, peak.name)
-            logger.info("   Coordinates: (%.4f, %.4f)", peak.latitude, peak.longitude)
-            logger.info("   Elevation: %.1fm", peak.elevation)
-            logger.info("   Height difference from %s: %.1fm", peak.nearest_town_name, peak.height_difference)
-            logger.info("   Distance to nearest town: %.1fkm", peak.distance_to_nearest_town)
-            logger.info("")
-
-        finder.save_results_to_json(peaks, "mountain_peaks_results.json")
-    else:
-        logger.info("No qualified peaks found")

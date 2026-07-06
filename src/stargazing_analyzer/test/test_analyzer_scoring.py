@@ -61,8 +61,8 @@ def sample_location():
     """A valid StargazingLocation with all required fields."""
     return StargazingLocation(
         name="TestPeak",
-        latitude=40.0,
-        longitude=116.0,
+        lat=40.0,
+        lon=116.0,
         elevation=2000.0,
         distance_to_nearest_town=5.0,
         nearest_town_name="Town",
@@ -124,8 +124,8 @@ class TestScoringAndRecommendation:
         """Cover all brightness bands (lines 470, 472, 474, 478, 480)."""
         loc = StargazingLocation(
             name="B",
-            latitude=40.0,
-            longitude=116.0,
+            lat=40.0,
+            lon=116.0,
             elevation=1000.0,
             distance_to_nearest_town=10.0,
             nearest_town_name="T",
@@ -139,8 +139,8 @@ class TestScoringAndRecommendation:
         """Brightness 170 (in range [150,180)) → returns 8 (line 536)."""
         loc = StargazingLocation(
             name="B170",
-            latitude=40.0,
-            longitude=116.0,
+            lat=40.0,
+            lon=116.0,
             elevation=1000.0,
             distance_to_nearest_town=10.0,
             nearest_town_name="T",
@@ -307,8 +307,8 @@ class TestCountNearbyTowns:
     def test_with_node_towns(self, analyzer):
         """Towns with 'type: node' with lat/lon."""
         point = MagicMock()
-        point.latitude = 40.0
-        point.longitude = 116.0
+        point.lat = 40.0
+        point.lon = 116.0
         towns = [
             {"type": "node", "lat": 40.1, "lon": 116.1},
             {"type": "node", "lat": 41.0, "lon": 116.0},  # Far
@@ -321,8 +321,8 @@ class TestCountNearbyTowns:
     def test_with_area_towns_center(self, analyzer):
         """Towns with 'center' key."""
         point = MagicMock()
-        point.latitude = 40.0
-        point.longitude = 116.0
+        point.lat = 40.0
+        point.lon = 116.0
         towns = [
             {"center": {"lat": 40.05, "lon": 116.05}},
         ]
@@ -333,8 +333,8 @@ class TestCountNearbyTowns:
     def test_town_with_missing_keys(self, analyzer):
         """Towns missing lat/lon or center are skipped."""
         point = MagicMock()
-        point.latitude = 40.0
-        point.longitude = 116.0
+        point.lat = 40.0
+        point.lon = 116.0
         towns = [
             {"type": "node"},  # Missing lat/lon
             {"center": {}},  # Missing lat/lon inside
@@ -365,8 +365,8 @@ class TestProcessOneLocation:
 
         loc = MagicMock()
         loc.name = "Test"
-        loc.latitude = 40.0
-        loc.longitude = 116.0
+        loc.lat = 40.0
+        loc.lon = 116.0
         loc.elevation = 2000.0
         loc.prominence = 500.0
         loc.distance_to_nearest_town = 5.0
@@ -411,8 +411,8 @@ class TestProcessOneLocation:
 
         loc = MagicMock()
         loc.name = "Test"
-        loc.latitude = 40.0
-        loc.longitude = 116.0
+        loc.lat = 40.0
+        loc.lon = 116.0
         loc.elevation = 2000.0
         loc.prominence = 0.0
         loc.distance_to_nearest_town = 10.0
@@ -444,8 +444,8 @@ class TestAnalyzeAreaWithMockData:
 
         peak = MagicMock()
         peak.name = "Peak1"
-        peak.latitude = 40.0
-        peak.longitude = 116.0
+        peak.lat = 40.0
+        peak.lon = 116.0
         peak.elevation = 1000.0
         peak.prominence = 200.0
         peak.distance_to_nearest_town = 10.0
@@ -493,8 +493,8 @@ class TestAnalyzeAreaWithMockData:
         # Large height diff + bright pollution + road info + far town
         loc = StargazingLocation(
             name="T",
-            latitude=40.0,
-            longitude=116.0,
+            lat=40.0,
+            lon=116.0,
             elevation=2000.0,
             distance_to_nearest_town=60.0,
             nearest_town_name="FarTown",
@@ -512,8 +512,8 @@ class TestAnalyzeAreaWithMockData:
         # Medium brightness + road not accessible
         loc2 = StargazingLocation(
             name="T2",
-            latitude=40.0,
-            longitude=116.0,
+            lat=40.0,
+            lon=116.0,
             elevation=1000.0,
             distance_to_nearest_town=5.0,
             nearest_town_name="NearTown",
@@ -531,8 +531,8 @@ class TestAnalyzeAreaWithMockData:
         # No light pollution data
         loc3 = StargazingLocation(
             name="T3",
-            latitude=40.0,
-            longitude=116.0,
+            lat=40.0,
+            lon=116.0,
             elevation=500.0,
             distance_to_nearest_town=20.0,
             nearest_town_name="SomeTown",
@@ -554,8 +554,8 @@ class TestAnalyzeAreaWithMockData:
         """Legacy pollution level string scoring."""
         loc = StargazingLocation(
             name="L",
-            latitude=40.0,
-            longitude=116.0,
+            lat=40.0,
+            lon=116.0,
             elevation=1000.0,
             distance_to_nearest_town=10.0,
             nearest_town_name="T",
@@ -590,8 +590,8 @@ class TestAnalyzeAreaWithMockData:
 
         peak = MagicMock()
         peak.name = "P"
-        peak.latitude = 40.0
-        peak.longitude = 116.0
+        peak.lat = 40.0
+        peak.lon = 116.0
         peak.elevation = 1000.0
         peak.prominence = 200.0
         peak.distance_to_nearest_town = 10.0
@@ -602,8 +602,8 @@ class TestAnalyzeAreaWithMockData:
 
         obs = MagicMock()
         obs.name = "O"
-        obs.latitude = 40.0
-        obs.longitude = 116.0
+        obs.lat = 40.0
+        obs.lon = 116.0
         obs.elevation = 1000.0
         obs.prominence = 0.0
         obs.distance_to_nearest_town = 10.0
@@ -688,8 +688,8 @@ class TestBatchLightPollution:
     def test_with_data(self, analyzer):
         """Batch analysis returns coordinate→pollution_info mapping."""
         loc = MagicMock()
-        loc.latitude = 40.0
-        loc.longitude = 116.0
+        loc.lat = 40.0
+        loc.lon = 116.0
 
         analyzer.light_pollution_analyzer.batch_analyze_coordinates.return_value = [
             {
@@ -709,8 +709,8 @@ class TestBatchLightPollution:
         from models import GeoError
 
         loc = MagicMock()
-        loc.latitude = 40.0
-        loc.longitude = 116.0
+        loc.lat = 40.0
+        loc.lon = 116.0
 
         analyzer.light_pollution_analyzer.batch_analyze_coordinates.side_effect = GeoError("test")
         result = analyzer._batch_light_pollution([loc], True)
@@ -825,3 +825,16 @@ class TestAnalyzerClose:
             a.light_pollution_analyzer = None
             a.mountain_finder = mock_finder
             a.close()  # should not raise
+
+
+class TestPrintAnalysisSummary:
+    """Test print_analysis_summary with various inputs."""
+
+    def test_print_summary_with_locations(self, analyzer, sample_location):
+        """print_analysis_summary handles a list of StargazingLocation."""
+        locations = [sample_location]
+        analyzer.print_analysis_summary(locations)  # should not raise
+
+    def test_print_summary_empty_list(self, analyzer):
+        """print_analysis_summary handles an empty list."""
+        analyzer.print_analysis_summary([])  # should not raise
