@@ -148,47 +148,52 @@
     <div id="telescope-control-panel" class="telescope-control-panel" style="display: none;">
         <h3 id="telescope-panel-header">🔭 望远镜配置 <span class="collapse-arrow">▼</span></h3>
 
-        <div class="control-group">
-            <label for="telescope-preset">📷 设备预设</label>
-            <select id="telescope-preset">
-                <option value="custom">自定义</option>
-                <option value="seestar-s50">Seestar S50 (250mm / 7.6×5.7mm)</option>
-                <option value="redcat51-asi2600">RedCat51 + ASI2600 (250mm / 23.5×15.7mm)</option>
-                <option value="fullframe-200mm">全画幅 + 200mm (200mm / 36×24mm)</option>
-                <option value="sct14-reducer">14" SCT + 减焦 (2500mm / 23.5×15.7mm)</option>
-            </select>
-        </div>
-
-        <div class="control-group">
-            <label for="telescope-focal-length">🔍 焦距 (mm)</label>
-            <input type="number" id="telescope-focal-length" min="1" max="10000" value="250" step="1">
-        </div>
-
-        <div class="control-group">
-            <label for="telescope-sensor-width">📐 传感器宽 (mm)</label>
-            <input type="number" id="telescope-sensor-width" min="0.1" max="100" value="23.5" step="0.1">
-        </div>
-
-        <div class="control-group">
-            <label for="telescope-sensor-height">📏 传感器高 (mm)</label>
-            <input type="number" id="telescope-sensor-height" min="0.1" max="100" value="15.7" step="0.1">
-        </div>
-
-        <div class="control-group fov-display">
-            <label>视场 (FOV)</label>
-            <span id="fov-display">5.4° × 3.6°</span>
-        </div>
-
-        <div class="control-group">
-            <label for="telescope-rotation">🔄 相机旋转 <span id="rotation-value">0°</span></label>
-            <input type="range" id="telescope-rotation" min="0" max="360" value="0" step="1">
-        </div>
-
-        <div class="control-group">
-            <div class="checkbox-group">
-                <input type="checkbox" id="show-fov-checkbox" checked>
-                <label for="show-fov-checkbox">📐 显示画幅框</label>
+        <div id="telescope-config-body" class="telescope-config-body">
+            <div class="control-group">
+                <label for="telescope-preset">📷 设备预设</label>
+                <select id="telescope-preset">
+                    <option value="custom">自定义</option>
+                    <option value="seestar-s50">Seestar S50 (250mm / 7.6×5.7mm)</option>
+                    <option value="redcat51-asi2600">RedCat51 + ASI2600 (250mm / 23.5×15.7mm)</option>
+                    <option value="fullframe-200mm">全画幅 + 200mm (200mm / 36×24mm)</option>
+                    <option value="sct14-reducer">14" SCT + 减焦 (2500mm / 23.5×15.7mm)</option>
+                </select>
             </div>
+            <div class="control-group">
+                <label for="telescope-focal-length">🔍 焦距 (mm)</label>
+                <input type="number" id="telescope-focal-length" min="1" max="10000" value="250" step="1">
+            </div>
+            <div class="control-group">
+                <label for="telescope-sensor-width">📐 传感器宽 (mm)</label>
+                <input type="number" id="telescope-sensor-width" min="0.1" max="100" value="23.5" step="0.1">
+            </div>
+            <div class="control-group">
+                <label for="telescope-sensor-height">📏 传感器高 (mm)</label>
+                <input type="number" id="telescope-sensor-height" min="0.1" max="100" value="15.7" step="0.1">
+            </div>
+            <div class="control-group fov-display">
+                <label>视场 (FOV)</label>
+                <span id="fov-display">5.4° × 3.6°</span>
+            </div>
+            <div class="control-group">
+                <label for="telescope-rotation">🔄 相机旋转 <span id="rotation-value">0°</span></label>
+                <input type="range" id="telescope-rotation" min="0" max="360" value="0" step="1">
+            </div>
+            <div class="control-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="show-fov-checkbox" checked>
+                    <label for="show-fov-checkbox">📐 显示画幅框</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <button id="match-targets-btn" class="match-targets-btn">🎯 匹配拍摄目标</button>
+        </div>
+
+        <div id="target-results-section" class="target-results-section" style="display: none;">
+            <h4 id="target-results-header" class="target-results-header">🎯 推荐拍摄目标 <span class="target-count"></span> <span class="collapse-arrow">▼</span></h4>
+            <div id="target-results-list" class="target-results-body"></div>
         </div>
     </div>
 
