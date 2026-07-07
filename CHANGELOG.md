@@ -1,27 +1,59 @@
 # Changelog
 
-## 0.8.0 (2026-07-07) — Dependency migration
+## 0.8.0 (2026-07-07) — Telescope platform
 
-### Changed
-- **stargazing-core moved to PyPI**: `stargazing-core @ git+https://...` → `stargazing-core>=0.1.0` from PyPI registry.
-  Removes git-URL dependency; shared package resolves from a single source across all consumers.
+### Telescope & astrophotography
 
-## Unreleased — Phase 4: shooting plan + mosaic
+**Target matching** (`POST /api/telescope/targets`) — #77, #81
+- Ranked Messier/NGC deep-sky objects by telescope optics (focal length, aperture, sensor, filter)
+- Suitability scores: FOV fit, surface brightness, filter match, altitude
+- Telescope presets: Seestar S50, RedCat 51, Askar FRA300, and custom configs
+- Frontend: ranked target list with FOV fill visualization and mosaic badge
 
-### Features
-- **Shooting plan API + UI**: `POST /api/telescope/plan` generates a minute-by-minute single-night
-  shooting schedule via `generate_shooting_schedule` from stargazing-core.
-  - Algorithm: `np.interp` altitude interpolation + `np.nanargmax` per-minute best target + `np.diff` run merge
-  - Frontend: collapsible plan panel with per-slot cards (target, time range, altitude bounds, FOV fit)
-  - Click any plan slot → Aladin jumps to target + altitude chart opens
-  - Moon-aware: delay banner, narrowband recommendation, unused time warnings
-- **Altitude chart enhanced**: dynamic suitability score curve (green dashed line, right Y-axis)
-- **Mosaic planning**: `POST /api/telescope/mosaic` computes multi-panel grid for large targets
-  via `compute_mosaic_grid` from stargazing-core.
-  - Frontend: click 🧩 badge on mosaic-recommended targets → Aladin shows dashed blue FOV rectangles
-  - Adjustable overlap slider (5–40%), grid redraws on zoom/pan
-  - Per-panel RA/Dec coordinates in collapsible panel
-  - Mosaic threshold lowered from 1.5× to 1.0× FOV width
+**Shooting plan** (`POST /api/telescope/plan`) — #81
+- Minute-by-minute single-night imaging sequence via `generate_shooting_schedule` from stargazing-core
+- Algorithm: `np.interp` altitude interpolation + `np.nanargmax` per-minute best target + `np.diff` run merge
+- Moon-aware: delay banner, narrowband recommendation, unused time warnings
+- Collapsible plan panel: per-slot cards (target, time range, altitude bounds, FOV fit)
+- Click slot → Aladin jumps to target + altitude chart opens
+
+**Mosaic planning** (`POST /api/telescope/mosaic`) — #82
+- Multi-panel grid for large targets via `compute_mosaic_grid` from stargazing-core
+- Adjustable overlap slider (5–40%), grid redraws on zoom/pan
+- Per-panel RA/Dec coordinates in collapsible panel
+
+**Sky chart** — #74, #75
+- Aladin Lite integration with FOV rectangle overlay
+- FOV rotation by camera angle
+- Dynamic altitude curves with suitability score curve
+
+**Optics engine** (`POST /api/telescope/optics`, `GET /api/telescope/presets`) — #74
+
+### Frontend
+
+**Phase 3 — Location ↔ telescope integration** — #80
+- Click location marker → target list updates to visible targets at that position
+- Click target → sky chart auto-navigates to RA/Dec
+- Real-time sun/moon position overlay on map
+- Moon phase data integrated into target matching
+
+**Map UI refresh** — #74
+- Redesigned Leaflet interface with light pollution tile layers
+- Unified panel visibility management (#78)
+- FOV fill ratio + filter match indicators in target cards
+
+### Platform
+
+**FastAPI migration** — #73
+- Flask → FastAPI: new server entry `uvicorn server.main:app`
+- Auto-generated OpenAPI docs at `/docs`
+- Async endpoint support, consolidated test structure
+
+**stargazing-core on PyPI** — #76, #83
+- `stargazing-core @ git+https://...` → `stargazing-core>=0.1.0` from PyPI
+- Removes git-URL dependency; single registry source across all consumers
+- Migrate to `GeoPoint` from stargazing-core
+- Drop Python 3.9 support (minimum now 3.11)
 
 ## 0.7.1 (2026-07-02)
 
