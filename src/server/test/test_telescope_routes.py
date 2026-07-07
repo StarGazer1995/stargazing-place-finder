@@ -315,3 +315,54 @@ class TestTelescopePlan:
         }
         resp = client.post("/api/telescope/plan", json=body)
         assert resp.status_code == 200
+
+
+class TestTelescopeMosaic:
+    def test_get_mosaic_returns_grid(self, client: TestClient) -> None:
+        """Mosaic endpoint returns grid with panels for a target."""
+        body = {
+            "target": {
+                "name": "M 31",
+                "ra": 10.68,
+                "dec": 41.27,
+                "angular_size_arcmin": 199.5,
+                "angular_size_min_arcmin": 70.8,
+            },
+            "config": {
+                "focal_length_mm": 1280,
+                "sensor_width_mm": 23.5,
+                "sensor_height_mm": 15.7,
+                "aperture_mm": 203,
+            },
+            "overlap": 0.15,
+        }
+        resp = client.post("/api/telescope/mosaic", json=body)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "grid" in data
+        assert "config" in data
+        grid = data["grid"]
+        assert grid["target_name"] == "M 31"
+        assert grid["total_panels"] > 0
+        assert len(grid["panels"]) == grid["total_panels"]
+        assert grid["overlap"] == 0.15
+
+    def test_get_mosaic_no_sensor(self, client: TestClient) -> None:
+        """Mosaic endpoint returns error when FOV can't be computed (no sensor)."""
+        body = {
+            "target": {
+                "name": "M 42",
+                "ra": 83.8,
+                "dec": -5.4,
+                "angular_size_arcmin": 66,
+            },
+            "config": {
+                "focal_length_mm": 1200,
+                "aperture_mm": 200,
+            },
+        }
+        resp = client.post("/api/telescope/mosaic", json=body)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["grid"] is None
+        assert "error" in data
