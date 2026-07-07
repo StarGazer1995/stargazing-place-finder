@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased — Phase 4 shooting plan
+
+### Features
+- **Shooting plan API + UI**: `POST /api/telescope/plan` generates a minute-by-minute single-night
+  shooting schedule via `generate_shooting_schedule` from stargazing-core.
+  - Algorithm: `np.interp` altitude interpolation + `np.nanargmax` per-minute best target + `np.diff` run merge
+  - Frontend: collapsible plan panel with per-slot cards (target, time range, altitude bounds, FOV fit)
+  - Click any plan slot → Aladin jumps to target + altitude chart opens
+  - Moon-aware: delay banner, narrowband recommendation, unused time warnings
+- **Altitude chart enhanced**: dynamic suitability score curve (green dashed line, right Y-axis)
+
+### Other
+- Switch stargazing-core from git dependency to local path (`../stargazing-core`)
+
 ## 0.7.1 (2026-07-02)
 
 ### Features

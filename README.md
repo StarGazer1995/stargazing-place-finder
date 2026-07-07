@@ -79,6 +79,10 @@ uv run python -m light_pollution.light_pollution_api
 - `GET /api/light_pollution/tiles/{z}/{x}/{y}.png`: 获取光污染瓦片图层
 - `GET /api/coordinate_analysis`: 分析单点坐标
 - `GET/POST /api/analyze_stargazing_area`: 分析观星区域
+- `GET /api/telescope/presets`: 获取望远镜设备预设
+- `POST /api/telescope/optics`: 计算望远镜光学参数
+- `POST /api/telescope/targets`: 匹配天体拍摄目标
+- `POST /api/telescope/plan`: 生成单晚拍摄计划
 
 ### 当前实现状态说明
 
