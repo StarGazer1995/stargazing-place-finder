@@ -11,6 +11,7 @@ from stargazing_core import (
     TELESCOPE_PRESETS,
     TelescopeConfig,
     TelescopeOptics,
+    compute_mosaic_grid,
     generate_shooting_schedule,
     match_telescope_targets,
 )
@@ -120,4 +121,50 @@ async def get_plan(body: dict) -> dict:
         "plan": plan.model_dump(),
         "config": config.model_dump(exclude_none=True),
         "total": len(targets),
+    }
+
+
+@router.post("/api/telescope/mosaic")
+async def get_mosaic(body: dict) -> dict:
+    """Compute a mosaic (multi-panel) grid for a specific target.
+
+    Accepts target info from the frontend (name, ra, dec, angular size)
+    and telescope config, returns a ``MosaicGrid`` with per-panel
+    centre coordinates and corner positions.
+
+    Query params in body:
+        target: dict with name, ra, dec, angular_size_arcmin,
+                angular_size_min_arcmin (optional)
+        config: telescope config dict (same as /api/telescope/optics)
+        overlap: float = 0.15
+        max_panels: int = 36
+    """
+    target = body["target"]
+    cfg = body.get("config", body)
+    overlap = body.get("overlap", 0.15)
+    max_panels = body.get("max_panels", 36)
+
+    config = TelescopeConfig(**cfg)
+    optics = config.compute_optics()
+    if optics.fov_width_deg is None or optics.fov_height_deg is None:
+        return {
+            "error": "FOV not available — provide sensor dimensions in config",
+            "grid": None,
+        }
+
+    grid = compute_mosaic_grid(
+        target_ra=target["ra"],
+        target_dec=target["dec"],
+        maj_arcmin=target["angular_size_arcmin"],
+        min_arcmin=target.get("angular_size_min_arcmin"),
+        fov_width_deg=optics.fov_width_deg,
+        fov_height_deg=optics.fov_height_deg,
+        overlap=overlap,
+        max_panels=max_panels,
+    )
+    grid.target_name = target["name"]
+
+    return {
+        "grid": grid.model_dump(),
+        "config": config.model_dump(exclude_none=True),
     }

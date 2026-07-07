@@ -1841,3 +1841,86 @@ body {
     width: 100%;
     height: 120px;
 }
+
+/* ── Mosaic panel ─────────────────────────── */
+.mosaic-badge {
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 4px;
+    transition: transform 0.15s;
+}
+.mosaic-badge:hover {
+    transform: scale(1.25);
+}
+
+.mosaic-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(52,152,219,0.08);
+    border-radius: 6px;
+    margin-top: 6px;
+    font-size: 13px;
+}
+.mosaic-ctrl-label { color: #5dade2; font-weight: 600; }
+.mosaic-overlap-slider { flex: 1; accent-color: #3498db; }
+#mosaic-overlap-val { min-width: 32px; text-align: right; color: #3498db; font-weight: 600; }
+
+.mosaic-panel {
+    margin-top: 6px;
+    border: 1px solid rgba(52,152,219,0.2);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.mosaic-panel-header {
+    background: rgba(52,152,219,0.1);
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #5dade2;
+    margin: 0;
+    user-select: none;
+}
+.mosaic-panel-body { padding: 8px 12px; }
+
+.mosaic-summary {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3498db;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(52,152,219,0.1);
+}
+
+.mosaic-panel-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 4px;
+    margin-bottom: 8px;
+}
+.mosaic-panel-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: rgba(52,152,219,0.06);
+    border-radius: 4px;
+    font-size: 11px;
+}
+.mp-label {
+    font-weight: 700;
+    color: #3498db;
+    min-width: 32px;
+}
+.mp-coord {
+    color: #95a5a6;
+    font-family: monospace;
+}
+
+.mosaic-hint {
+    font-size: 11px;
+    color: #7f8c8d;
+    margin: 0;
+}
