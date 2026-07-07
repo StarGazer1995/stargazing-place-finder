@@ -2210,6 +2210,23 @@ function initTelescopeMode() {
     if (matchBtn) {
         matchBtn.addEventListener('click', matchTelescopeTargets);
     }
+    var planBtn = document.getElementById('plan-btn');
+    if (planBtn) {
+        planBtn.addEventListener('click', fetchShootingPlan);
+    }
+
+    // ── Collapsible plan panel ──
+    var planHeader = document.getElementById('plan-panel-header');
+    if (planHeader) {
+        planHeader.addEventListener('click', function () {
+            var body = document.getElementById('plan-panel-body');
+            if (body) {
+                var collapsed = body.style.display === 'none';
+                body.style.display = collapsed ? 'block' : 'none';
+                planHeader.querySelector('.collapse-arrow').textContent = collapsed ? '▼' : '▶';
+            }
+        });
+    }
 
     // ── Collapsible target results ──
     var targetHeader = document.getElementById('target-results-header');
@@ -2499,6 +2516,10 @@ async function matchTelescopeTargets() {
         renderMoonCard(moon);
         renderTargetResults(targets, list);
         overlayTargetsOnAladin(targets);
+        // Show plan button now that we have targets
+        var planBtn = document.getElementById('plan-btn');
+        if (planBtn) planBtn.style.display = '';
+        window._lastMatchBody = body;  // stash for plan fetch
     } catch (e) {
         console.error('Target matching failed:', e);
         list.innerHTML = '<p class="target-error">匹配失败: ' + e.message + '</p>';
@@ -2507,6 +2528,111 @@ async function matchTelescopeTargets() {
         btn.disabled = false;
         btn.textContent = '🎯 匹配拍摄目标';
     }
+}
+
+/**
+ * Fetch and render a shooting plan from the matched targets.
+ */
+async function fetchShootingPlan() {
+    var btn = document.getElementById('plan-btn');
+    var panel = document.getElementById('plan-panel');
+    var body = document.getElementById('plan-panel-body');
+    var label = panel.querySelector('.plan-night-label');
+    if (!window._lastMatchBody) return;
+
+    btn.disabled = true;
+    btn.textContent = '⏳ 生成计划...';
+    body.innerHTML = '<p class="target-loading">正在生成拍摄计划...</p>';
+    panel.style.display = 'block';
+
+    try {
+        var resp = await fetch(API_CONFIG.baseUrl + '/api/telescope/plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(window._lastMatchBody),
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        var data = await resp.json();
+        var plan = data.plan;
+        var targets = data.targets || [];
+
+        if (plan && plan.date) {
+            label.textContent = plan.date + '  ' + data.moon.phase;
+        }
+        renderShootingPlan(plan, targets, body);
+    } catch (e) {
+        console.error('Shooting plan failed:', e);
+        body.innerHTML = '<p class="target-error">计划生成失败: ' + e.message + '</p>';
+        label.textContent = '';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '📋 拍摄计划';
+    }
+}
+
+function renderShootingPlan(plan, targets, container) {
+    if (!plan || !plan.slots || !plan.slots.length) {
+        container.innerHTML = '<p class="target-empty">暂无拍摄计划</p>';
+        return;
+    }
+
+    // Moon delay banner
+    var html = '';
+    if (plan.moon_delay_min > 0) {
+        html += '<div class="plan-moon-delay">🌙 等月落 ' + plan.moon_delay_min + ' 分钟后开始拍摄</div>';
+    }
+    html += '<div class="plan-header-bar"><span>📸 目标</span><span>⏱️ 时段 / 时长</span><span>📐 高度角</span></div>';
+
+    // Build name → target lookup for click-to-goto
+    var targetByName = {};
+    for (var ti = 0; ti < targets.length; ti++) {
+        targetByName[targets[ti].name] = targets[ti];
+    }
+
+    for (var i = 0; i < plan.slots.length; i++) {
+        var s = plan.slots[i];
+        var startH = new Date(s.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        var endH = new Date(s.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        var badge = s.mosaic_recommended ? ' 🧩' : '';
+        var fit = Math.round(s.fov_fit_score * 100);
+
+        html += '<div class="plan-slot" data-plan-target="' + s.target_name + '" style="cursor:pointer">' +
+            '<div class="plan-slot-info">' +
+            '<div class="plan-slot-name">' + (i + 1) + '. ' + s.target_name + badge + '</div>' +
+            '<div class="plan-slot-type">' + s.target_type + ' · FOV ' + fit + '%</div>' +
+            (s.notes.length ? '<div class="plan-slot-notes">' + s.notes.join(' · ') + '</div>' : '') +
+            '</div>' +
+            '<div class="plan-slot-time"><div>' + startH + ' → ' + endH + '</div>' +
+            '<div class="plan-slot-dur">' + s.duration_min + ' min</div></div>' +
+            '<div class="plan-slot-alt"><span class="alt-start">' + s.start_alt.toFixed(0) + '°</span>' +
+            ' → <span class="alt-end">' + s.end_alt.toFixed(0) + '°</span></div></div>';
+    }
+
+    // Warnings
+    if (plan.warnings && plan.warnings.length) {
+        html += '<div class="plan-warnings">';
+        for (var w = 0; w < plan.warnings.length; w++) {
+            html += '<div class="plan-warning">💡 ' + plan.warnings[w] + '</div>';
+        }
+        html += '</div>';
+    }
+
+    html += '<div class="plan-summary">🕐 暗夜 ' + plan.total_dark_min + 'min · 已分配 ' + plan.used_min + 'min</div>';
+    container.innerHTML = html;
+
+    // Click to jump Aladin + show altitude chart
+    var planSlots = container.querySelectorAll('.plan-slot');
+    planSlots.forEach(function (card) {
+        card.addEventListener('click', function () {
+            var name = card.getAttribute('data-plan-target');
+            var t = targetByName[name];
+            if (!t) return;
+            if (aladinInstance && t.ra != null && t.dec != null) {
+                aladinInstance.gotoRaDec(t.ra, t.dec);
+            }
+            showAltitudeChart(t);
+        });
+    });
 }
 
 /**
@@ -2613,7 +2739,10 @@ function showAltitudeChart(target) {
         return;
     }
 
-    title.textContent = '\u{1F4C8} ' + target.name + ' — \u{9AD8}\u{5EA6}\u{89D2}\u{53D8}\u{5316}';
+    var sc = target.suitability_score != null ? target.suitability_score.toFixed(0) : '?';
+    var fov = target.fov_fit_score != null ? (target.fov_fit_score * 100).toFixed(0) : '?';
+    var flt = target.filter_match_score != null ? (target.filter_match_score * 100).toFixed(0) : '?';
+    title.textContent = '\u{1F4C8} ' + target.name + ' — 综合' + sc + ' | FOV' + fov + '% | 滤镜' + flt + '%';
     panel.style.display = 'block';
 
     // Defer to next frame so the browser can lay out the newly-visible panel
@@ -2716,6 +2845,39 @@ function showAltitudeChart(target) {
         ctx.textAlign = 'left';
         ctx.fillText('\u{1F319} Moon', xScale(labelIdx), yScale(moonCurve[labelIdx].alt) - 8);
     }
+
+    // Dynamic suitability score curve (green dot-dash, right Y-axis)
+    var fovS = (target.fov_fit_score || 0) * 40;
+    var sbS = (target.surface_brightness_score || 0) * 30;
+    var fltS = (target.filter_match_score || 0) * 20;
+    var scoreStatic = fovS + sbS + fltS;
+    var scoreVals = curve.map(function (p) { return scoreStatic + (p.alt / 90) * 10; });
+    var minScore = Math.max(0, Math.floor(Math.min.apply(null, scoreVals) / 5) * 5);
+    var maxScore = Math.min(100, Math.ceil(Math.max.apply(null, scoreVals) / 5) * 5);
+    if (maxScore - minScore < 10) { maxScore = minScore + 10; }
+    var yScore = function (s) { return pad.top + (1 - (s - minScore) / (maxScore - minScore)) * ph; };
+
+    ctx.strokeStyle = 'rgba(46,204,113,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    for (var i5 = 0; i5 < curve.length; i5++) {
+        var px5 = xScale(i5);
+        var py5 = yScore(scoreVals[i5]);
+        if (i5 === 0) ctx.moveTo(px5, py5); else ctx.lineTo(px5, py5);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Score axis labels (right side)
+    ctx.fillStyle = 'rgba(46,204,113,0.6)';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'left';
+    for (var s2 = minScore; s2 <= maxScore; s2 += 10) {
+        ctx.fillText(s2, w - pad.right + 4, yScore(s2) + 3);
+    }
+    // Score label
+    ctx.fillText('⭐ Score', w - pad.right + 4, pad.top - 2);
 
     // Dusk/dawn markers
     if (target.civil_dusk) {
