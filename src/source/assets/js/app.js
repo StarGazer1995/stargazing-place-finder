@@ -2529,8 +2529,8 @@ async function matchTelescopeTargets() {
         window._lastMoon = moon;  // shared with altitude chart
 
         countEl.textContent = '(' + targets.length + ' 个目标)';
-        renderMoonCard(moon);
         renderTargetResults(targets, list);
+        renderMoonCard(moon);  // after renderTargetResults (which resets innerHTML)
         overlayTargetsOnAladin(targets);
         // Show plan button now that we have targets
         var planBtn = document.getElementById('plan-btn');
@@ -2659,6 +2659,10 @@ function renderMoonCard(moon) {
     var container = document.getElementById('target-results-list');
     if (!moon || !container) return;
 
+    // Remove any existing moon card before rendering a new one
+    var old = container.querySelector('.moon-card');
+    if (old) old.remove();
+
     var illum = moon.illumination * 100;
     var phaseEmoji = illum < 1 ? '\u{1F311}' : illum < 25 ? '\u{1F312}' : illum < 50 ? '\u{1F313}' : illum < 75 ? '\u{1F314}' : illum < 99 ? '\u{1F315}' : '\u{1F316}';
 
@@ -2693,7 +2697,7 @@ function renderMoonCard(moon) {
         '</div>' +
         '</div>';
 
-    container.insertAdjacentHTML('beforebegin', html);
+    container.insertAdjacentHTML('afterbegin', html);
 }
 function renderTargetResults(targets, container) {
     if (!targets.length) {
