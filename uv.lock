@@ -2562,8 +2562,8 @@ wheels = [
 
 [[package]]
 name = "stargazing-core"
-version = "0.1.0a1"
-source = { git = "https://github.com/StarGazer1995/stargazing-core.git?rev=feat%2Fmosaic-planning#6ae704577632f551f01d1d03edbac1b72f7e7738" }
+version = "0.1.0"
+source = { registry = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "numpy", version = "2.3.2", source = { registry = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple" }, marker = "python_full_version < '3.14'" },
@@ -2572,10 +2572,14 @@ dependencies = [
     { name = "pydantic" },
     { name = "pytz" },
 ]
+sdist = { url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/packages/88/e8/050a0fe9509c09fa1b38fe76270b45efde91d47be9bbaedaea13b27beeed/stargazing_core-0.1.0.tar.gz", hash = "sha256:5fe7292f0f8c1084e21503686f90192944f053b64d1b1695057b81d9b0699b5b", size = 241111 }
+wheels = [
+    { url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/packages/61/8b/0b38e0501a6978f5d5fdffbf666ff6f45f3c0556d99f91de0851e0e62520/stargazing_core-0.1.0-py3-none-any.whl", hash = "sha256:070c913d812ec5eb3f04e1eaceb7a7dd6a997fc348cdc2544b213be1010dae9b", size = 251297 },
+]
 
 [[package]]
 name = "stargazing-place-finder"
-version = "0.7.2"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -2656,7 +2660,7 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.3.0" },
     { name = "scipy", specifier = ">=1.7.0" },
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=7.4.0" },
-    { name = "stargazing-core", git = "https://github.com/StarGazer1995/stargazing-core.git?rev=feat%2Fmosaic-planning" },
+    { name = "stargazing-core", specifier = ">=0.1.0" },
     { name = "structlog", specifier = ">=25.5.0" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=1.1.0" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=4.0.0" },
