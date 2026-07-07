@@ -571,6 +571,8 @@ body {
     padding: 15px 20px;
     min-width: 280px;
     max-width: 360px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
     z-index: 1010;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(10px);
@@ -582,6 +584,8 @@ body {
     transform: translateX(calc(100% - 32px));
     padding: 12px 14px;
     min-width: auto;
+    max-height: none;
+    overflow-y: visible;
 }
 
 .telescope-control-panel h3 {
@@ -1661,7 +1665,19 @@ body {
 }
 .plan-night-label { font-size: 12px; color: #a0a0c0; font-weight: 400; }
 
-.plan-panel-body { padding: 8px 14px 12px; }
+.plan-panel-body {
+    padding: 8px 14px 12px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+.mosaic-panel-body {
+    max-height: 260px;
+    overflow-y: auto;
+}
+.target-results-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
 
 .plan-moon-delay {
     text-align: center;
@@ -1840,4 +1856,87 @@ body {
     display: block;
     width: 100%;
     height: 120px;
+}
+
+/* ── Mosaic panel ─────────────────────────── */
+.mosaic-badge {
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 4px;
+    transition: transform 0.15s;
+}
+.mosaic-badge:hover {
+    transform: scale(1.25);
+}
+
+.mosaic-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(52,152,219,0.08);
+    border-radius: 6px;
+    margin-top: 6px;
+    font-size: 13px;
+}
+.mosaic-ctrl-label { color: #5dade2; font-weight: 600; }
+.mosaic-overlap-slider { flex: 1; accent-color: #3498db; }
+#mosaic-overlap-val { min-width: 32px; text-align: right; color: #3498db; font-weight: 600; }
+
+.mosaic-panel {
+    margin-top: 6px;
+    border: 1px solid rgba(52,152,219,0.2);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.mosaic-panel-header {
+    background: rgba(52,152,219,0.1);
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #5dade2;
+    margin: 0;
+    user-select: none;
+}
+.mosaic-panel-body { padding: 8px 12px; }
+
+.mosaic-summary {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3498db;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(52,152,219,0.1);
+}
+
+.mosaic-panel-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 4px;
+    margin-bottom: 8px;
+}
+.mosaic-panel-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: rgba(52,152,219,0.06);
+    border-radius: 4px;
+    font-size: 11px;
+}
+.mp-label {
+    font-weight: 700;
+    color: #3498db;
+    min-width: 32px;
+}
+.mp-coord {
+    color: #95a5a6;
+    font-family: monospace;
+}
+
+.mosaic-hint {
+    font-size: 11px;
+    color: #7f8c8d;
+    margin: 0;
 }
