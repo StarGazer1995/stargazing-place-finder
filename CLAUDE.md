@@ -22,26 +22,27 @@ See also `AGENTS.md` for broader agent guidance including environment setup, cod
 | Run with fast mode | `FAST_TESTS=1 uv run pytest` |
 | Lint + format check | `uv run ruff format --check src/ && uv run ruff check src/` |
 | Security scan | `uv run bandit -r src/ -c pyproject.toml --severity-level medium` |
-| Start full web app | `bash start.sh` (API :5001 + static server :8000) |
-| Start API only | `uv run python -m light_pollution.light_pollution_api` |
+| Start web app | `uv run uvicorn server.main:app --host 0.0.0.0 --port 5001 --reload` |
+| Start API only (legacy) | `uv run python -m light_pollution.light_pollution_api` |
 | CLI | `uv run stargazing-finder --center LAT LON RADIUS_KM` |
 | Build docs | `uv run sphinx-build -b html docs/sphinx/source docs/sphinx/build` |
 
 ## Architecture
 
 ```
-User Layer:   CLI (stargazing-finder)  |  Web UI (Leaflet.js SPA)  |  REST API (Flask :5001)
+User Layer:   CLI (stargazing-finder)  |  Web UI (Leaflet.js SPA)  |  REST API (FastAPI :5001)
                  \                          |                        /
 Orchestrator:           StargazingLocationAnalyzer (stargazing_analyzer/)
-                              /              \
-Analysis:    LightPollutionAnalyzer     RoadConnectivityChecker
-             (VIIRS GeoTIFF → Bortle)   (OSM road distance scoring)
-                              \              /
+                              /              \                \
+Analysis:    LightPollutionAnalyzer     RoadConnectivityChecker   Telescope routes
+             (VIIRS GeoTIFF → Bortle)   (OSM road distance)      (server/routes/telescope.py)
+                              \              /                /
 Infra:       GisQueryService ──┬── PostgisBackend (fast, needs config)
                                └── OverpassBackend (slow fallback)
              ElevationBackend (4-level fallback: OSM tag → PostGIS → API → 0.0)
              Cache layer (disk + memory, MD5-keyed)
              Models (Pydantic v2 DTOs)
+             stargazing-core (shared on PyPI: optics, catalog, shooting plan engine)
 ```
 
 **Data flow**: CLI/API → `StargazingLocationAnalyzer.analyze_area()` → search locations → batch light pollution → preload road network (PostGIS `planet_osm_line` graph, or OSMnx fallback) → `ThreadPoolExecutor(max_workers=4)` parallel per-location pipeline (build → enrich → score) → filter/sort → results.
@@ -53,9 +54,11 @@ Infra:       GisQueryService ──┬── PostgisBackend (fast, needs config)
 ```
 src/
 ├── stargazing_analyzer/    → orchestrator (analyzer, CLI, public_api)
-├── light_pollution/        → VIIRS GeoTIFF analysis + Flask API server
+├── server/                 → FastAPI application (main.py, routes/)
+│   └── routes/             → health, pollution, stargazing, telescope, tiles
+├── light_pollution/        → VIIRS GeoTIFF analysis
 │   └── resources/          → viirs_china_2025.tif (~100MB, from GitHub Release)
-├── road_connectivity/      → road distance: PostGIS kNN (~30ms) or PostGIS graph from planet_osm_line; OSMnx fallback
+├── road_connectivity/      → road distance: PostGIS kNN (~30ms) or PostGIS graph; OSMnx fallback
 ├── gis_service/            → unified GIS query (PostGIS/Overpass/Elevation backends)
 ├── models/                 → Pydantic v2 models + exception hierarchy
 ├── cache/                  → disk + memory cache layer
@@ -89,11 +92,11 @@ src/
 
 ## Known Sharp Edges
 
-### Real issues (verified 2026-06-28)
+### Real issues (verified 2026-07-07)
 
 - **Two `except (XError, Exception)` redundancies** — `stargazing_location_analyzer.py:251` and `road_connectivity_checker.py:373`. Both catch `(SpecificError, Exception)` where `SpecificError` is an `Exception` subclass, making this functionally `except Exception`. Both silently return `[]` or `None` without re-raising, which masks programming bugs like `TypeError` or `AttributeError`. Fix by removing `Exception` from the tuple.
 - **Cache implementations are not thread-safe** — `RoadAccessInfoCache` (`road_connectivity_checker.py`) and `GisQueryCache` (`gis_service/caching.py`) both write pickle files directly without file locks or atomic temp-file+rename. `RoadAccessInfoCache` has a TOCTOU race: reads old cache → merges new data → writes back, and concurrent callers silently overwrite each other. Both also lack in-memory locking for their `dict`-backed caches.
-- **Flask `app.run()` is dev-only** — no gunicorn/uwsgi/waitress config, no Dockerfile. `start.sh` runs Flask's single-process dev server and Python's `http.server` as background processes. Not suitable for production concurrency.
+- **No production WSGI server** — the FastAPI app is served via `uvicorn` directly. No gunicorn with Uvicorn workers configured in the Dockerfile (SPF is embedded in MCP's container via supervisord running `uv run uvicorn`). Acceptable for current deployment but not optimal for high concurrency.
 - **`calculate_distance` has a standalone duplicate** in `light_pollution/light_pollution_api.py` — identical Haversine algorithm but takes `(lat1, lon1, lat2, lon2)` floats instead of `(GeoCoordinate, GeoCoordinate)`. The version in `gis_service/parsers.py` is the canonical one; the `stargazing_place_finder.py` version is a thin delegate wrapper. Consolidate the API version to delegate to `parsers.py` by constructing temporary `GeoCoordinate` objects.
 - **TOML import boilerplate duplicated** — the 4-line `try: import tomllib except ImportError: import tomli as tomllib` stanza appears identically in `config/__init__.py` and `gis_service/config.py`. Extract a shared `_load_toml(path) -> dict` helper.
 - **`BatchElevationQuery.get_statistics()`** (deprecated module) still uses raw `psycopg2.connect()` — the only remaining non-pool connection in production code. Migrate to `PostgisBackend.get_elevation_statistics()` or remove the deprecated module.
@@ -102,6 +105,7 @@ src/
 
 ### Things previously listed that are no longer true
 
+- ~~Flask `app.run()` is dev-only, no Dockerfile~~ → Migrated to FastAPI. Production deployment via `mcp-stargazing` Docker container + supervisord.
 - ~~No PostGIS connection pool~~ → `PostgisBackend` uses `SimpleConnectionPool(1, 4)` since at least v0.6.x.
 - ~~Bare except Exception in ~5 places~~ → Only 2 remain (listed above). All other 57 except blocks catch specific exception types.
 - ~~Frontend hides all UI controls on load~~ → Only loading overlay and empty data panels are hidden on init — search, legend, language toggle, and mode toggle are all visible. Standard UX pattern.
@@ -118,6 +122,17 @@ src/
 - `STARGAZING_DB_CONFIG` — path to PostGIS config file (JSON or TOML)
 - `FAST_TESTS=1` — skip slow geospatial operations in tests
 - `WEB_PORT` / `API_PORT` — override defaults in `start.sh` (8000/5001)
+
+## Dependency: stargazing-core
+
+`stargazing-core` is published on PyPI (v0.1.0). SPF declares `stargazing-core>=0.1.0` as a normal dependency — it resolves from the PyPI registry by default. For local development with an editable core checkout, add a temporary `[tool.uv.sources]` override:
+
+```toml
+[tool.uv.sources]
+stargazing-core = { path = "../stargazing-core" }
+```
+
+Do NOT commit this override.
 
 ## Release Process
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0 (2026-07-07) — Dependency migration
+
+### Changed
+- **stargazing-core moved to PyPI**: `stargazing-core @ git+https://...` → `stargazing-core>=0.1.0` from PyPI registry.
+  Removes git-URL dependency; shared package resolves from a single source across all consumers.
+
 ## Unreleased — Phase 4: shooting plan + mosaic
 
 ### Features
