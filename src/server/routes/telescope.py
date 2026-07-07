@@ -11,6 +11,7 @@ from stargazing_core import (
     TELESCOPE_PRESETS,
     TelescopeConfig,
     TelescopeOptics,
+    generate_shooting_schedule,
     match_telescope_targets,
 )
 
@@ -71,4 +72,52 @@ async def get_targets(body: dict) -> dict:
         "moon": results["moon"],
         "config": config.model_dump(exclude_none=True),
         "total": len(results["targets"]),
+    }
+
+
+@router.post("/api/telescope/plan")
+async def get_plan(body: dict) -> dict:
+    """Generate a single-night shooting schedule.
+
+    Runs match_telescope_targets then generate_shooting_schedule,
+    returning targets + moon + timed shooting slots.
+    """
+    cfg = body.get("config", body)
+    lon = body["lon"]
+    lat = body["lat"]
+    time_str = body["time"]
+    time_zone = body.get("time_zone", "UTC")
+    limit = body.get("limit", 20)
+    min_altitude = body.get("min_altitude", 25.0)
+
+    config = TelescopeConfig(**cfg)
+    observer = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
+
+    try:
+        from datetime import datetime
+
+        import pytz
+
+        tz = pytz.timezone(time_zone)
+        dt = tz.localize(datetime.fromisoformat(time_str))
+    except Exception:
+        dt = Time(time_str)
+        t = dt
+    else:
+        t = Time(dt)
+
+    results = match_telescope_targets(config, observer, t, limit)
+    targets = results["targets"]
+    moon = results["moon"]
+    dusk = targets[0]["civil_dusk"] if targets else t.iso
+    dawn = targets[0]["civil_dawn"] if targets else t.iso
+
+    plan = generate_shooting_schedule(targets, moon, dusk, dawn, min_alt=min_altitude)
+
+    return {
+        "targets": targets,
+        "moon": moon,
+        "plan": plan.model_dump(),
+        "config": config.model_dump(exclude_none=True),
+        "total": len(targets),
     }

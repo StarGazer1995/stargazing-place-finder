@@ -178,3 +178,140 @@ class TestTelescopeTargets:
         }
         resp = client.post("/api/telescope/targets", json=body)
         assert resp.status_code == 200
+
+
+class TestTelescopePlan:
+    def test_get_plan_returns_structure(self, client: TestClient, monkeypatch) -> None:
+        """Plan endpoint returns targets + moon + timed shooting slots."""
+        from server.routes import telescope
+
+        mock_targets = [
+            {
+                "name": "M 42",
+                "ra": 83.8,
+                "dec": -5.4,
+                "type": "HII",
+                "magnitude": 4.0,
+                "surface_brightness": 12.0,
+                "angular_size_arcmin": 66.0,
+                "altitude": 45.0,
+                "azimuth": 180.0,
+                "dawn_altitude": 30.0,
+                "fov_fill_ratio": 0.5,
+                "fov_fit_score": 1.0,
+                "surface_brightness_score": 0.8,
+                "filter_match_score": 1.0,
+                "altitude_score": 0.5,
+                "suitability_score": 85.0,
+                "mosaic_recommended": False,
+                "catalog": "Messier",
+                "altitude_curve": [],
+                "civil_dusk": "2024-01-25T17:00:00",
+                "civil_dawn": "2024-01-26T07:00:00",
+                "observation_time": "2024-01-25T17:00:00",
+            }
+        ]
+        monkeypatch.setattr(
+            telescope,
+            "match_telescope_targets",
+            lambda *a, **kw: {
+                "targets": mock_targets,
+                "moon": {
+                    "illumination": 0.0,
+                    "phase": "New Moon",
+                    "altitude_curve": [],
+                    "always_down": True,
+                    "always_up": False,
+                    "dark_fraction": 1.0,
+                },
+            },
+        )
+
+        body = {
+            "focal_length_mm": 250,
+            "sensor_width_mm": 23.5,
+            "sensor_height_mm": 15.7,
+            "lon": 116.4,
+            "lat": 39.9,
+            "time": "2024-01-25T22:00:00",
+            "time_zone": "Asia/Shanghai",
+            "limit": 5,
+        }
+        resp = client.post("/api/telescope/plan", json=body)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "targets" in data
+        assert "moon" in data
+        assert "plan" in data
+        assert "config" in data
+        assert data["total"] == 1
+        plan = data["plan"]
+        assert "slots" in plan
+        assert "date" in plan
+        assert "total_dark_min" in plan
+
+    def test_get_plan_empty_targets(self, client: TestClient, monkeypatch) -> None:
+        """Plan endpoint handles empty targets gracefully."""
+        from server.routes import telescope
+
+        monkeypatch.setattr(
+            telescope,
+            "match_telescope_targets",
+            lambda *a, **kw: {
+                "targets": [],
+                "moon": {
+                    "illumination": 0.0,
+                    "phase": "New Moon",
+                    "altitude_curve": [],
+                    "always_down": True,
+                    "always_up": False,
+                    "dark_fraction": 1.0,
+                },
+            },
+        )
+
+        body = {
+            "focal_length_mm": 250,
+            "sensor_width_mm": 23.5,
+            "sensor_height_mm": 15.7,
+            "lon": 0,
+            "lat": 51,
+            "time": "2024-01-25T22:00:00",
+        }
+        resp = client.post("/api/telescope/plan", json=body)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["targets"] == []
+
+    def test_get_plan_fallback_timezone(self, client: TestClient, monkeypatch) -> None:
+        """Plan endpoint falls back to direct Time parse for invalid tz."""
+        from server.routes import telescope
+
+        monkeypatch.setattr(
+            telescope,
+            "match_telescope_targets",
+            lambda *a, **kw: {
+                "targets": [],
+                "moon": {
+                    "illumination": 0.0,
+                    "phase": "New Moon",
+                    "altitude_curve": [],
+                    "always_down": True,
+                    "always_up": False,
+                    "dark_fraction": 1.0,
+                },
+            },
+        )
+
+        body = {
+            "focal_length_mm": 250,
+            "sensor_width_mm": 23.5,
+            "sensor_height_mm": 15.7,
+            "lon": 0,
+            "lat": 51,
+            "time": "2024-01-25T22:00:00",
+            "time_zone": "Mars/Olympus",
+        }
+        resp = client.post("/api/telescope/plan", json=body)
+        assert resp.status_code == 200

@@ -1621,6 +1621,107 @@ body {
 .match-targets-btn:hover { opacity: 0.85; }
 .match-targets-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Shooting plan panel ────────────────────────────────────────────── */
+
+.plan-btn {
+    width: 100%;
+    padding: 8px;
+    margin-top: 6px;
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.plan-btn:hover { opacity: 0.85; }
+.plan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.plan-panel {
+    margin: 10px 14px 0;
+    background: rgba(26, 26, 46, 0.92);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.plan-panel-header {
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2ecc71;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(46, 204, 113, 0.15);
+}
+.plan-night-label { font-size: 12px; color: #a0a0c0; font-weight: 400; }
+
+.plan-panel-body { padding: 8px 14px 12px; }
+
+.plan-moon-delay {
+    text-align: center;
+    padding: 6px;
+    margin-bottom: 8px;
+    background: rgba(241, 196, 15, 0.1);
+    border-radius: 4px;
+    font-size: 13px;
+    color: #f1c40f;
+}
+
+.plan-header-bar {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    padding: 0 2px;
+}
+
+.plan-slot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    border-left: 3px solid #2ecc71;
+    gap: 8px;
+}
+.plan-slot-info { flex: 1; min-width: 0; }
+.plan-slot-name { font-size: 13px; font-weight: 600; color: #eee; }
+.plan-slot-type { font-size: 11px; color: #999; }
+.plan-slot-notes { font-size: 10px; color: #f39c12; margin-top: 2px; }
+.plan-slot-time { text-align: center; min-width: 80px; font-size: 12px; color: #ccc; }
+.plan-slot-dur { font-size: 11px; color: #2ecc71; font-weight: 600; }
+.plan-slot-alt { text-align: right; min-width: 70px; font-size: 12px; color: #ccc; }
+.alt-start { font-weight: 600; }
+.alt-end { color: #e74c3c; }
+
+.plan-warnings { margin-top: 8px; }
+.plan-warning {
+    font-size: 12px;
+    color: #f39c12;
+    padding: 4px 8px;
+    background: rgba(241, 196, 15, 0.08);
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.plan-summary {
+    margin-top: 8px;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+}
+
 .telescope-config-body {
     overflow: hidden;
     transition: max-height 0.3s;
