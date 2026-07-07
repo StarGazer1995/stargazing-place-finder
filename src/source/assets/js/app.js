@@ -2109,10 +2109,13 @@ function ensureAladinReady() {
             showFullscreenControl: false,
         });
 
-        // Update FOV when view changes — capture DOM events before Aladin's canvas
+        // Update FOV and mosaic overlays when view changes — capture DOM events
         var aladinDiv = document.getElementById('aladin-lite-div');
         var scheduleFovUpdate = function () {
-            setTimeout(function () { updateFovOverlay(); }, 100);
+            setTimeout(function () {
+                updateFovOverlay();
+                if (_mosaicGrid) renderMosaicOnAladin(_mosaicGrid);
+            }, 100);
         };
         if (aladinDiv) {
             aladinDiv.addEventListener('pointerup', scheduleFovUpdate, true);
@@ -2726,9 +2729,10 @@ function renderTargetResults(targets, container) {
     cards.forEach(function (card) {
         card.addEventListener('click', function (e) {
             // If the mosaic badge was clicked, open mosaic instead
-            if (e.target.classList.contains('mosaic-badge')) {
+            var badge = e.target.closest('.mosaic-badge');
+            if (badge) {
                 e.stopPropagation();
-                var midx = parseInt(e.target.getAttribute('data-mosaic-idx'));
+                var midx = parseInt(badge.getAttribute('data-mosaic-idx'));
                 var mt = targets[midx];
                 if (mt) {
                     window._lastMosaicTarget = mt;
@@ -2744,13 +2748,6 @@ function renderTargetResults(targets, container) {
             showAltitudeChart(target);
         });
     });
-}
-
-// Call initMosaicSlider after DOM ready
-if (document.readyState !== 'loading') {
-    initMosaicSlider();
-} else {
-    document.addEventListener('DOMContentLoaded', initMosaicSlider);
 }
 
 /**
@@ -2967,15 +2964,6 @@ function overlayTargetsOnAladin(targets) {
     }
 }
 
-// ==================== 应用初始化 ====================
-
-// 初始化应用
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        initializeApp();
-        initializeStargazingSelector();
-        initTelescopeMode();
-    });
 // ── Mosaic planning ─────────────────────────────────────────────────────
 
 var _mosaicGrid = null;       // current MosaicGrid
@@ -3132,8 +3120,19 @@ function initMosaicSlider() {
     });
 }
 
+// ==================== 应用初始化 ====================
+
+// 初始化应用
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeApp();
+        initializeStargazingSelector();
+        initTelescopeMode();
+        initMosaicSlider();
+    });
 } else {
     initializeApp();
     initializeStargazingSelector();
     initTelescopeMode();
+    initMosaicSlider();
 }
