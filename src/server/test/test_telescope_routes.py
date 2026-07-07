@@ -283,3 +283,35 @@ class TestTelescopePlan:
         data = resp.json()
         assert data["total"] == 0
         assert data["targets"] == []
+
+    def test_get_plan_fallback_timezone(self, client: TestClient, monkeypatch) -> None:
+        """Plan endpoint falls back to direct Time parse for invalid tz."""
+        from server.routes import telescope
+
+        monkeypatch.setattr(
+            telescope,
+            "match_telescope_targets",
+            lambda *a, **kw: {
+                "targets": [],
+                "moon": {
+                    "illumination": 0.0,
+                    "phase": "New Moon",
+                    "altitude_curve": [],
+                    "always_down": True,
+                    "always_up": False,
+                    "dark_fraction": 1.0,
+                },
+            },
+        )
+
+        body = {
+            "focal_length_mm": 250,
+            "sensor_width_mm": 23.5,
+            "sensor_height_mm": 15.7,
+            "lon": 0,
+            "lat": 51,
+            "time": "2024-01-25T22:00:00",
+            "time_zone": "Mars/Olympus",
+        }
+        resp = client.post("/api/telescope/plan", json=body)
+        assert resp.status_code == 200
