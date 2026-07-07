@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Phase 4 shooting plan
+## Unreleased — Phase 4: shooting plan + mosaic
 
 ### Features
 - **Shooting plan API + UI**: `POST /api/telescope/plan` generates a minute-by-minute single-night
@@ -10,9 +10,12 @@
   - Click any plan slot → Aladin jumps to target + altitude chart opens
   - Moon-aware: delay banner, narrowband recommendation, unused time warnings
 - **Altitude chart enhanced**: dynamic suitability score curve (green dashed line, right Y-axis)
-
-### Other
-- Switch stargazing-core from git dependency to local path (`../stargazing-core`)
+- **Mosaic planning**: `POST /api/telescope/mosaic` computes multi-panel grid for large targets
+  via `compute_mosaic_grid` from stargazing-core.
+  - Frontend: click 🧩 badge on mosaic-recommended targets → Aladin shows dashed blue FOV rectangles
+  - Adjustable overlap slider (5–40%), grid redraws on zoom/pan
+  - Per-panel RA/Dec coordinates in collapsible panel
+  - Mosaic threshold lowered from 1.5× to 1.0× FOV width
 
 ## 0.7.1 (2026-07-02)
 
