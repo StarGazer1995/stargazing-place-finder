@@ -109,13 +109,12 @@ jobs:
       - name: Install built wheel into a clean venv
         run: |
           WHEEL=$(ls dist/stargazing_place_finder-*.whl)
-          echo "Installing $WHEEL"
-          uv venv /tmp/spf-smoke --python 3.13
-          /tmp/spf-smoke/bin/pip install "$WHEEL"
+          echo "Installing $WHEEL into clean venv"
+          python3.13 -m venv /tmp/spf-smoke
+          /tmp/spf-smoke/bin/pip install "$WHEEL" uvicorn -q
 
       - name: Start server and verify health + web UI
         run: |
-          /tmp/spf-smoke/bin/pip install uvicorn -q
           /tmp/spf-smoke/bin/uvicorn server.main:app --host 127.0.0.1 --port 5001 &
           SERVER_PID=$!
 
