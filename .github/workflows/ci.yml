@@ -148,11 +148,20 @@ jobs:
           echo "$HEALTH" | grep -q '"status":"healthy"' && echo "✅ Health: status = healthy"
           echo "$HEALTH" | grep -q '"analyzer_initialized":true' && echo "✅ Health: analyzer initialized"
 
+          # Verify frontend static assets are served
+          JS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5001/assets/js/app.js)
+          echo "assets/js/app.js → HTTP $JS_STATUS"
+          test "$JS_STATUS" = "200" && echo "✅ Static JS served"
+
+          CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5001/assets/css/styles.css)
+          echo "assets/css/styles.css → HTTP $CSS_STATUS"
+          test "$CSS_STATUS" = "200" && echo "✅ Static CSS served"
+
           # Verify web UI returns the Stargazing Place Finder page
           HTML=$(curl -s http://127.0.0.1:5001/)
           echo "$HTML" | grep -q '观星地点查找器' && echo "✅ Web UI: Stargazing Place Finder page"
           echo "$HTML" | grep -q 'leaflet' && echo "✅ Web UI: Leaflet map included"
-          echo "$HTML" | grep -q 'light_pollution\|光污染' && echo "✅ Web UI: light pollution features present"
+          echo "$HTML" | grep -q '光污染' && echo "✅ Web UI: light pollution features present"
 
           kill $SERVER_PID 2>/dev/null || true
           echo "✅ Smoke test complete — fully functional"
