@@ -83,3 +83,77 @@ jobs:
           uv pip install diff-cover -q
           uv run diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} --fail-under=100
           echo "✅ New/modified lines have 100% test coverage!"
+
+  smoke-test-package:
+    name: "Smoke test — build + start server"
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Download GeoTIFF data from Release asset
+        run: |
+          mkdir -p src/light_pollution/resources
+          curl -fSL -o src/light_pollution/resources/viirs_china_2025.tif \
+            "https://github.com/StarGazer1995/stargazing-place-finder/releases/download/geotiff-data-v1/viirs_china_2025.tif"
+          ls -lh src/light_pollution/resources/viirs_china_2025.tif
+
+      - name: Build wheel
+        run: |
+          uv sync --frozen --no-dev
+          uv pip install build -q
+          uv run python -m build --wheel --outdir dist
+
+      - name: Install built wheel into a clean venv
+        run: |
+          WHEEL=$(ls dist/stargazing_place_finder-*.whl)
+          echo "Installing $WHEEL into clean venv"
+          python3.13 -m venv /tmp/spf-smoke
+          /tmp/spf-smoke/bin/pip install "$WHEEL" uvicorn -q
+
+      - name: Start server and verify health + web UI
+        run: |
+          /tmp/spf-smoke/bin/uvicorn server.main:app --host 127.0.0.1 --port 5001 2>/tmp/spf-server.log &
+          SERVER_PID=$!
+
+          # Wait for server to be ready (up to 15s)
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:5001/api/health > /dev/null 2>&1; then
+              echo "✅ Server responded in ${i}s"
+              break
+            fi
+            sleep 0.5
+          done
+
+          # Verify health endpoint
+          HEALTH=$(curl -s http://127.0.0.1:5001/api/health)
+          echo "Health response: $HEALTH"
+          echo "$HEALTH" | grep -q '"status":"healthy"' && echo "✅ Health: status = healthy"
+          echo "$HEALTH" | grep -q '"analyzer_initialized":true' && echo "✅ Health: analyzer initialized"
+
+          # Verify frontend static assets are served
+          JS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5001/assets/js/app.js)
+          echo "assets/js/app.js → HTTP $JS_STATUS"
+          test "$JS_STATUS" = "200" && echo "✅ Static JS served"
+
+          CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5001/assets/css/styles.css)
+          echo "assets/css/styles.css → HTTP $CSS_STATUS"
+          test "$CSS_STATUS" = "200" && echo "✅ Static CSS served"
+
+          # Verify web UI returns the Stargazing Place Finder page
+          HTML=$(curl -s http://127.0.0.1:5001/)
+          echo "$HTML" | grep -q '观星地点查找器' && echo "✅ Web UI: Stargazing Place Finder page"
+          echo "$HTML" | grep -q 'leaflet' && echo "✅ Web UI: Leaflet map included"
+          echo "$HTML" | grep -q '光污染' && echo "✅ Web UI: light pollution features present"
+
+          kill $SERVER_PID 2>/dev/null || true
+          echo "✅ Smoke test complete — fully functional"

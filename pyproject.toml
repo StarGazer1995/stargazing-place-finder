@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stargazing-place-finder"
-version = "0.8.0"
+version = "0.8.1"
 description = "Stargazing place finder: light pollution analysis and stargazing area analytics"
 readme = "README.md"
 license = {text = "MIT"}
@@ -68,6 +68,13 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "light_pollution" = ["resources/*.tif", "resources/*.py"]
+"source" = [
+    "template.html",
+    "light_pollution_data.json",
+    "assets/css/*.css",
+    "assets/js/*.js",
+    "assets/*.md",
+]
 
 [dependency-groups]
 dev = [
