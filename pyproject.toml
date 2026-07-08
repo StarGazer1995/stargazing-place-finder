@@ -67,7 +67,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-"light_pollution" = ["resources/*.py"]
+"light_pollution" = ["resources/*.tif", "resources/*.py"]
 "source" = [
     "template.html",
     "light_pollution_data.json",

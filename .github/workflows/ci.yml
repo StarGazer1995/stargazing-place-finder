@@ -100,6 +100,13 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
+      - name: Download GeoTIFF data from Release asset
+        run: |
+          mkdir -p src/light_pollution/resources
+          curl -fSL -o src/light_pollution/resources/viirs_china_2025.tif \
+            "https://github.com/StarGazer1995/stargazing-place-finder/releases/download/geotiff-data-v1/viirs_china_2025.tif"
+          ls -lh src/light_pollution/resources/viirs_china_2025.tif
+
       - name: Build wheel
         run: |
           uv sync --frozen --no-dev
@@ -131,8 +138,7 @@ jobs:
           HEALTH=$(curl -s http://127.0.0.1:5001/api/health)
           echo "Health response: $HEALTH"
           echo "$HEALTH" | grep -q '"status":"healthy"' && echo "✅ Health: status = healthy"
-          # analyzer_initialized=false is expected — GeoTIFF not in PyPI wheel
-          echo "$HEALTH" | grep -q '"analyzer_initialized"' && echo "✅ Health: analyzer_initialized field present"
+          echo "$HEALTH" | grep -q '"analyzer_initialized":true' && echo "✅ Health: analyzer initialized"
 
           # Verify frontend static assets are served
           JS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5001/assets/js/app.js)
