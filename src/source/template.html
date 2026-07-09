@@ -116,8 +116,19 @@
     <!-- 右上角按钮组 -->
     <div class="top-right-buttons">
         <button id="mode-toggle-btn" class="mode-toggle-btn" aria-label="切换模式">🎯 区域分析</button>
+        <button id="weather-toggle-btn" class="weather-toggle-btn" aria-label="切换天气图层" onclick="toggleWeatherLayer()">🌤️ 云量</button>
         <button id="telescope-toggle-btn" class="telescope-toggle-btn" aria-label="切换望远镜模式">🔭 望远镜</button>
         <button id="language-btn" class="language-btn" aria-label="切换语言">中/EN</button>
+    </div>
+
+    <!-- 天气时间进度条 -->
+    <div id="weather-timeline" class="weather-timeline" style="display: none;">
+        <button id="weather-play-btn" class="weather-play-btn" onclick="toggleWeatherPlay()" title="播放/暂停">▶</button>
+        <button id="weather-prev-btn" class="weather-step-btn" onclick="stepWeatherTime(-1)" title="上一帧">◀</button>
+        <input type="range" id="weather-time-slider" class="weather-time-slider" min="0" max="0" value="0" step="1" title="拖动切换预报时间" />
+        <button id="weather-next-btn" class="weather-step-btn" onclick="stepWeatherTime(1)" title="下一帧">▶</button>
+        <span id="weather-time-label" class="weather-time-label">--</span>
+        <span id="weather-ref-label" class="weather-ref-label"></span>
     </div>
 
     <!-- Aladin Lite 星图容器 -->

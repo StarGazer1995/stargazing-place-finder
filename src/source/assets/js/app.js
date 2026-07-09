@@ -3,6 +3,8 @@ let map;
 let currentOverlay = null;
 let currentImageLayers = [];
 let pollutionTileLayer = null;
+let weatherTileLayer = null;
+let weatherLayerVisible = false;
 let dataCache = new Map();
 let currentLanguage = 'zh';
 let isLoading = false;
@@ -472,9 +474,20 @@ function initializeMap() {
             attribution: 'VIIRS DNB 2025'
         }
     ).addTo(map);
-    
+
+    // 天气云量瓦片图层（默认隐藏）
+    weatherTileLayer = L.tileLayer(
+        `${API_CONFIG.baseUrl}/api/weather/tiles/{z}/{x}/{y}.png?variable=cloud_cover&model=dwd_icon`,
+        {
+            maxZoom: 12,
+            opacity: 0.7,
+            attribution: 'Weather © Open-Meteo / DWD'
+        }
+    );
+    // Note: not added to map by default — user toggles via button
+
     // 不添加任何控件（按用户要求关闭所有控件）
-    
+
     // 监听地图移动和缩放事件
     map.on('moveend zoomend', debounce(loadCurrentViewData, 300));
     
@@ -1757,6 +1770,144 @@ function updateStatus(message, type = 'info') {
 /**
  * 切换模式
  */
+// ── Weather time slider ────────────────────────────────────────────────────
+
+let weatherTimeIndex = 0;
+let weatherTimeTotal = 0;
+let weatherValidTimes = [];
+let weatherPlayTimer = null;
+let weatherPlayInterval = 500; // ms between frames
+
+function toggleWeatherLayer() {
+    weatherLayerVisible = !weatherLayerVisible;
+    const btn = document.getElementById('weather-toggle-btn');
+    const timeline = document.getElementById('weather-timeline');
+
+    if (weatherLayerVisible) {
+        weatherTileLayer.addTo(map);
+        if (btn) btn.textContent = '🌤️ 云量 ON';
+        if (btn) btn.style.background = '#37474f';
+        // Show time slider, fetch metadata
+        if (timeline) timeline.style.display = '';
+        fetchWeatherMeta();
+    } else {
+        map.removeLayer(weatherTileLayer);
+        if (btn) btn.textContent = '🌤️ 云量';
+        if (btn) btn.style.background = '';
+        if (timeline) timeline.style.display = 'none';
+        stopWeatherPlay();
+    }
+}
+
+async function fetchWeatherMeta() {
+    try {
+        const resp = await fetch(`${API_CONFIG.baseUrl}/api/weather/meta?model=dwd_icon`);
+        const meta = await resp.json();
+        if (meta.error) { console.warn('Weather meta:', meta.error); return; }
+
+        weatherValidTimes = meta.valid_times || [];
+        weatherTimeTotal = weatherValidTimes.length;
+        weatherTimeIndex = 0;
+
+        const slider = document.getElementById('weather-time-slider');
+        if (slider) {
+            slider.max = weatherTimeTotal - 1;
+            slider.value = 0;
+        }
+
+        // Show reference time
+        const refLabel = document.getElementById('weather-ref-label');
+        if (refLabel && meta.reference_time) {
+            refLabel.textContent = `初始场: ${formatValidTime(meta.reference_time)}`;
+        }
+
+        updateWeatherTimeLabel();
+        refreshWeatherTile();
+    } catch (e) {
+        console.warn('Weather meta fetch failed:', e);
+    }
+}
+
+function formatValidTime(isoStr) {
+    // "2026-07-09T06:00Z" → "07/09 06:00"
+    const date = isoStr.replace('Z', '').split('T');
+    if (date.length !== 2) return isoStr;
+    const md = date[0].slice(5); // "07-09"
+    const hm = date[1].slice(0, 5); // "06:00"
+    return `${md} ${hm}`;
+}
+
+function updateWeatherTimeLabel() {
+    const label = document.getElementById('weather-time-label');
+    const slider = document.getElementById('weather-time-slider');
+    if (!label || !slider) return;
+
+    if (weatherValidTimes.length > 0) {
+        const vt = weatherValidTimes[weatherTimeIndex];
+        const formatted = formatValidTime(vt);
+        const relIdx = weatherTimeIndex; // 0 = analysis time
+        label.textContent = `+${relIdx}h ${formatted}`;
+    }
+    if (slider) slider.value = weatherTimeIndex;
+}
+
+function setWeatherTime(index) {
+    if (index < 0 || index >= weatherTimeTotal) return;
+    weatherTimeIndex = index;
+    updateWeatherTimeLabel();
+    refreshWeatherTile();
+}
+
+function stepWeatherTime(delta) {
+    setWeatherTime(weatherTimeIndex + delta);
+}
+
+function refreshWeatherTile() {
+    // Update tile URL with new time_index to force browser re-fetch
+    const baseUrl = `${API_CONFIG.baseUrl}/api/weather/tiles/{z}/{x}/{y}.png`;
+    const newUrl = `${baseUrl}?variable=cloud_cover&model=dwd_icon&time_index=${weatherTimeIndex}`;
+    weatherTileLayer.setUrl(newUrl);
+}
+
+function toggleWeatherPlay() {
+    const btn = document.getElementById('weather-play-btn');
+    if (weatherPlayTimer) {
+        stopWeatherPlay();
+        if (btn) btn.textContent = '▶';
+    } else {
+        weatherPlayTimer = setInterval(() => {
+            if (weatherTimeIndex >= weatherTimeTotal - 1) {
+                weatherTimeIndex = 0;
+            } else {
+                weatherTimeIndex++;
+            }
+            updateWeatherTimeLabel();
+            refreshWeatherTile();
+            document.getElementById('weather-time-slider').value = weatherTimeIndex;
+        }, weatherPlayInterval);
+        if (btn) btn.textContent = '⏸';
+    }
+}
+
+function stopWeatherPlay() {
+    if (weatherPlayTimer) {
+        clearInterval(weatherPlayTimer);
+        weatherPlayTimer = null;
+    }
+    const btn = document.getElementById('weather-play-btn');
+    if (btn) btn.textContent = '▶';
+}
+
+// Slider input handler
+document.addEventListener('DOMContentLoaded', () => {
+    const slider = document.getElementById('weather-time-slider');
+    if (slider) {
+        slider.addEventListener('input', function() {
+            setWeatherTime(parseInt(this.value));
+        });
+    }
+});
+
 function toggleMode() {
     isAnalysisMode = !isAnalysisMode;
 
