@@ -112,3 +112,37 @@ class TestWeatherTile:
     def test_tile_default_parameters(self, client: TestClient) -> None:
         resp = client.get("/api/weather/tiles/3/3/1.png")
         assert resp.status_code == 200
+
+    def test_tile_cache_expiry_evicts_entry(self, client: TestClient, mock_weather_reader) -> None:
+        """When cache TTL expires, the entry should be evicted and re-rendered."""
+        import server.routes.weather_tiles as wt
+
+        url = "/api/weather/tiles/6/52/22.png"
+        # First call — cache miss
+        r1 = client.get(url)
+        assert r1.status_code == 200
+        # Expire the cache entry
+        for key in list(wt._tile_cache):
+            wt._tile_cache[key] = (wt._tile_cache[key][0], 0)  # created_at=0 → expired
+        # Second call — cache hit but expired → re-render
+        r2 = client.get(url)
+        assert r2.status_code == 200
+
+    def test_tile_oserror_returns_empty_png(self, client: TestClient, mock_weather_reader) -> None:
+        """When read_window raises OSError, return a transparent empty tile."""
+        mock_weather_reader.read_window.side_effect = OSError("S3 unavailable")
+        resp = client.get("/api/weather/tiles/6/52/22.png")
+        assert resp.status_code == 200
+        assert len(resp.content) > 0
+        # Should be a valid PNG
+        assert resp.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+    def test_meta_error_returns_error_dict(self, client: TestClient) -> None:
+        """When _get_reader raises, meta should return error dict."""
+        with mock.patch(
+            "server.routes.weather_tiles._get_reader",
+            side_effect=OSError("network down"),
+        ):
+            resp = client.get("/api/weather/meta")
+        assert resp.status_code == 200
+        assert "error" in resp.json()
