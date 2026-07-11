@@ -27,6 +27,7 @@ from server.routes.pollution import router as pollution_router
 from server.routes.stargazing import router as stargazing_router
 from server.routes.telescope import router as telescope_router
 from server.routes.tiles import router as tiles_router
+from server.routes.weather_tiles import router as weather_tiles_router
 
 # ---------------------------------------------------------------------------
 # Path resolution
@@ -81,6 +82,7 @@ app.include_router(tiles_router)
 app.include_router(pollution_router)
 app.include_router(stargazing_router)
 app.include_router(telescope_router)
+app.include_router(weather_tiles_router)
 
 # Static assets (JS / CSS)
 _assets_dir = _STATIC_DIR / "assets"
