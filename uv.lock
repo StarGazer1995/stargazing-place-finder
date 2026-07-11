@@ -3135,7 +3135,7 @@ wheels = [
 [[package]]
 name = "stargazing-core"
 version = "0.1.0"
-source = { git = "https://github.com/StarGazer1995/stargazing-core.git?rev=b20acee#b20acee2e2fba7d3cf6b3f16a1a51f3b6f634e08" }
+source = { git = "https://github.com/StarGazer1995/stargazing-core.git?rev=3a2c982#3a2c982976a706fdb3e02c6b69ff92e0b3c4ee83" }
 dependencies = [
     { name = "astropy" },
     { name = "numpy", version = "2.3.2", source = { registry = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple" }, marker = "python_full_version < '3.14'" },
@@ -3232,7 +3232,7 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.3.0" },
     { name = "scipy", specifier = ">=1.7.0" },
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=7.4.0" },
-    { name = "stargazing-core", git = "https://github.com/StarGazer1995/stargazing-core.git?rev=b20acee" },
+    { name = "stargazing-core", git = "https://github.com/StarGazer1995/stargazing-core.git?rev=3a2c982" },
     { name = "structlog", specifier = ">=25.5.0" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=1.1.0" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=4.0.0" },

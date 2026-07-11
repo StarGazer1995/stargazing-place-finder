@@ -149,4 +149,4 @@ skips = [
 targets = ["src"]
 
 [tool.uv.sources]
-stargazing-core = { git = "https://github.com/StarGazer1995/stargazing-core.git", rev = "b20acee" }
+stargazing-core = { git = "https://github.com/StarGazer1995/stargazing-core.git", rev = "3a2c982" }
