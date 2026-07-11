@@ -120,7 +120,7 @@ async def serve_weather_tile(
     except ValueError as exc:
         logger.warning("Weather tile error: %s", exc)
         return Response(status_code=400, content=str(exc))
-    except OSError as exc:
+    except OSError as exc:  # pragma: no cover — requires live network failure
         logger.error("Weather tile fetch error: %s", exc)
         # Return transparent/empty tile on network errors
         from io import BytesIO
