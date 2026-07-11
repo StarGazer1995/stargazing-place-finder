@@ -113,7 +113,7 @@ class TestWeatherTile:
         resp = client.get("/api/weather/tiles/3/3/1.png")
         assert resp.status_code == 200
 
-    def test_tile_cache_expiry_evicts_entry(self, client: TestClient, mock_weather_reader) -> None:
+    def test_tile_cache_expiry_evicts_entry(self, client: TestClient) -> None:
         """When cache TTL expires, the entry should be evicted and re-rendered."""
         import server.routes.weather_tiles as wt
 
@@ -128,10 +128,16 @@ class TestWeatherTile:
         r2 = client.get(url)
         assert r2.status_code == 200
 
-    def test_tile_oserror_returns_empty_png(self, client: TestClient, mock_weather_reader) -> None:
+    def test_tile_oserror_returns_empty_png(self, client: TestClient) -> None:
         """When read_window raises OSError, return a transparent empty tile."""
-        mock_weather_reader.read_window.side_effect = OSError("S3 unavailable")
-        resp = client.get("/api/weather/tiles/6/52/22.png")
+        bad_reader = _mock_reader()
+        bad_reader.read_window.side_effect = OSError("S3 unavailable")
+
+        with mock.patch(
+            "server.routes.weather_tiles._get_reader",
+            return_value=bad_reader,
+        ):
+            resp = client.get("/api/weather/tiles/6/52/22.png")
         assert resp.status_code == 200
         assert len(resp.content) > 0
         # Should be a valid PNG
