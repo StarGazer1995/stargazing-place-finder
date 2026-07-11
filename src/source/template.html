@@ -218,7 +218,13 @@
     <!-- Leaflet Draw JavaScript -->
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-    <!-- 自定义JavaScript -->
+    <!-- 自定义JavaScript（按依赖顺序加载） -->
+    <script src="js/core/i18n.js"></script>
+    <script src="js/core/api.js"></script>
+    <script src="js/map/map-instance.js"></script>
+    <script src="js/utils/dom.js"></script>
+    <script src="js/panels/info-panel.js"></script>
+    <script src="js/panels/stats-panel.js"></script>
     <script src="assets/js/app.js"></script>
 </body>
 </html>
