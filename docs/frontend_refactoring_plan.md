@@ -1,8 +1,9 @@
 # 前端重构计划 — Stargazing Place Finder
 
 > **状态**: Draft  
-> **日期**: 2026-07-11  
-> **关联文档**: [多仓库管理方案](./multi_repo_management.md)
+> **日期**: 2026-07-13  
+> 📋 **Notion 追踪**: [Stargazing 项目任务板](https://app.notion.com/p/39ab3b0281c481e684d0dbc5ecd41805) — 筛选 `Phase = Phase 1: 模块化+Vite` 查看当前迭代  
+> **关联文档**: [多仓库管理方案](./multi_repo_management.md) · [项目管理面板](https://github.com/StarGazer1995/stargazing-place-finder/wiki/Project-Dashboard)
 
 ---
 
@@ -353,7 +354,7 @@ main.js
    - 生产模式：`vite build` 输出到 `dist/`，FastAPI 挂载 `dist/`
 
 7. **清理重复文件**
-   - 删除 `styled_map_output/` 或标记为 deprecated
+   - ~~删除 `styled_map_output/`~~（已完成，关联 dead code `examples/map_example.py`）
    - 更新 `.gitignore` 添加 `node_modules/` 和 `dist/`
 
 #### 验收标准

@@ -69,11 +69,12 @@ where = ["src"]
 [tool.setuptools.package-data]
 "light_pollution" = ["resources/*.tif", "resources/*.py"]
 "source" = [
-    "template.html",
+    "index.html",
     "light_pollution_data.json",
     "assets/css/*.css",
     "assets/js/*.js",
     "assets/*.md",
+    "js/**/*.js",
 ]
 
 [dependency-groups]

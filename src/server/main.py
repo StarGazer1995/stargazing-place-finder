@@ -109,13 +109,13 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    """Serve the Leaflet-based SPA (template.html)."""
-    template_path = _STATIC_DIR / "template.html"
-    if not template_path.is_file():
+    """Serve the Leaflet-based SPA (index.html)."""
+    index_path = _STATIC_DIR / "index.html"
+    if not index_path.is_file():
         from fastapi.responses import HTMLResponse
 
         return HTMLResponse(
-            "<h1>Frontend not found</h1><p>template.html is missing.</p>",
+            "<h1>Frontend not found</h1><p>index.html is missing.</p>",
             status_code=404,
         )
-    return FileResponse(template_path)
+    return FileResponse(index_path)
