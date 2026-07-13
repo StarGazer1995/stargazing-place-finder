@@ -1,0 +1,282 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Telescope — Aladin Lite, target matching, shooting plan, mosaic, charts
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Aladin container ────────────────────────────────────────────── */
+
+.aladin-container {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 500;
+}
+#aladin-lite-div { width: 100%; height: 100%; }
+.aladin-search-container {
+    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    z-index: 1010; width: 100%; max-width: 420px;
+}
+#aladin-search-input {
+    width: 100%; padding: 12px 20px; border: none; border-radius: 25px;
+    background: rgba(0,0,0,0.8); color: white; font-size: 16px;
+    backdrop-filter: var(--blur-panel);
+    border: 1px solid rgba(74,144,226,0.3); transition: all 0.3s ease;
+}
+#aladin-search-input:focus {
+    outline: none; background: rgba(0,0,0,0.9);
+    border-color: var(--primary); box-shadow: 0 0 20px rgba(74,144,226,0.4);
+}
+#aladin-search-input::placeholder { color: rgba(255,255,255,0.5); }
+
+/* ── Telescope toggle button ─────────────────────────────────────── */
+
+.telescope-toggle-btn {
+    background: linear-gradient(135deg, var(--telescope), var(--telescope-dark));
+    border: none; border-radius: var(--radius-btn); color: white;
+    font-size: 14px; font-weight: bold; cursor: pointer;
+    padding: 10px 20px; transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(142,68,173,0.3);
+}
+.telescope-toggle-btn:hover {
+    background: linear-gradient(135deg, var(--telescope-dark), #5b2c6f);
+    transform: translateY(-2px); box-shadow: 0 6px 16px rgba(142,68,173,0.4);
+}
+.telescope-toggle-btn.active { background: linear-gradient(135deg, var(--success), #1e8449); }
+
+/* ── Telescope control panel ─────────────────────────────────────── */
+
+.telescope-control-panel {
+    position: absolute; bottom: 20px; right: 0;
+    background: var(--bg-panel-alt); border: 2px solid var(--telescope);
+    border-right: none; border-radius: 12px 0 0 12px;
+    padding: 15px 20px; min-width: 280px; max-width: 360px;
+    max-height: calc(100vh - 80px); overflow-y: auto;
+    z-index: 1010; box-shadow: var(--shadow-panel);
+    backdrop-filter: blur(10px); transform: translateX(0);
+    transition: transform 0.3s ease;
+}
+.telescope-control-panel.collapsed {
+    transform: translateX(calc(100% - 32px));
+    padding: 12px 14px; min-width: auto; max-height: none; overflow-y: visible;
+}
+.telescope-control-panel h3 {
+    color: var(--telescope); margin-bottom: 15px; font-size: 16px;
+    text-align: left; border-bottom: 1px solid var(--telescope);
+    padding-bottom: 10px; cursor: pointer; user-select: none;
+    display: flex; align-items: center; gap: 8px; white-space: nowrap;
+}
+.telescope-control-panel.collapsed h3 {
+    margin-bottom: 0; border-bottom: none; padding-bottom: 0;
+    writing-mode: vertical-rl; text-orientation: mixed;
+    font-size: 13px; gap: 4px;
+}
+.telescope-control-panel h3 .collapse-arrow { font-size: 12px; transition: transform 0.2s ease; }
+.telescope-control-panel.collapsed h3 .collapse-arrow { transform: rotate(180deg); }
+.telescope-control-panel.collapsed .control-group,
+.telescope-control-panel.collapsed .fov-display { display: none; }
+
+.telescope-control-panel input[type="range"] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+    border-radius: 3px; background: linear-gradient(to right, var(--primary), var(--telescope));
+    outline: none; cursor: pointer;
+}
+.telescope-control-panel input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 18px; height: 18px;
+    border-radius: 50%; background: var(--telescope);
+    border: 2px solid #fff; cursor: pointer;
+}
+.telescope-control-panel .fov-display {
+    background: rgba(142,68,173,0.15); border: 1px solid rgba(142,68,173,0.3);
+    border-radius: var(--radius-sm); padding: 10px 12px; text-align: center;
+}
+.telescope-control-panel .fov-display label { color: var(--text-muted); margin-bottom: 4px; }
+.telescope-control-panel .fov-display span { font-size: 20px; font-weight: bold; color: var(--telescope); }
+.telescope-config-body { overflow: hidden; transition: max-height 0.3s; }
+.telescope-control-panel.collapsed .telescope-config-body { max-height: 0; }
+
+.telescope-status {
+    position: absolute; bottom: 20px; left: 20px;
+    background: rgba(26,26,46,0.9); border: 1px solid var(--telescope);
+    border-radius: var(--radius-sm); padding: 10px 16px;
+    z-index: 1000; font-size: 13px; color: #d5a3e5;
+}
+
+/* ── Match targets button ────────────────────────────────────────── */
+
+.match-targets-btn {
+    width: 100%; padding: 10px;
+    background: linear-gradient(135deg, var(--telescope), #3498db);
+    color: #fff; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: bold; cursor: pointer; transition: opacity 0.2s;
+}
+.match-targets-btn:hover { opacity: 0.85; }
+.match-targets-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Shooting plan panel ─────────────────────────────────────────── */
+
+.plan-btn {
+    width: 100%; padding: 8px; margin-top: 6px;
+    background: linear-gradient(135deg, var(--success-light), var(--success));
+    color: #fff; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+}
+.plan-btn:hover { opacity: 0.85; }
+.plan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.plan-panel {
+    margin: 10px 14px 0; background: rgba(26,26,46,0.92);
+    border: 1px solid rgba(46,204,113,0.3); border-radius: var(--radius-sm); overflow: hidden;
+}
+.plan-panel-header {
+    padding: 10px 14px; font-size: 14px; font-weight: 600;
+    color: var(--success-light); cursor: pointer; user-select: none;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid rgba(46,204,113,0.15);
+}
+.plan-night-label { font-size: 12px; color: #a0a0c0; font-weight: 400; }
+.plan-panel-body { padding: 8px 14px 12px; max-height: 320px; overflow-y: auto; }
+.plan-moon-delay {
+    text-align: center; padding: 6px; margin-bottom: 8px;
+    background: rgba(241,196,15,0.1); border-radius: 4px;
+    font-size: 13px; color: #f1c40f;
+}
+.plan-header-bar {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; padding: 0 2px;
+}
+.plan-slot {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; margin-bottom: 4px;
+    background: rgba(255,255,255,0.04); border-radius: 6px;
+    border-left: 3px solid var(--success-light); gap: 8px;
+}
+.plan-slot-info { flex: 1; min-width: 0; }
+.plan-slot-name { font-size: 13px; font-weight: 600; color: #eee; }
+.plan-slot-type { font-size: 11px; color: #999; }
+.plan-slot-notes { font-size: 10px; color: var(--warning); margin-top: 2px; }
+.plan-slot-time { text-align: center; min-width: 80px; font-size: 12px; color: #ccc; }
+.plan-slot-dur { font-size: 11px; color: var(--success-light); font-weight: 600; }
+.plan-slot-alt { text-align: right; min-width: 70px; font-size: 12px; color: #ccc; }
+.alt-start { font-weight: 600; }
+.alt-end { color: var(--error); }
+.plan-warnings { margin-top: 8px; }
+.plan-warning {
+    font-size: 12px; color: var(--warning); padding: 4px 8px;
+    background: rgba(241,196,15,0.08); border-radius: 4px; margin-bottom: 4px;
+}
+.plan-summary { margin-top: 8px; text-align: center; font-size: 12px; color: var(--text-dim); }
+
+/* ── Target results ──────────────────────────────────────────────── */
+
+.target-results-section {
+    margin-top: 8px; border-top: 1px solid rgba(142,68,173,0.3);
+    max-height: 35vh; overflow-y: auto;
+}
+.target-results-header {
+    padding: 8px 0; margin: 0; font-size: 13px;
+    color: #e0d0f0; cursor: pointer; user-select: none;
+}
+.target-results-header .target-count { font-weight: normal; color: #aaa; }
+.target-results-header .collapse-arrow { float: right; font-size: 10px; transition: transform 0.2s; }
+.target-results-section.collapsed .collapse-arrow { transform: rotate(-90deg); }
+.target-results-section.collapsed .target-results-body { display: none; }
+.target-results-list { max-height: 400px; overflow-y: auto; }
+
+.target-loading, .target-empty, .target-error {
+    padding: 20px 14px; text-align: center; color: #aaa; font-size: 13px;
+}
+.target-error { color: var(--error); }
+
+.target-card {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer; transition: background 0.15s;
+}
+.target-card:hover { background: rgba(142,68,173,0.1); }
+.target-rank {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(142,68,173,0.3); color: #e0d0f0;
+    font-size: 11px; font-weight: bold;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.target-info { flex: 1; min-width: 0; }
+.target-name { font-size: 13px; font-weight: bold; color: #fff; }
+.target-type { font-size: 11px; color: #aaa; }
+.target-detail { font-size: 10px; color: var(--text-dim); }
+.target-score { font-size: 16px; font-weight: bold; flex-shrink: 0; }
+
+/* ── Moon card ───────────────────────────────────────────────────── */
+
+.moon-card {
+    margin: 8px 14px; padding: 10px 14px;
+    background: rgba(26,26,46,0.85); border: 1px solid rgba(142,68,173,0.3);
+    border-radius: var(--radius-sm);
+}
+.moon-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.moon-emoji { font-size: 24px; }
+.moon-phase { font-size: 14px; font-weight: 600; color: #e0d0f0; flex: 1; }
+.moon-illum { font-size: 13px; color: #b0a0c0; }
+.moon-card-body { display: flex; flex-direction: column; gap: 4px; }
+.moon-level { font-size: 14px; font-weight: 700; }
+.moon-tip { font-size: 12px; color: #a0a0c0; }
+
+/* ── Altitude chart ──────────────────────────────────────────────── */
+
+.altitude-chart-panel {
+    position: absolute; bottom: 10px; left: 37.5%; right: 37.5%; width: 25%;
+    background: rgba(26,26,46,0.92); border: 1px solid rgba(142,68,173,0.4);
+    border-radius: var(--radius-sm); padding: 6px 10px 4px; z-index: 999;
+}
+.altitude-chart-panel h4 { margin: 0 0 2px; font-size: 11px; color: #e0d0f0; text-align: center; }
+#altitude-chart-canvas { display: block; width: 100%; height: 120px; }
+
+/* ── Mosaic ──────────────────────────────────────────────────────── */
+
+.mosaic-badge {
+    cursor: pointer; font-size: 14px; margin-left: 4px; transition: transform 0.15s;
+}
+.mosaic-badge:hover { transform: scale(1.25); }
+.mosaic-controls {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; background: rgba(52,152,219,0.08);
+    border-radius: 6px; margin-top: 6px; font-size: 13px;
+}
+.mosaic-ctrl-label { color: #5dade2; font-weight: 600; }
+.mosaic-overlap-slider { flex: 1; accent-color: #3498db; }
+#mosaic-overlap-val { min-width: 32px; text-align: right; color: #3498db; font-weight: 600; }
+
+.mosaic-panel {
+    margin-top: 6px; border: 1px solid rgba(52,152,219,0.2);
+    border-radius: 6px; overflow: hidden;
+}
+.mosaic-panel-header {
+    background: rgba(52,152,219,0.1); padding: 8px 12px;
+    cursor: pointer; font-size: 14px; font-weight: 600;
+    color: #5dade2; margin: 0; user-select: none;
+}
+.mosaic-panel-body { padding: 8px 12px; max-height: 260px; overflow-y: auto; }
+.mosaic-summary {
+    font-size: 13px; font-weight: 600; color: #3498db;
+    margin-bottom: 6px; padding-bottom: 6px;
+    border-bottom: 1px solid rgba(52,152,219,0.1);
+}
+.mosaic-panel-list {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 4px; margin-bottom: 8px;
+}
+.mosaic-panel-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 8px; background: rgba(52,152,219,0.06);
+    border-radius: 4px; font-size: 11px;
+}
+.mp-label { font-weight: 700; color: #3498db; min-width: 32px; }
+.mp-coord { color: #95a5a6; font-family: monospace; }
+.mosaic-hint { font-size: 11px; color: #7f8c8d; margin: 0; }
+
+/* ── Responsive: telescope ───────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .telescope-control-panel {
+        top: auto; bottom: 20px; right: 10px;
+        min-width: 260px; max-width: calc(100% - 20px);
+    }
+    .telescope-toggle-btn { padding: 8px 14px; font-size: 12px; }
+    .aladin-search-container { top: 10px; padding: 0 10px; }
+}

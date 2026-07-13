@@ -1,0 +1,154 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Layout — search, legend bar, top-right buttons, language toggle
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Search ──────────────────────────────────────────────────────── */
+
+.search-container {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    width: 100%;
+    max-width: 400px;
+    padding: 0 20px;
+}
+
+#search-input {
+    width: 100%;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 25px;
+    background: rgba(0, 0, 0, 0.8);
+    color: var(--text);
+    font-size: 16px;
+    backdrop-filter: var(--blur-panel);
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+}
+#search-input:focus {
+    outline: none;
+    background: rgba(0, 0, 0, 0.9);
+    border-color: var(--primary-light);
+    box-shadow: 0 0 20px rgba(100, 181, 246, 0.3);
+}
+#search-input::placeholder { color: rgba(255, 255, 255, 0.6); }
+
+/* ── Bortle legend bar ───────────────────────────────────────────── */
+
+.bortle-bar-container {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.82);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+}
+.bortle-bar-label {
+    font-size: 11px;
+    color: #ccc;
+    white-space: nowrap;
+    line-height: 1;
+}
+.bortle-gradient-bar {
+    width: 160px;
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(to right,
+        var(--bortle-1), var(--bortle-2), var(--bortle-3),
+        var(--bortle-4), var(--bortle-5), var(--bortle-6),
+        var(--bortle-7), var(--bortle-8), var(--bortle-9)
+    );
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Bortle colour classes */
+.bortle-1 { background-color: var(--bortle-1); }
+.bortle-2 { background-color: var(--bortle-2); }
+.bortle-3 { background-color: var(--bortle-3); }
+.bortle-4 { background-color: var(--bortle-4); }
+.bortle-5 { background-color: var(--bortle-5); }
+.bortle-6 { background-color: var(--bortle-6); }
+.bortle-7 { background-color: var(--bortle-7); }
+.bortle-8 { background-color: var(--bortle-8); }
+.bortle-9 { background-color: var(--bortle-9); }
+
+/* ── Top-right button group ──────────────────────────────────────── */
+
+.top-right-buttons {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1010;
+    display: flex;
+    gap: 8px;
+}
+
+.mode-toggle-btn {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    border: none;
+    border-radius: var(--radius-btn);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+}
+.mode-toggle-btn:hover {
+    background: linear-gradient(135deg, var(--primary-dark), #2968a3);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(74, 144, 226, 0.4);
+}
+.mode-toggle-btn.active {
+    background: linear-gradient(135deg, var(--success), #1e8449);
+}
+
+/* ── Language toggle ─────────────────────────────────────────────── */
+
+.language-toggle {
+    position: absolute;
+    top: 80px;
+    right: 20px;
+    z-index: 1000;
+}
+
+#language-btn {
+    background: rgba(0, 0, 0, 0.8);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    backdrop-filter: var(--blur-panel);
+    transition: all 0.3s ease;
+}
+#language-btn:hover {
+    background: rgba(0, 0, 0, 0.9);
+    border-color: var(--primary-light);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Responsive: layout ──────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .bortle-bar-container { bottom: 10px; right: 10px; }
+    .bortle-gradient-bar { width: 100px; }
+    .search-container { top: 10px; padding: 0 10px; }
+    .language-toggle { top: 70px; right: 10px; }
+}
+@media (max-width: 480px) {
+    .bortle-gradient-bar { width: 80px; }
+    .bortle-bar-label { font-size: 10px; }
+    #search-input { font-size: 14px; padding: 10px 16px; }
+}
