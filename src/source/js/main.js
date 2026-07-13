@@ -272,11 +272,11 @@ if (document.readyState === 'loading') {
         initializeApp();
         initializeStargazingSelector();
         initTelescopeMode();
-        initMosaicSlider();
+        initMosaic();
     });
 } else {
     initializeApp();
     initializeStargazingSelector();
     initTelescopeMode();
-    initMosaicSlider();
+    initMosaic();
 }

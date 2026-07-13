@@ -87,6 +87,11 @@ _assets_dir = _STATIC_DIR / "assets"
 if _assets_dir.is_dir():
     app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
 
+# Frontend JS modules (split from the old assets/js/app.js monolith)
+_js_dir = _STATIC_DIR / "js"
+if _js_dir.is_dir():
+    app.mount("/js", StaticFiles(directory=str(_js_dir)), name="js")
+
 # CORS — needed only for cross-origin deployments (e.g. ?apiBaseUrl= override)
 app.add_middleware(
     CORSMiddleware,
