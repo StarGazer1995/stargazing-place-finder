@@ -48,11 +48,10 @@ jobs:
       - name: Check new code coverage with diff-cover
         if: github.event_name == 'pull_request'
         run: |
-          pip install diff-cover -q
-          diff-cover coverage/cobertura-coverage.xml \
+          python3 -m pip install --break-system-packages diff-cover -q
+          python3 -m diff_cover coverage/cobertura-coverage.xml \
             --compare-branch=origin/${{ github.base_ref }} \
-            --fail-under=100 \
-            --html-report coverage/diff-report.html
+            --fail-under=100
           echo "✅ Frontend new/modified lines have 100% test coverage!"
 
       - name: Build production bundle
@@ -134,6 +133,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: src/source/package-lock.json
+
+      - name: Build frontend (Vite)
+        run: |
+          cd src/source
+          npm ci
+          npm run build
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -181,17 +193,28 @@ jobs:
           echo "$HEALTH" | grep -q '"status":"healthy"' && echo "✅ Health: status = healthy"
           echo "$HEALTH" | grep -q '"analyzer_initialized":true' && echo "✅ Health: analyzer initialized"
 
-          # Verify frontend static assets are served (Vite-based frontend)
-          CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5001/assets/css/variables.css)
-          echo "assets/css/variables.css → HTTP $CSS_STATUS"
-          test "$CSS_STATUS" = "200" && echo "✅ Static CSS served"
-
-          # Verify web UI returns the Stargazing Place Finder page (Vite entry)
+          # Verify web UI returns the Stargazing Place Finder page (Vite-built frontend)
           HTML=$(curl -s http://127.0.0.1:5001/)
           echo "$HTML" | grep -q '观星地点查找器' && echo "✅ Web UI: Stargazing Place Finder page"
           echo "$HTML" | grep -q 'type="module"' && echo "✅ Web UI: Vite ES module entry"
           echo "$HTML" | grep -q 'leaflet' && echo "✅ Web UI: Leaflet map included"
           echo "$HTML" | grep -q '光污染' && echo "✅ Web UI: light pollution features present"
+
+          # Verify bundled CSS is served (extract href from HTML <link>)
+          CSS_HREF=$(echo "$HTML" | grep -o 'href="/assets/[^"]*\.css"' | head -1 | sed 's/href="//;s/"//')
+          if [ -n "$CSS_HREF" ]; then
+            CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:5001$CSS_HREF")
+            echo "$CSS_HREF → HTTP $CSS_STATUS"
+            test "$CSS_STATUS" = "200" && echo "✅ Bundled CSS served"
+          fi
+
+          # Verify bundled JS is served (extract src from HTML <script>)
+          JS_SRC=$(echo "$HTML" | grep -o 'src="/assets/[^"]*\.js"' | head -1 | sed 's/src="//;s/"//')
+          if [ -n "$JS_SRC" ]; then
+            JS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:5001$JS_SRC")
+            echo "$JS_SRC → HTTP $JS_STATUS"
+            test "$JS_STATUS" = "200" && echo "✅ Bundled JS served"
+          fi
 
           kill $SERVER_PID 2>/dev/null || true
           echo "✅ Smoke test complete — fully functional"

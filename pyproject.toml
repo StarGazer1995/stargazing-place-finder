@@ -70,11 +70,10 @@ where = ["src"]
 "light_pollution" = ["resources/*.tif", "resources/*.py"]
 "source" = [
     "index.html",
+    "index-vite.html",
     "light_pollution_data.json",
     "assets/css/*.css",
-    "assets/js/*.js",
-    "assets/*.md",
-    "js/**/*.js",
+    "dist/**",
 ]
 
 [dependency-groups]
