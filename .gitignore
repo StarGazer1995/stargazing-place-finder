@@ -49,6 +49,11 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# Frontend (TypeScript / Vite)
+node_modules/
+*.tsbuildinfo
+src/source/coverage/
+
 # Translations
 *.mo
 *.pot
@@ -137,6 +142,9 @@ styled_map_output/
 cache/VNL_npp_*.tif
 cache/VNL_npp_*.tif.gz/
 *.json
+!src/source/package.json
+!src/source/package-lock.json
+!src/source/tsconfig.json
 config/postgis_config.toml
 maps*
 

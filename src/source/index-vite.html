@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh" id="html-root">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>观星地点查找器 | 光污染地图与区域分析</title>
+    <meta name="description" content="专业的光污染地图与观星区域分析工具，提供波特尔暗空分类、SQM数值查询和交互式区域选择功能">
+    <meta name="keywords" content="光污染地图,波特尔暗空分类,SQM值,观星地点,星空摄影,天文观测,观星区域选择,观星地点分析">
+    
+    <!-- 外部CSS库 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="assets/css/variables.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/layout.css" />
+    <link rel="stylesheet" href="assets/css/panels.css" />
+    <link rel="stylesheet" href="assets/css/stargazing.css" />
+    <link rel="stylesheet" href="assets/css/telescope.css" />
+</head>
+<body>
+    <!-- 无障碍访问支持 -->
+    <div class="sr-only">
+        <h1 data-i18n="accessibility.title">光污染地图 - 观星地点查找器</h1>
+        <p data-i18n="accessibility.description">这是一个交互式光污染地图，帮助您找到最佳的观星地点。使用键盘导航或屏幕阅读器浏览地图信息。</p>
+    </div>
+
+    <!-- 加载覆盖层 -->
+    <div id="loading-overlay" role="status" aria-live="polite">
+        <div class="loading-content">
+            <h1 class="loading-title">星空观测地点查找器</h1>
+            <p class="loading-subtitle">正在加载光污染数据...</p>
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <p class="loading-text">请稍候</p>
+        </div>
+    </div>
+
+    <!-- 主地图容器 -->
+    <div id="map" role="application" aria-label="光污染地图" tabindex="0"></div>
+
+    <!-- 加载指示器 -->
+    <div id="loading-indicator" class="loading-indicator" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <span>正在加载数据...</span>
+    </div>
+
+    <!-- 搜索容器 -->
+    <div id="search-container" class="search-container">
+        <input type="text" id="search-input" placeholder="搜索地点..." 
+               aria-label="搜索地点" autocomplete="off" />
+    </div>
+
+    <!-- 光污染图例 — 紧凑渐变条 -->
+    <div class="bortle-bar-container" role="complementary">
+        <span class="bortle-bar-label">1 暗空</span>
+        <div class="bortle-gradient-bar"></div>
+        <span class="bortle-bar-label">9 内城</span>
+    </div>
+
+    <!-- 观星区域分析控制面板 -->
+    <div class="control-panel" id="stargazing-control-panel" style="display: none;">
+        <h3>🌟 观星区域分析</h3>
+        
+        <div class="control-group">
+            <label>📍 绘制分析区域</label>
+            <p style="font-size: 12px; color: #b8b8d1; margin-bottom: 10px;">
+                使用左上角的矩形工具在地图上拖拽绘制分析区域
+            </p>
+        </div>
+
+        <div class="control-group">
+            <label for="max-locations">📍 最大返回地点数</label>
+            <input type="number" id="max-locations" min="5" max="100" value="30">
+        </div>
+
+        <div class="control-group">
+            <label for="network-type">🚗 交通方式</label>
+            <select id="network-type">
+                <option value="drive">驾车</option>
+                <option value="walk">步行</option>
+                <option value="bike">骑行</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="include-light-pollution" checked>
+                <label for="include-light-pollution">🌃 包含光污染分析</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="include-road-connectivity" checked>
+                <label for="include-road-connectivity">🛣️ 包含道路连通性</label>
+            </div>
+        </div>
+
+        <button id="analyze-button" class="analyze-button" disabled>
+            🔍 分析观星地点
+        </button>
+        
+        <button id="clear-button" class="clear-button">
+            🗑️ 清除结果
+        </button>
+    </div>
+
+    <!-- 状态指示器 -->
+    <div id="status-indicator" class="status-indicator">
+        💡 在地图上绘制一个区域开始分析
+    </div>
+
+    <!-- 结果面板 -->
+    <div id="results-panel" class="results-panel">
+        <h4>📊 分析结果</h4>
+        <div id="summary-stats" class="summary-stats"></div>
+        <div id="locations-list"></div>
+    </div>
+
+    <!-- 右上角按钮组 -->
+    <div class="top-right-buttons">
+        <button id="mode-toggle-btn" class="mode-toggle-btn" aria-label="切换模式">🎯 区域分析</button>
+        <button id="telescope-toggle-btn" class="telescope-toggle-btn" aria-label="切换望远镜模式">🔭 望远镜</button>
+        <button id="language-btn" class="language-btn" aria-label="切换语言">中/EN</button>
+    </div>
+
+    <!-- Aladin Lite 星图容器 -->
+    <div id="aladin-container" class="aladin-container" style="display: none;">
+        <div id="aladin-lite-div"></div>
+        <div id="aladin-search-container" class="aladin-search-container">
+            <input type="text" id="aladin-search-input" placeholder="搜索天体 (如 M31, M42, NGC 7000)..." aria-label="搜索天体" autocomplete="off" />
+        </div>
+    </div>
+
+    <!-- 望远镜控制面板 -->
+    <div id="telescope-control-panel" class="telescope-control-panel" style="display: none;">
+        <h3 id="telescope-panel-header">🔭 望远镜配置 <span class="collapse-arrow">▼</span></h3>
+
+        <div id="telescope-location-display" class="telescope-location-display" style="display: none;"></div>
+
+        <div id="telescope-config-body" class="telescope-config-body">
+            <div class="control-group">
+                <label for="telescope-preset">📷 设备预设</label>
+                <select id="telescope-preset">
+                    <option value="custom">自定义</option>
+                    <option value="seestar-s50">Seestar S50 (250mm / 7.6×5.7mm)</option>
+                    <option value="redcat51-asi2600">RedCat51 + ASI2600 (250mm / 23.5×15.7mm)</option>
+                    <option value="fullframe-200mm">全画幅 + 200mm (200mm / 36×24mm)</option>
+                    <option value="sct14-reducer">14" SCT + 减焦 (2500mm / 23.5×15.7mm)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="telescope-focal-length">🔍 焦距 (mm)</label>
+                <input type="number" id="telescope-focal-length" min="1" max="10000" value="250" step="1">
+            </div>
+            <div class="control-group">
+                <label for="telescope-sensor-width">📐 传感器宽 (mm)</label>
+                <input type="number" id="telescope-sensor-width" min="0.1" max="100" value="23.5" step="0.1">
+            </div>
+            <div class="control-group">
+                <label for="telescope-sensor-height">📏 传感器高 (mm)</label>
+                <input type="number" id="telescope-sensor-height" min="0.1" max="100" value="15.7" step="0.1">
+            </div>
+            <div class="control-group fov-display">
+                <label>视场 (FOV)</label>
+                <span id="fov-display">5.4° × 3.6°</span>
+            </div>
+            <div class="control-group">
+                <label for="telescope-rotation">🔄 相机旋转 <span id="rotation-value">0°</span></label>
+                <input type="range" id="telescope-rotation" min="0" max="360" value="0" step="1">
+            </div>
+            <div class="control-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="show-fov-checkbox" checked>
+                    <label for="show-fov-checkbox">📐 显示画幅框</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <button id="match-targets-btn" class="match-targets-btn">🎯 匹配拍摄目标</button>
+            <button id="plan-btn" class="plan-btn" style="display:none;">📋 拍摄计划</button>
+        </div>
+
+        <div id="plan-panel" class="plan-panel" style="display: none;">
+            <h4 id="plan-panel-header" class="plan-panel-header">📋 拍摄计划 <span class="plan-night-label"></span> <span class="collapse-arrow">▼</span></h4>
+            <div id="plan-panel-body" class="plan-panel-body"></div>
+        </div>
+
+        <div id="mosaic-controls" class="mosaic-controls" style="display:none;">
+            <span class="mosaic-ctrl-label">🧩 重叠率</span>
+            <input type="range" id="mosaic-overlap" class="mosaic-overlap-slider" min="5" max="40" value="15" step="1">
+            <span id="mosaic-overlap-val">15%</span>
+        </div>
+
+        <div id="mosaic-panel" class="mosaic-panel" style="display: none;">
+            <h4 id="mosaic-panel-header" class="mosaic-panel-header">🧩 马赛克拼接 <span class="collapse-arrow">▼</span></h4>
+            <div id="mosaic-panel-body" class="mosaic-panel-body"></div>
+        </div>
+
+        <div id="target-results-section" class="target-results-section" style="display: none;">
+            <h4 id="target-results-header" class="target-results-header">🎯 推荐拍摄目标 <span class="target-count"></span> <span class="collapse-arrow">▼</span></h4>
+            <div id="target-results-list" class="target-results-body"></div>
+        </div>
+    </div>
+
+    <!-- 高度角曲线面板 -->
+    <div id="altitude-chart-panel" class="altitude-chart-panel" style="display: none;">
+        <h4 id="altitude-chart-title">📈 高度角变化</h4>
+        <canvas id="altitude-chart-canvas"></canvas>
+    </div>
+
+    <!-- 望远镜模式状态指示器 -->
+    <div id="telescope-status" class="telescope-status" style="display: none;">
+        🖱️ 拖动星图浏览天区 | 🔍 在上方搜索天体 | 蓝色框 = 你的设备画幅
+    </div>
+
+    <!-- Leaflet LocateControl (no reliable npm package) -->
+    <script src="https://unpkg.com/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
+
+    <!-- Vite entry point — all other JS is bundled via ES module imports -->
+    <script type="module" src="/js/index.ts"></script>
+</body>
+</html>
