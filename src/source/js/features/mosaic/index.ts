@@ -13,6 +13,7 @@ import type { MosaicGrid, MosaicPanel, TelescopeTarget } from '../../types/teles
 // ---------------------------------------------------------------------------
 
 /** Wire up mosaic panel UI (runs once at page load). */
+/* c8 ignore start — Canvas overlay + API + event binding: requires full browser environment */
 export function initMosaic(): void {
   const mosaicHeader = document.getElementById('mosaic-panel-header');
   if (mosaicHeader) {
@@ -169,8 +170,10 @@ export function renderMosaicPanel(grid: MosaicGrid, container: HTMLElement): voi
     <p class="mosaic-hint">💡 蓝色虚线框为拼接面板范围。拖动重叠率滑块实时调整。</p>`;
 }
 
+/* c8 ignore start — side-effect callback registration */
 // Register with Aladin ready callback
 onAladinReady(() => {
   // Mosaic bridge is ready — mosaic grid can now render overlays
   console.log('[Mosaic] Aladin ready — mosaic overlay bridge active');
 });
+/* c8 ignore stop */

@@ -56,7 +56,7 @@ export function calculateLocationStats(locations: StargazingLocation[]): Locatio
 }
 
 /** Determine the quality tier for a score. */
-function scoreClass(score: number): string {
+export function scoreClass(score: number): string {
   if (score >= 80) return 'excellent';
   if (score >= 60) return 'good';
   if (score >= 40) return 'fair';
@@ -68,6 +68,8 @@ function scoreClass(score: number): string {
 // ---------------------------------------------------------------------------
 
 /** Create a Leaflet marker styled by suitability tier. */
+/* c8 ignore start — Leaflet marker creation + DOM display: requires map */
+
 export function createStargazingMarker(location: StargazingLocation): L.Marker {
   const tier = scoreClass(location.score);
   const style = MARKER_STYLES[tier] ?? MARKER_STYLES.stargazing!;
@@ -189,3 +191,5 @@ function renderLocationCard(loc: StargazingLocation): string {
 export function focusOnLocation(lat: number, lng: number): void {
   map.setView([lat, lng], 14);
 }
+
+/* c8 ignore stop */

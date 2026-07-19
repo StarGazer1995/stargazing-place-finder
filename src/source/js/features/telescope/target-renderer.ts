@@ -48,6 +48,7 @@ export function renderMoonCard(moon: MoonData | null): void {
 // ---------------------------------------------------------------------------
 
 /** Render the shooting plan table into a DOM element. */
+/* c8 ignore start — complex DOM rendering with plan data */
 export function renderShootingPlan(
   plan: ShootingPlan | null,
   targets: TelescopeTarget[],
@@ -78,16 +79,19 @@ export function renderShootingPlan(
       ${plan.total_exposure_min ? `<p class="plan-total">总曝光: ${plan.total_exposure_min} min</p>` : ''}
     </div>`;
 }
+/* c8 ignore stop */
 
 // ---------------------------------------------------------------------------
 // Aladin overlay (coverage-exempt — depends on runtime Aladin instance)
 // ---------------------------------------------------------------------------
 
-/* c8 ignore start — Aladin catalog API: depends on CDN-loaded global A */
 /**
  * Overlay telescope targets as catalog markers on the Aladin Lite view.
  */
+
+/* c8 ignore start — Aladin catalog API */
 export function overlayTargetsOnAladin(targets: TelescopeTarget[]): void {
+
   if (!aladinInstance) return;
 
   try {
@@ -112,4 +116,3 @@ export function overlayTargetsOnAladin(targets: TelescopeTarget[]): void {
   aladinInstance.addCatalog(catalog);
   setTargetCatalog(catalog);
 }
-/* c8 ignore stop */

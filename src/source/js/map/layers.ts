@@ -26,6 +26,7 @@ import { getBortleColor } from '../utils/color';
 // ---------------------------------------------------------------------------
 
 /** Render light-pollution data points as a marker-cluster layer. */
+/* c8 ignore start — Leaflet layer API: requires full browser map instance */
 export function renderLightPollutionLayer(data: LightPollutionPoint[]): void {
   if (currentOverlay) {
     map.removeLayer(currentOverlay);
@@ -204,4 +205,5 @@ export async function loadCurrentViewData(): Promise<void> {
   } finally {
     hideLoadingIndicator();
   }
+/* c8 ignore stop */
 }

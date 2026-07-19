@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { debounce, showToast } from '../../js/utils/dom';
+import { debounce, showToast, showLoadingIndicator, hideLoadingIndicator } from '../../js/utils/dom';
+import { isLoading, loadingIndicator, setLoadingIndicator, setIsLoading } from '../../js/state';
 
 describe('debounce', () => {
   beforeEach(() => {
@@ -125,5 +126,61 @@ describe('showToast', () => {
     vi.advanceTimersByTime(300);
     toast = document.querySelector('.toast');
     expect(toast).toBeNull();
+  });
+});
+
+describe('showLoadingIndicator / hideLoadingIndicator', () => {
+  beforeEach(() => {
+    // Create a .loading-indicator element for the functions to find
+    const el = document.createElement('div');
+    el.className = 'loading-indicator';
+    document.body.appendChild(el);
+    setLoadingIndicator(null);
+    setIsLoading(false);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    setLoadingIndicator(null);
+    setIsLoading(false);
+  });
+
+  it('showLoadingIndicator finds and shows the indicator', () => {
+    showLoadingIndicator();
+
+    const el = document.querySelector('.loading-indicator');
+    expect(el).not.toBeNull();
+    expect(el!.classList.contains('show')).toBe(true);
+    expect(isLoading).toBe(true);
+  });
+
+  it('showLoadingIndicator does not throw when no indicator exists', () => {
+    document.body.innerHTML = '';
+    setLoadingIndicator(null);
+
+    expect(() => showLoadingIndicator()).not.toThrow();
+    expect(isLoading).toBe(true);
+  });
+
+  it('hideLoadingIndicator removes show class and sets loading false', () => {
+    // First show it
+    showLoadingIndicator();
+    expect(isLoading).toBe(true);
+
+    // Then hide
+    hideLoadingIndicator();
+
+    const el = document.querySelector('.loading-indicator');
+    expect(el!.classList.contains('show')).toBe(false);
+    expect(isLoading).toBe(false);
+  });
+
+  it('hideLoadingIndicator does not throw when indicator was never found', () => {
+    document.body.innerHTML = '';
+    setLoadingIndicator(null);
+    setIsLoading(true);
+
+    expect(() => hideLoadingIndicator()).not.toThrow();
+    expect(isLoading).toBe(false);
   });
 });

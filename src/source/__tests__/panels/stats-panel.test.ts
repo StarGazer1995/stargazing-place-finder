@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { calculateStats } from '../../js/panels/stats-panel';
+import { calculateStats, updateStatsPanel } from '../../js/panels/stats-panel';
+import { setCurrentLanguage } from '../../js/state';
+import { getBortleColor } from '../../js/utils/color';
 import type { LightPollutionPoint } from '../../js/types/stargazing';
 
 function makePoint(bortleClass: number): LightPollutionPoint {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTargetRequest } from '../../../js/features/telescope/targets';
+import { buildTargetRequest, buildTimeString } from '../../../js/features/telescope/targets';
 
 describe('buildTargetRequest', () => {
   it('builds a request with all optical and location parameters', () => {
@@ -36,5 +36,13 @@ describe('buildTargetRequest', () => {
     const req = buildTargetRequest(250, 23.5, 15.7, -33.9, 151.2, 'Australia/Sydney', '2026-01-01 22:00:00');
     expect(req.lat).toBe(-33.9);
     expect(req.lon).toBe(151.2);
+  });
+});
+
+describe('buildTimeString', () => {
+  it('returns a formatted datetime string', () => {
+    const result = buildTimeString();
+    // Format: YYYY-MM-DD HH:mm:ss
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
 });

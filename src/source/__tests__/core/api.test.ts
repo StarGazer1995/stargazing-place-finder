@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { normalizeBaseUrl, resolveApiBaseUrl, fetchWithTimeout, API_CONFIG } from '../../js/core/api';
+import { normalizeBaseUrl, resolveApiBaseUrl, fetchWithTimeout, checkApiHealth, API_CONFIG } from '../../js/core/api';
 
 describe('normalizeBaseUrl', () => {
   it('removes trailing slashes', () => {
@@ -173,5 +173,30 @@ describe('API_CONFIG', () => {
   it('has a baseUrl that is a non-empty string', () => {
     expect(API_CONFIG.baseUrl).toBeTruthy();
     expect(typeof API_CONFIG.baseUrl).toBe('string');
+  });
+});
+
+describe('checkApiHealth', () => {
+  it('returns true on healthy response', async () => {
+    const mockResponse = new Response(JSON.stringify({ status: 'healthy' }), { status: 200 });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse);
+
+    const result = await checkApiHealth();
+    expect(result).toBe(true);
+  });
+
+  it('returns false on non-ok response', async () => {
+    const mockResponse = new Response('Error', { status: 500 });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse);
+
+    const result = await checkApiHealth();
+    expect(result).toBe(false);
+  });
+
+  it('returns false on network error', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+
+    const result = await checkApiHealth();
+    expect(result).toBe(false);
   });
 });

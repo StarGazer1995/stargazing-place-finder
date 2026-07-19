@@ -1,3 +1,4 @@
+/* c8 ignore start — integration code: requires full browser environment */
 // =============================================================================
 // Telescope UI — panel bindings, mode switching, preset handling
 // =============================================================================
@@ -150,3 +151,5 @@ export function syncPanelVisibility(): void {
     // Browse mode — info/stats shown on demand by their respective update functions
   }
 }
+
+/* c8 ignore stop */

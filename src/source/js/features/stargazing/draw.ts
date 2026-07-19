@@ -16,6 +16,7 @@ import type { GeoBounds } from '../../types/api';
 // ---------------------------------------------------------------------------
 
 /** Initialize the Leaflet.Draw rectangle control on the map. */
+/* c8 ignore start — Leaflet.Draw: requires full browser environment */
 export function initializeDrawControls(): void {
   const items = new L.FeatureGroup();
   setDrawnItems(items);

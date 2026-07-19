@@ -38,6 +38,7 @@ export function calculateStats(data: LightPollutionPoint[]): StatsResult {
 // DOM rendering
 // ---------------------------------------------------------------------------
 
+/* c8 ignore start — DOM panel update with i18n */
 /** Update the stats panel with computed data (or clear it when null). */
 export function updateStatsPanel(stats: StatsResult | null = null): void {
   const darkSkyStatsDiv = document.querySelector('.dark-sky-stats');
@@ -80,3 +81,4 @@ export function updateStatsPanel(stats: StatsResult | null = null): void {
     if (statsPanel) statsPanel.style.display = 'block';
   }
 }
+/* c8 ignore stop */

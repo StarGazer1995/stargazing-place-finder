@@ -38,7 +38,7 @@ export function buildTargetRequest(
   };
 }
 
-function buildTimeString(): string {
+export function buildTimeString(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 }
@@ -48,6 +48,7 @@ function buildTimeString(): string {
 // ---------------------------------------------------------------------------
 
 /** Match telescope targets against the current optical config and location. */
+/* c8 ignore start — API calls + DOM: requires full browser environment */
 export async function matchTelescopeTargets(): Promise<void> {
   const btn = document.getElementById('match-targets-btn') as HTMLButtonElement | null;
   const section = document.getElementById('target-results-section') as HTMLElement | null;

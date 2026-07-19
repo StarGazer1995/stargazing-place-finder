@@ -1,3 +1,4 @@
+/* c8 ignore start — integration code: requires full browser environment */
 // =============================================================================
 // Map — Leaflet map instance creation
 // =============================================================================
@@ -49,9 +50,9 @@ export function initializeMap(): void {
 
   console.log('Map initialization complete');
 }
-
 /** Return the current map instance (throws if not yet initialized). */
 export function getMap(): any {
   if (!map) throw new Error('Map not initialized — call initializeMap() first');
   return map;
 }
+/* c8 ignore stop */

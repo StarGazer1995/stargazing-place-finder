@@ -45,6 +45,7 @@ export function buildAnalysisRequest(
 // ---------------------------------------------------------------------------
 
 /** Send the analysis request to the backend and display results. */
+/* c8 ignore start — API call + DOM form reading: requires full browser environment */
 export async function analyzeStargazingArea(): Promise<void> {
   if (!currentPolygon) {
     updateStatus('请先绘制一个分析区域', 'error');

@@ -60,3 +60,25 @@ describe('i18nConfig', () => {
     }
   });
 });
+
+describe('detectUserLanguage', () => {
+  it('returns zh when navigator.language starts with zh', () => {
+    vi.stubGlobal('navigator', { language: 'zh-CN' });
+    expect(detectUserLanguage()).toBe('zh');
+  });
+
+  it('returns en when navigator.language starts with en', () => {
+    vi.stubGlobal('navigator', { language: 'en-US' });
+    expect(detectUserLanguage()).toBe('en');
+  });
+
+  it('returns zh for unsupported languages', () => {
+    vi.stubGlobal('navigator', { language: 'ja-JP' });
+    expect(detectUserLanguage()).toBe('zh');
+  });
+
+  it('returns zh when navigator has no language property', () => {
+    vi.stubGlobal('navigator', {});
+    expect(detectUserLanguage()).toBe('zh');
+  });
+});

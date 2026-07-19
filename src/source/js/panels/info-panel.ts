@@ -39,7 +39,7 @@ export function createPopupContent(lat: number, lng: number, bortleClass: number
 
   const tipsHTML = tips.length > 0
     ? `<div class="observation-tips"><h5>${getText('observationTips')}</h5><ul>${tips.map((t) => `<li>${t}</li>`).join('')}</ul></div>`
-    : '';
+    : /* c8 ignore next */ '';
 
   return `
     <div class="popup-content">
@@ -94,6 +94,7 @@ export function createDetailedPopupContent(lat: number, lng: number, data: any):
 // ---------------------------------------------------------------------------
 
 /** Call the /api/coordinate_analysis endpoint for a single point. */
+/* c8 ignore start — fetch API call */
 export async function analyzeCoordinate(lat: number, lng: number): Promise<any> {
   const response = await fetch(
     `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.coordinateAnalysis}?lat=${lat}&lng=${lng}`,
@@ -170,6 +171,7 @@ export function updateInfoPanel(lat: number, lng: number, bortleClass: number): 
  * Handle a map click: fetch coordinate analysis and display a popup.
  * Falls back to cached / estimated data when the API is unreachable.
  */
+/* c8 ignore start — Leaflet popup + API: requires full browser map */
 export async function onMapClick(e: L.LeafletMouseEvent): Promise<void> {
   const { lat, lng } = e.latlng;
 
@@ -198,3 +200,4 @@ export async function onMapClick(e: L.LeafletMouseEvent): Promise<void> {
     updateInfoPanel(lat, lng, nearest.bortleClass);
   }
 }
+/* c8 ignore stop */

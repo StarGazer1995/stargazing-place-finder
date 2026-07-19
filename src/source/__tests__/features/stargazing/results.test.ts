@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateLocationStats } from '../../../js/features/stargazing/results';
+import { calculateLocationStats, scoreClass } from '../../../js/features/stargazing/results';
 import type { StargazingLocation } from '../../../js/types/stargazing';
 
 function makeLoc(score: number, bortle: number = 4): StargazingLocation {
@@ -79,5 +79,28 @@ describe('calculateLocationStats', () => {
     const data = [makeLoc(85), makeLoc(82), makeLoc(79)];
     const stats = calculateLocationStats(data);
     expect(stats.avgScore).toBe(82); // Math.round((85+82+79)/3) = Math.round(82) = 82
+  });
+});
+
+describe('scoreClass', () => {
+  it('returns excellent for score >= 80', () => {
+    expect(scoreClass(80)).toBe('excellent');
+    expect(scoreClass(95)).toBe('excellent');
+    expect(scoreClass(100)).toBe('excellent');
+  });
+  it('returns good for 60-79', () => {
+    expect(scoreClass(60)).toBe('good');
+    expect(scoreClass(70)).toBe('good');
+    expect(scoreClass(79)).toBe('good');
+  });
+  it('returns fair for 40-59', () => {
+    expect(scoreClass(40)).toBe('fair');
+    expect(scoreClass(50)).toBe('fair');
+    expect(scoreClass(59)).toBe('fair');
+  });
+  it('returns poor for < 40', () => {
+    expect(scoreClass(39)).toBe('poor');
+    expect(scoreClass(0)).toBe('poor');
+    expect(scoreClass(-10)).toBe('poor');
   });
 });

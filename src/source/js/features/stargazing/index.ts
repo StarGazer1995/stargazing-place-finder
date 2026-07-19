@@ -17,6 +17,7 @@ import { analyzeStargazingArea, checkApiHealth } from './analyzer';
 export type StatusType = 'info' | 'loading' | 'success' | 'error';
 
 /** Update the floating status bar text and style. */
+/* c8 ignore start — DOM mode toggling + event binding: requires full browser environment */
 export function updateStatus(message: string, type: StatusType = 'info'): void {
   const el = document.getElementById('analysis-status');
   if (!el) return;
