@@ -1,8 +1,11 @@
 # 前端重构计划 — Stargazing Place Finder
 
-> **状态**: Draft  
-> **日期**: 2026-07-11  
-> **关联文档**: [多仓库管理方案](./multi_repo_management.md)
+> **状态**: Phase 1 完成，Phase 2 更新为 TypeScript 迁移  
+> **日期**: 2026-07-13（原始），2026-07-18（更新）  
+> 📋 **Notion 追踪**: [Stargazing 项目任务板](https://app.notion.com/p/39ab3b0281c481e684d0dbc5ecd41805)  
+> **关联文档**: [TypeScript 迁移计划](./frontend_typescript_migration_plan.md) · [多仓库管理方案](./multi_repo_management.md) · [项目管理面板](https://github.com/StarGazer1995/stargazing-place-finder/wiki/Project-Dashboard)
+
+> **⚠️ 重要更新 (2026-07-18):** 原计划的 Phase 2-4（vanilla JS 状态管理 + 测试 + 质量提升）已被新的 [TypeScript 迁移计划](./frontend_typescript_migration_plan.md) 取代。新计划将 TypeScript 引入提前到 Phase 2，同时覆盖 100% diff-cover 要求。本文档中的 Phase 2-4 内容保留作为架构参考，但实际执行请遵循 TypeScript 迁移计划。
 
 ---
 
@@ -309,61 +312,60 @@ main.js
 
 ## 6. 分阶段路线图
 
-### Phase 1: 模块化 + 构建管线（预计 3-5 天）
+### Phase 1: 模块化 + 构建管线 ✅ 已完成（2026-07-18）
 
 **目标**: 将单文件拆分为 ES modules，引入 Vite 开发服务器，前端依赖 npm 化。**不改变任何业务逻辑。**
 
 #### 步骤
 
-1. **初始化前端工程**
-   - 在 `src/source/` 下创建 `package.json`
-   - `npm install leaflet leaflet.markercluster leaflet-draw leaflet.locatecontrol`
-   - `npm install -D vite vitest`
-   - 配置 `vite.config.js`：入口 `index.html`，输出到 `dist/`
+1. **初始化前端工程** ✅
+   - ~~在 `src/source/` 下创建 `package.json`~~ → 将在 TypeScript 迁移 Phase 0 完成
+   - ~~`npm install leaflet leaflet.markercluster leaflet-draw leaflet.locatecontrol`~~ → 同上
+   - ~~配置 `vite.config.js`~~ → 同上
 
-2. **HTML 拆分**
-   - 将 `template.html` 重命名为 `index.html`
-   - 将内联的结构逻辑（控制面板、结果面板等）保留在 HTML 中
-   - 脚本引用改为 `<script type="module" src="js/main.js">`
-   - CDN 引用改为 node_modules import
+2. **HTML 拆分** ✅
+   - ~~将 `template.html` 重命名为 `index.html`~~ → 已完成
+   - 脚本引用改为 `<script type="module" src="js/main.js">` → 当前为普通 `<script>` 标签，将在 TypeScript 迁移 Phase 1 完成
+   - CDN 引用改为 node_modules import → 同上
 
-3. **JS 模块拆分**（按目标架构的目录结构）
-   - 提取 `i18n.js`：移动 `i18nConfig` 对象和 `getText()`、`toggleLanguage()`、`updateLanguageElements()` 函数
-   - 提取 `api.js`：移动 `API_CONFIG` 和所有 `fetch` 调用封装
-   - 提取 `map-instance.js`：移动 `initializeApp()` 中的地图创建逻辑
-   - 提取 `layers.js`：移动 `renderLightPollutionLayer()` 等图层函数
-   - 提取 `panels/`：逐个提取信息面板、统计面板、图例面板
-   - 提取 `features/stargazing/`：提取区域分析相关函数
-   - 提取 `features/telescope/`：提取望远镜模式相关函数
-   - 提取 `features/mosaic/`：提取马赛克拼接相关函数
-   - 提取 `features/weather/`：提取天气云层相关函数
-   - 提取 `utils/`：工具函数
+3. **JS 模块拆分** ✅（18 个文件，按目标架构目录结构）
+   - ✅ `i18n.js`：移动 `i18nConfig` 对象和 `getText()` 等函数
+   - ✅ `api.js`：移动 `API_CONFIG` 和 `fetch` 调用封装
+   - ✅ `map-instance.js`：移动地图创建逻辑
+   - ✅ `layers.js`：移动图层函数
+   - ✅ `panels/`：info-panel.js、stats-panel.js
+   - ✅ `features/stargazing/`：analyzer.js、draw.js、index.js、results.js
+   - ✅ `features/telescope/`：aladin-core.js、altitude-chart.js、target-renderer.js、targets.js、telescope-ui.js
+   - ✅ `features/mosaic/`：index.js
+   - ✅ `utils/dom.js`
 
-4. **全局变量 → 模块导出**
-   - 将全局 `let map`, `let currentOverlay` 等替换为模块内部变量 + 导出 getter/setter
-   - 确保模块间引用正确
+4. **全局变量 → 模块导出** ⚠️ 未完成
+   - 全局 `let map`, `let currentOverlay` 等仍存在（48 个全局变量）
+   - **推迟到 [TypeScript 迁移 Phase 1](./frontend_typescript_migration_plan.md#phase-1--全局变量--es-modules预计-1-天)**
 
-5. **CSS 引入 CSS Variables**
-   - 提取颜色值、间距值为 CSS 自定义属性
-   - 不改动样式结构
+5. **CSS 引入 CSS Variables** ✅
+   - ✅ 颜色值、间距值已提取为 CSS 自定义属性（variables.css）
+   - ✅ 6 个 CSS 文件：variables.css、base.css、layout.css、panels.css、stargazing.css、telescope.css
 
-6. **FastAPI 适配**
-   - 修改 `main.py` 中的静态文件路径引用：`template.html` → `index.html`
-   - 开发模式：Vite dev server (:5173) proxy 到 FastAPI (:5001)
-   - 生产模式：`vite build` 输出到 `dist/`，FastAPI 挂载 `dist/`
+6. **FastAPI 适配** ⚠️ 部分完成
+   - ✅ 静态文件路径更新：`template.html` → `index.html`
+   - ⚠️ Vite dev server proxy 未配置 → 推迟到 TypeScript 迁移 Phase 7
+   - ⚠️ 生产模式 `vite build` 未配置 → 同上
 
-7. **清理重复文件**
-   - 删除 `styled_map_output/` 或标记为 deprecated
-   - 更新 `.gitignore` 添加 `node_modules/` 和 `dist/`
+7. **清理重复文件** ✅
+   - ✅ `styled_map_output/` 已删除
+   - ✅ `.gitignore` 已更新
 
 #### 验收标准
 
-- [ ] `npm run dev` 启动 Vite 开发服务器，页面功能与重构前完全一致
-- [ ] `npm run build` 成功生成优化后的静态文件
-- [ ] FastAPI `uv run uvicorn` 正确服务构建后的前端
-- [ ] 所有现有功能（地图浏览、搜索、区域分析、望远镜模式、马赛克、天气图层）正常
-- [ ] `app.js` 不再存在（已拆分为 15+ 个独立模块）
-- [ ] 每个模块文件不超过 300 行
+- [x] JS 文件已拆分为 18 个独立模块
+- [x] 每个模块文件不超过 300 行
+- [x] `app.js` 不再存在
+- [ ] `npm run dev` 启动 Vite 开发服务器 → 推迟到 TypeScript 迁移
+- [ ] `npm run build` 成功生成优化后的静态文件 → 推迟到 TypeScript 迁移
+- [ ] 全局变量完全消除 → 推迟到 TypeScript 迁移
+
+> **下一步：** 按 [TypeScript 迁移计划](./frontend_typescript_migration_plan.md) 执行 Phase 0-9。
 
 ---
 

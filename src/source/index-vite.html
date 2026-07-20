@@ -15,7 +15,12 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
     
     <!-- 自定义样式 -->
-    <link rel="stylesheet" href="assets/css/styles.css" />
+    <link rel="stylesheet" href="assets/css/variables.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/layout.css" />
+    <link rel="stylesheet" href="assets/css/panels.css" />
+    <link rel="stylesheet" href="assets/css/stargazing.css" />
+    <link rel="stylesheet" href="assets/css/telescope.css" />
 </head>
 <body>
     <!-- 无障碍访问支持 -->
@@ -211,20 +216,10 @@
         🖱️ 拖动星图浏览天区 | 🔍 在上方搜索天体 | 蓝色框 = 你的设备画幅
     </div>
 
-    <!-- 外部JavaScript库 -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <!-- Leaflet LocateControl (no reliable npm package) -->
     <script src="https://unpkg.com/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
-    <!-- Leaflet Draw JavaScript -->
-    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-    <!-- 自定义JavaScript（按依赖顺序加载） -->
-    <script src="js/core/i18n.js"></script>
-    <script src="js/core/api.js"></script>
-    <script src="js/map/map-instance.js"></script>
-    <script src="js/utils/dom.js"></script>
-    <script src="js/panels/info-panel.js"></script>
-    <script src="js/panels/stats-panel.js"></script>
-    <script src="assets/js/app.js"></script>
+    <!-- Vite entry point — all other JS is bundled via ES module imports -->
+    <script type="module" src="/js/index.ts"></script>
 </body>
 </html>

@@ -1,0 +1,60 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   CSS Custom Properties — design tokens shared across all components
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* ── Background ─────────────────────────────────────────────── */
+    --bg-dark: #1a1a2e;
+    --bg-mid: #16213e;
+    --bg-accent: #0f3460;
+    --bg-panel: rgba(0, 0, 0, 0.85);
+    --bg-panel-alt: rgba(26, 26, 46, 0.95);
+
+    /* ── Primary (blue) ─────────────────────────────────────────── */
+    --primary: #4a90e2;
+    --primary-light: #64b5f6;
+    --primary-dark: #357abd;
+
+    /* ── Telescope (purple) ─────────────────────────────────────── */
+    --telescope: #8e44ad;
+    --telescope-dark: #6c3483;
+
+    /* ── Semantic ───────────────────────────────────────────────── */
+    --success: #27ae60;
+    --success-light: #2ecc71;
+    --warning: #f39c12;
+    --warning-dark: #e67e22;
+    --error: #e74c3c;
+
+    /* ── Text ───────────────────────────────────────────────────── */
+    --text: #ffffff;
+    --text-muted: #b8b8d1;
+    --text-dim: #888;
+
+    /* ── Borders & glass ────────────────────────────────────────── */
+    --border: rgba(255, 255, 255, 0.1);
+    --border-primary: rgba(100, 181, 246, 0.3);
+
+    /* ── Elevation ──────────────────────────────────────────────── */
+    --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --blur-panel: blur(15px);
+
+    /* ── Radii ──────────────────────────────────────────────────── */
+    --radius-panel: 12px;
+    --radius-btn: 25px;
+    --radius-sm: 8px;
+
+    /* ── Bortle scale (1–9) ─────────────────────────────────────── */
+    --bortle-1: #0a0a2e;
+    --bortle-2: #1a2a5a;
+    --bortle-3: #2d4a7a;
+    --bortle-4: #4a4a00;
+    --bortle-5: #666600;
+    --bortle-6: #cc6600;
+    --bortle-7: #cc3300;
+    --bortle-8: #ff0066;
+    --bortle-9: #ff00ff;
+
+    /* ── Font ───────────────────────────────────────────────────── */
+    --font: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}

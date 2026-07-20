@@ -27,6 +27,19 @@ See also `AGENTS.md` for broader agent guidance including environment setup, cod
 | CLI | `uv run stargazing-finder --center LAT LON RADIUS_KM` |
 | Build docs | `uv run sphinx-build -b html docs/sphinx/source docs/sphinx/build` |
 
+### Frontend (TypeScript)
+
+| Action | Command |
+|--------|---------|
+| Install deps | `cd src/source && npm install` |
+| Type check | `cd src/source && npm run typecheck` |
+| Dev server (HMR) | `cd src/source && npm run dev` |
+| Production build | `cd src/source && npm run build` |
+| Run frontend tests | `cd src/source && npm test` |
+| Test with coverage | `cd src/source && npm run test:coverage` |
+
+> **Note:** Frontend package.json is at `src/source/package.json`. All `npm` commands must run from that directory. The Vite dev server (:5173) proxies `/api` → FastAPI (:5001). Start the Python backend separately with `uv run uvicorn`.
+
 ## Architecture
 
 ```

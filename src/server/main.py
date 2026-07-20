@@ -29,14 +29,25 @@ from server.routes.telescope import router as telescope_router
 from server.routes.tiles import router as tiles_router
 
 # ---------------------------------------------------------------------------
-# Path resolution
+# Path resolution — production (dist/) vs development (source/)
 # ---------------------------------------------------------------------------
 
 _SERVER_DIR = Path(__file__).resolve().parent
-_STATIC_DIR = (_SERVER_DIR.parent / "source").resolve()
 
-if not _STATIC_DIR.is_dir():  # pragma: no cover — Docker fallback
-    _STATIC_DIR = Path(os.getcwd()) / "src" / "source"
+# Production: Vite build output
+_DIST_DIR = (_SERVER_DIR.parent / "source" / "dist").resolve()
+# Development / legacy: raw source files
+_SOURCE_DIR = (_SERVER_DIR.parent / "source").resolve()
+
+if not _SOURCE_DIR.is_dir():  # pragma: no cover — Docker fallback
+    _SOURCE_DIR = Path(os.getcwd()) / "src" / "source"
+    _DIST_DIR = _SOURCE_DIR / "dist"
+
+# Auto-detect: use dist/ if a Vite build exists, otherwise serve source directly
+_PROD_MODE = (_DIST_DIR / "index-vite.html").is_file()
+
+_STATIC_DIR = _DIST_DIR if _PROD_MODE else _SOURCE_DIR
+_INDEX_FILE = "index-vite.html" if _PROD_MODE else "index-vite.html"
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +93,16 @@ app.include_router(pollution_router)
 app.include_router(stargazing_router)
 app.include_router(telescope_router)
 
-# Static assets (JS / CSS)
+# Static assets — always mount /assets (dist/ in prod, source/ in dev)
 _assets_dir = _STATIC_DIR / "assets"
 if _assets_dir.is_dir():
     app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+
+if not _PROD_MODE:
+    # Development: also serve raw JS/TS source files for direct import
+    _js_dir = _STATIC_DIR / "js"
+    if _js_dir.is_dir():
+        app.mount("/js", StaticFiles(directory=str(_js_dir)), name="js")
 
 # CORS — needed only for cross-origin deployments (e.g. ?apiBaseUrl= override)
 app.add_middleware(
@@ -104,13 +121,18 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    """Serve the Leaflet-based SPA (template.html)."""
-    template_path = _STATIC_DIR / "template.html"
-    if not template_path.is_file():
-        from fastapi.responses import HTMLResponse
+    """Serve the Leaflet-based SPA entry point."""
+    # Try index-vite.html first (Vite entry), fall back to index.html (legacy)
+    for name in ("index-vite.html", "index.html"):
+        index_path = _STATIC_DIR / name
+        if index_path.is_file():
+            return FileResponse(index_path)
 
-        return HTMLResponse(
-            "<h1>Frontend not found</h1><p>template.html is missing.</p>",
-            status_code=404,
-        )
-    return FileResponse(template_path)
+    from fastapi.responses import HTMLResponse
+
+    return HTMLResponse(
+        "<h1>Frontend not found</h1>"
+        "<p>Run <code>npm run build</code> to build the frontend, "
+        "or <code>npm run dev</code> for development with HMR.</p>",
+        status_code=404,
+    )
