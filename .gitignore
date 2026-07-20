@@ -53,6 +53,8 @@ cover/
 node_modules/
 *.tsbuildinfo
 src/source/coverage/
+src/source/playwright-report/
+src/source/test-results/
 
 # Translations
 *.mo
