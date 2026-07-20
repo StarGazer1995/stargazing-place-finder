@@ -17,13 +17,25 @@ export interface TelescopeTarget {
   dec: number;
   angular_size_arcmin: number;
   angular_size_min_arcmin?: number;
+  angular_size_pa_deg?: number;
+  optimal_rotation_deg?: number;
   suitability_score: number;
   fov_fit_score: number;
   filter_match_score: number;
   altitude_curve?: AltitudeCurvePoint[];
+  /** UTC unix timestamp when the target rises above the horizon (null if already up at dusk). */
+  rise_time?: number | null;
+  /** UTC unix timestamp when the target sets below the horizon (null if still up at dawn). */
+  set_time?: number | null;
+  /** UTC unix timestamp of culmination (highest altitude). */
+  transit_time?: number | null;
+  /** Altitude in degrees at culmination. */
+  transit_alt?: number | null;
   surface_brightness?: number;
+  surface_brightness_score?: number;
   type?: string;
   magnitude?: number;
+  mosaic_recommended?: boolean;
 }
 
 /** Single point on an altitude-vs-time curve. */

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stargazing-place-finder"
-version = "0.8.1"
+version = "0.9.0"
 description = "Stargazing place finder: light pollution analysis and stargazing area analytics"
 readme = "README.md"
 license = {text = "MIT"}
@@ -26,7 +26,7 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-  "stargazing-core>=0.1.0",
+  "stargazing-core>=0.2.0",
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.34.0",
   "folium>=0.14.0",
@@ -125,6 +125,14 @@ max_time = 2.0
 storage = "file"
 save = "baseline"
 compare = "baseline"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+explicit = true
+
+[tool.uv.sources]
+stargazing-core = { index = "pypi" }
 
 [tool.coverage.run]
 source = ["src"]

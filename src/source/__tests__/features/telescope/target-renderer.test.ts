@@ -2,10 +2,16 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { renderTargetResults, renderMoonCard } from '../../../js/features/telescope/target-renderer';
 import type { TelescopeTarget, MoonData } from '../../../js/types/telescope';
 
-function makeTarget(name: string, score: number, fov: number = 0.8): TelescopeTarget {
+function makeTarget(
+  name: string,
+  score: number,
+  fov: number = 0.8,
+  overrides: Partial<TelescopeTarget> = {},
+): TelescopeTarget {
   return {
     name, ra: 10, dec: 40, angular_size_arcmin: 30,
     suitability_score: score, fov_fit_score: fov, filter_match_score: 0.7,
+    ...overrides,
   };
 }
 
@@ -37,6 +43,32 @@ describe('renderTargetResults', () => {
     const container = document.createElement('div');
     renderTargetResults([makeTarget('M31', 85, 0.75)], container);
     expect(container.innerHTML).toContain('75%');
+  });
+
+  it('renders surface brightness when present', () => {
+    const container = document.createElement('div');
+    renderTargetResults([makeTarget('M31', 85, 0.8, { surface_brightness: 13.5 })], container);
+    expect(container.innerHTML).toContain('🌌');
+    expect(container.innerHTML).toContain('13.5');
+  });
+
+  it('does not render surface brightness when absent', () => {
+    const container = document.createElement('div');
+    renderTargetResults([makeTarget('M31', 85)], container);
+    expect(container.innerHTML).not.toContain('🌌');
+  });
+
+  it('renders optimal rotation when present', () => {
+    const container = document.createElement('div');
+    renderTargetResults([makeTarget('M31', 85, 0.8, { optimal_rotation_deg: 121 })], container);
+    expect(container.innerHTML).toContain('🔄');
+    expect(container.innerHTML).toContain('121°');
+  });
+
+  it('does not render rotation when absent', () => {
+    const container = document.createElement('div');
+    renderTargetResults([makeTarget('M31', 85)], container);
+    expect(container.innerHTML).not.toContain('🔄');
   });
 });
 
