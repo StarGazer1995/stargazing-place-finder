@@ -21,12 +21,16 @@ export function renderTargetResults(targets: TelescopeTarget[], container: HTMLE
 
 function renderTargetCard(t: TelescopeTarget, rank: number): string {
   const sc = t.suitability_score?.toFixed(0) ?? '?';
+  const sb = t.surface_brightness != null ? t.surface_brightness.toFixed(1) : null;
+  const rot = t.optimal_rotation_deg != null ? `${t.optimal_rotation_deg.toFixed(0)}°` : null;
   return `
     <div class="target-card" data-target-name="${t.name}" data-ra="${t.ra}" data-dec="${t.dec}">
       <span class="tc-rank">#${rank}</span>
       <span class="tc-name">${t.name}</span>
       <span class="tc-score">${sc}</span>
       <span class="tc-fov">FOV ${((t.fov_fit_score ?? 0) * 100).toFixed(0)}%</span>
+      ${sb ? `<span class="tc-sb">🌌 SB ${sb}</span>` : ''}
+      ${rot ? `<span class="tc-rot">🔄 ${rot}</span>` : ''}
     </div>`;
 }
 
