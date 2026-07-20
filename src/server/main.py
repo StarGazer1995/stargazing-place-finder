@@ -93,17 +93,13 @@ app.include_router(pollution_router)
 app.include_router(stargazing_router)
 app.include_router(telescope_router)
 
-# Static assets
-if _PROD_MODE:
-    # Production: Vite bundles everything into dist/assets/
-    _assets_dir = _STATIC_DIR / "assets"
-    if _assets_dir.is_dir():
-        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
-else:
-    # Development: serve raw source files (CSS + TS via Vite or direct)
-    _assets_dir = _STATIC_DIR / "assets"
-    if _assets_dir.is_dir():
-        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+# Static assets — always mount /assets (dist/ in prod, source/ in dev)
+_assets_dir = _STATIC_DIR / "assets"
+if _assets_dir.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+
+if not _PROD_MODE:
+    # Development: also serve raw JS/TS source files for direct import
     _js_dir = _STATIC_DIR / "js"
     if _js_dir.is_dir():
         app.mount("/js", StaticFiles(directory=str(_js_dir)), name="js")

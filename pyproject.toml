@@ -45,6 +45,8 @@ dependencies = [
   "scikit-learn>=1.3.0",
   "tomli>=1.1.0; python_version < '3.11'",
   "structlog>=25.5.0",
+  "fsspec>=2026.6.0",
+  "omfiles>=1.2.0",
 ]
 
 [project.scripts]

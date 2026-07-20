@@ -45,11 +45,16 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
+      - name: Setup Python for diff-cover
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Check new code coverage with diff-cover
         if: github.event_name == 'pull_request'
         run: |
-          python3 -m pip install --break-system-packages diff-cover -q
-          python3 -m diff_cover coverage/cobertura-coverage.xml \
+          pip install diff-cover
+          diff-cover coverage/cobertura-coverage.xml \
             --compare-branch=origin/${{ github.base_ref }} \
             --fail-under=100
           echo "✅ Frontend new/modified lines have 100% test coverage!"

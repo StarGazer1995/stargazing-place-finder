@@ -1,5 +1,7 @@
-"""Tests for the /api/analyze_stargazing_area endpoint."""
+"""Tests for the /api/analyze_stargazing_area and root endpoints."""
 
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -22,6 +24,32 @@ def _mock_analyzer() -> None:
         return_value=[],
     ):
         yield
+
+
+# ---------------------------------------------------------------------------
+# Root endpoint tests
+# ---------------------------------------------------------------------------
+
+
+class TestRootEndpoint:
+    """Test the GET / root endpoint."""
+
+    def test_root_returns_index_vite_html(self, client: TestClient) -> None:
+        """The root endpoint should return index-vite.html with 200 when it exists."""
+        response = client.get("/")
+        assert response.status_code == 200
+        # Should contain Vite-specific markers
+        text = response.text
+        assert "观星地点查找器" in text or "stargazing" in text.lower()
+
+    def test_root_returns_404_when_no_index_files(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The root endpoint should return 404 when neither index file exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            empty_dir = Path(tmpdir)
+            monkeypatch.setattr("server.main._STATIC_DIR", empty_dir)
+            response = client.get("/")
+            assert response.status_code == 404
+            assert "Frontend not found" in response.text
 
 
 class TestStargazingRoute:

@@ -205,5 +205,5 @@ export async function loadCurrentViewData(): Promise<void> {
   } finally {
     hideLoadingIndicator();
   }
-/* c8 ignore stop */
 }
+/* c8 ignore stop */
