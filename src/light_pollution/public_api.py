@@ -9,7 +9,7 @@ from gis_service.parsers import (  # noqa: F401 — re-exported for backward com
     brightness_to_bortle,
     get_pollution_level_description,
 )
-from models import DataError
+from stargazingplacefinder.models import DataError
 
 from .light_pollution_analyzer import (
     LightPollutionAnalyzer,

@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from cache.cache_config import get_cache_dir
-from config import StargazingConfig
-from models import DataError
+from stargazingplacefinder.config import StargazingConfig
+from stargazingplacefinder.models import DataError
 
 logger = logging.getLogger(__name__)
 

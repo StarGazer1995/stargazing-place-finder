@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple
 
 import psycopg2
 
-from models import ElevationResult, NetworkError
+from stargazingplacefinder.models import ElevationResult, NetworkError
 
 logger = logging.getLogger(__name__)
 

@@ -17,8 +17,8 @@ from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from config import StargazingConfig
-from models import GeoError, LightPollutionInfo
+from stargazingplacefinder.config import StargazingConfig
+from stargazingplacefinder.models import GeoError, LightPollutionInfo
 
 try:
     import rasterio

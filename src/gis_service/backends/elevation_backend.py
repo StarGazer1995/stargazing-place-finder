@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import requests
 
-from models import DataError, NetworkError
+from stargazingplacefinder.models import DataError, NetworkError
 
 if TYPE_CHECKING:
     from gis_service.backends.postgis_backend import PostgisBackend

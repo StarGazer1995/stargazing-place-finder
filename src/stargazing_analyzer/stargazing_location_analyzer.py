@@ -14,13 +14,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
-from config import StargazingConfig
-
 # Import related modules
 from gis_service.config import load_db_config as _load_gis_db_config
 from gis_service.query_service import GisQueryService
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-from models import (
+from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
+from stargazingplacefinder.config import StargazingConfig
+from stargazingplacefinder.models import (
     ConfigError,
     DataError,
     GeoError,
@@ -32,7 +32,6 @@ from models import (
     NoDataError,
     StargazingLocation,
 )
-from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 
 from .stargazing_place_finder import StarGazingPlaceFinder
 
