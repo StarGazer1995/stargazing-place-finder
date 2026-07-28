@@ -10,7 +10,7 @@ and sorting by light pollution.
 import math
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
-from models import GeoPoint, Observatory, Peak, TownInfo, Viewpoint
+from stargazingplacefinder.models import GeoPoint, Observatory, Peak, TownInfo, Viewpoint
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Shared conversion utilities (single source of truth)

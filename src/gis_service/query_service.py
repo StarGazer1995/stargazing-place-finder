@@ -11,8 +11,8 @@ from typing import Dict, List, Optional, Tuple
 
 import networkx as nx
 
-from config import StargazingConfig
-from models import LatLonBox, NetworkError
+from stargazingplacefinder.config import StargazingConfig
+from stargazingplacefinder.models import LatLonBox, NetworkError
 
 from .backends.elevation_backend import ElevationBackend
 from .backends.overpass_backend import OverpassBackend

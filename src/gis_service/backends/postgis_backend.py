@@ -14,7 +14,7 @@ import networkx as nx
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
 
-from models import DataError, ElevationResult, NetworkError
+from stargazingplacefinder.models import DataError, ElevationResult, NetworkError
 
 logger = logging.getLogger(__name__)
 

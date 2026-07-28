@@ -11,7 +11,6 @@ import json
 import logging
 from typing import Dict, List, Optional
 
-from config import StargazingConfig
 from gis_service.parsers import (
     extract_coordinates,
     find_nearest_town,
@@ -22,7 +21,8 @@ from gis_service.parsers import (
 )
 from gis_service.query_service import GisQueryService
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
-from models import GeoPoint, LatLonBox, Location, Observatory, Peak, Viewpoint
+from stargazingplacefinder.config import StargazingConfig
+from stargazingplacefinder.models import GeoPoint, LatLonBox, Location, Observatory, Peak, Viewpoint
 
 logger = logging.getLogger(__name__)
 

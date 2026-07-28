@@ -3,7 +3,7 @@ import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from config import StargazingConfig
+from stargazingplacefinder.config import StargazingConfig
 
 from .stargazing_location_analyzer import (
     StargazingLocationAnalyzer,

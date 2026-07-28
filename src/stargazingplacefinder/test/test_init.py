@@ -33,6 +33,7 @@ class TestPackageExports:
         expected = [
             "analyze_area",
             "analyze_area_simple",
+            "init_stargazing_analyzer",
             "init_light_pollution_analyzer",
             "get_light_pollution_grid",
             "analyze_coordinate",
@@ -47,3 +48,27 @@ class TestPackageExports:
             "GeoError",
         ]
         assert sorted(__all__) == sorted(expected)
+
+    def test_namespaced_config_wrapper_exports_expected_symbols(self):
+        """Verify package-scoped config imports remain available to bridge callers."""
+        from stargazingplacefinder.config import StargazingConfig, load_stargazing_config
+
+        assert StargazingConfig is not None
+        assert callable(load_stargazing_config)
+
+    def test_namespaced_models_wrapper_exports_expected_symbols(self):
+        """Verify package-scoped model imports expose bridge-facing exception types."""
+        from stargazingplacefinder.models import DataError, GeoPoint, StargazingLocation
+
+        assert DataError is not None
+        assert GeoPoint is not None
+        assert StargazingLocation is not None
+
+    def test_dir_exposes_lazy_public_symbols(self):
+        """Verify package introspection still lists the lazy exports."""
+        import stargazingplacefinder
+
+        exported = dir(stargazingplacefinder)
+
+        assert "analyze_area" in exported
+        assert "GeoError" in exported

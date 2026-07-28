@@ -8,7 +8,7 @@ import logging
 import os
 from typing import Dict, Optional
 
-from config import _import_tomllib
+from stargazingplacefinder.config import _import_tomllib
 
 logger = logging.getLogger(__name__)
 

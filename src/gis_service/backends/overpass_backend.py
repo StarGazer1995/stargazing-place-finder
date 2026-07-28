@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple
 
 import requests
 
-from models import NetworkError
+from stargazingplacefinder.models import NetworkError
 
 logger = logging.getLogger(__name__)
 

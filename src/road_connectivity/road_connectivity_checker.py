@@ -22,8 +22,8 @@ import requests
 from geopy.distance import geodesic
 
 from cache.cache_config import get_cache_dir, setup_osmnx_cache
-from config import StargazingConfig
-from models import DataError, GeoPoint, NetworkError, NoDataError, RoadAccessInfo
+from stargazingplacefinder.config import StargazingConfig
+from stargazingplacefinder.models import DataError, GeoPoint, NetworkError, NoDataError, RoadAccessInfo
 
 from .geo_fence import GeoFence
 

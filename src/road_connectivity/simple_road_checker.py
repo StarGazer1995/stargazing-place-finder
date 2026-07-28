@@ -12,8 +12,8 @@ import logging
 import warnings
 from typing import List, Optional, Tuple
 
-from config import StargazingConfig
-from models import GeoPoint
+from stargazingplacefinder.config import StargazingConfig
+from stargazingplacefinder.models import GeoPoint
 
 from .geo_fence import GeoFence
 from .road_connectivity_checker import RoadConnectivityChecker
