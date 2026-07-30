@@ -184,6 +184,99 @@ class TestScoringAndRecommendation:
         assert result.temporal_popularity_signals
         assert result.popularity_notes is not None
 
+    def test_popularity_analysis_covers_single_nearby_town_branch(self):
+        """A single nearby town should add the small-population branch signals."""
+        raw = Location(
+            name="Mid-distance Ridge",
+            lat=40.0,
+            lon=116.0,
+            elevation=1200.0,
+            distance_to_nearest_town=18.0,
+            nearest_town_name="Town",
+            location_type="mountain_peak",
+            description="Quiet ridge",
+        )
+        loc = StargazingLocation(
+            name="Mid-distance Ridge",
+            lat=40.0,
+            lon=116.0,
+            elevation=1200.0,
+            distance_to_nearest_town=18.0,
+            nearest_town_name="Town",
+            location_type="mountain_peak",
+            nearby_town_count=1,
+            road_accessible=True,
+            distance_to_road_km=0.3,
+        )
+
+        result = analyze_location_popularity(raw, loc)
+
+        assert "周边存在少量城镇信号" in result.popularity_signals
+        assert result.static_popularity_risk_score > 0
+        assert result.temporal_popularity_confidence > 0
+
+    def test_popularity_analysis_covers_road_inaccessible_branch(self):
+        """Road-inaccessible locations should use the non-road-distance temporal branch."""
+        raw = Location(
+            name="Trail-only Peak",
+            lat=40.0,
+            lon=116.0,
+            elevation=1700.0,
+            distance_to_nearest_town=32.0,
+            nearest_town_name="Town",
+            location_type="mountain_peak",
+            description="Remote peak",
+        )
+        loc = StargazingLocation(
+            name="Trail-only Peak",
+            lat=40.0,
+            lon=116.0,
+            elevation=1700.0,
+            distance_to_nearest_town=32.0,
+            nearest_town_name="Town",
+            location_type="mountain_peak",
+            nearby_town_count=0,
+            road_accessible=False,
+            distance_to_road_km=None,
+        )
+
+        result = analyze_location_popularity(raw, loc)
+
+        assert "道路不可直达，夜间持续热闹概率较低" in result.temporal_popularity_signals
+        assert result.night_quiet_likelihood_score > 0
+        assert result.temporal_popularity_confidence > 0
+
+    def test_popularity_analysis_covers_observatory_branch(self):
+        """Observatory locations should use the observatory-specific popularity signals."""
+        raw = Location(
+            name="Deep Sky Observatory",
+            lat=40.0,
+            lon=116.0,
+            elevation=1500.0,
+            distance_to_nearest_town=22.0,
+            nearest_town_name="Town",
+            location_type="observatory",
+            description="Research observatory",
+        )
+        loc = StargazingLocation(
+            name="Deep Sky Observatory",
+            lat=40.0,
+            lon=116.0,
+            elevation=1500.0,
+            distance_to_nearest_town=22.0,
+            nearest_town_name="Town",
+            location_type="observatory",
+            nearby_town_count=0,
+            road_accessible=True,
+            distance_to_road_km=0.4,
+        )
+
+        result = analyze_location_popularity(raw, loc)
+
+        assert "候选点自身属于天文台/观测设施类型" in result.popularity_signals
+        assert "天文设施可能在夜间仍保持活动" in result.temporal_popularity_signals
+        assert result.temporal_popularity_confidence > 0
+
     def test_generate_analysis_notes_includes_popularity_summary(self, analyzer, sample_location):
         """Generated notes should include popularity summary when available."""
         sample_location.popularity_notes = "热门风险中等; 夜间大概率退潮"
