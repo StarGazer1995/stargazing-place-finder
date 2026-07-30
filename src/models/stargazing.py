@@ -49,6 +49,17 @@ class StargazingLocation(GeoPoint):
     recommendation_level: Optional[str] = None
     analysis_notes: Optional[str] = None
 
+    # Popularity / temporal heuristic signals
+    static_popularity_risk_score: Optional[float] = Field(default=None, ge=0, le=100)
+    night_quiet_likelihood_score: Optional[float] = Field(default=None, ge=0, le=100)
+    temporal_popularity_confidence: Optional[float] = Field(default=None, ge=0, le=100)
+    nearby_popular_poi_count: int = Field(default=0, ge=0)
+    nearby_night_active_poi_count: int = Field(default=0, ge=0)
+    nearby_day_only_poi_count: int = Field(default=0, ge=0)
+    popularity_signals: Optional[list[str]] = None
+    temporal_popularity_signals: Optional[list[str]] = None
+    popularity_notes: Optional[str] = None
+
     # Convenience type checks
     def is_mountain_peak(self) -> bool:
         return self.location_type == "mountain_peak"

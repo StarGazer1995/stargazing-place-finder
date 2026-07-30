@@ -153,6 +153,25 @@ class TestAnalyzeArea:
         assert call_kwargs["min_distance_to_road_km"] == 0.05
         assert call_kwargs["max_distance_to_road_km"] == 0.2
 
+    @patch("stargazing_analyzer.public_api._require_analyzer")
+    def test_analyze_area_passes_popularity_preferences(self, mock_require):
+        """Popularity preference parameters should reach the analyzer layer."""
+        mock_analyzer = MagicMock()
+        mock_require.return_value = mock_analyzer
+        mock_analyzer.analyze_area.return_value = []
+
+        analyze_area(
+            bbox=(39.0, 115.0, 41.0, 117.0),
+            avoid_popular_spots=True,
+            prefer_quiet_at_night=True,
+            popularity_radius_km=4.5,
+        )
+
+        call_kwargs = mock_analyzer.analyze_area.call_args.kwargs
+        assert call_kwargs["avoid_popular_spots"] is True
+        assert call_kwargs["prefer_quiet_at_night"] is True
+        assert call_kwargs["popularity_radius_km"] == 4.5
+
 
 class TestAnalyzeAreaSimple:
     """Test analyze_area_simple convenience function."""
@@ -200,6 +219,28 @@ class TestAnalyzeAreaSimple:
         assert kwargs["max_locations"] == 3
         assert kwargs["min_height_diff"] == 200.0
         assert kwargs["road_radius_km"] == 15.0
+
+    @patch("stargazing_analyzer.public_api._analyze_area_fn")
+    @patch("stargazing_analyzer.public_api._default_geotiff_path")
+    def test_simple_passes_popularity_preferences(self, mock_geotiff, mock_fn):
+        """Popularity preference parameters should reach the convenience helper."""
+        mock_geotiff.return_value = "/fake/geotiff.tif"
+        mock_fn.return_value = []
+
+        analyze_area_simple(
+            south=39.0,
+            west=115.0,
+            north=41.0,
+            east=117.0,
+            avoid_popular_spots=True,
+            prefer_quiet_at_night=True,
+            popularity_radius_km=4.0,
+        )
+
+        kwargs = mock_fn.call_args.kwargs
+        assert kwargs["avoid_popular_spots"] is True
+        assert kwargs["prefer_quiet_at_night"] is True
+        assert kwargs["popularity_radius_km"] == 4.0
 
 
 class TestElevationBatchQuery:
