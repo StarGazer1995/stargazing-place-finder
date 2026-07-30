@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Ensure src is on path
-from models import StargazingLocation
+from models import Location, StargazingLocation
+from popularity import analyze_location_popularity
 from stargazing_analyzer.stargazing_location_analyzer import StargazingLocationAnalyzer
 
 
@@ -94,6 +95,169 @@ class TestScoringAndRecommendation:
         notes = analyzer._generate_analysis_notes(sample_location)
         assert notes is not None
         assert isinstance(notes, str)
+
+    def test_popularity_analysis_prefers_remote_mountain_for_quiet_night(self):
+        """Remote mountain peaks should look quieter at night than scenic roadside viewpoints."""
+        remote_raw = Location(
+            name="Remote Ridge",
+            lat=40.0,
+            lon=116.0,
+            elevation=2200.0,
+            distance_to_nearest_town=65.0,
+            nearest_town_name="Town",
+            location_type="mountain_peak",
+            description="Remote mountain ridge",
+            height_difference=400.0,
+        )
+        remote_loc = StargazingLocation(
+            name="Remote Ridge",
+            lat=40.0,
+            lon=116.0,
+            elevation=2200.0,
+            distance_to_nearest_town=65.0,
+            nearest_town_name="Town",
+            location_type="mountain_peak",
+            height_difference=400.0,
+            nearby_town_count=0,
+            road_accessible=False,
+            distance_to_road_km=1.5,
+        )
+
+        scenic_raw = Location(
+            name="Scenic Park Viewpoint",
+            lat=40.1,
+            lon=116.1,
+            elevation=800.0,
+            distance_to_nearest_town=6.0,
+            nearest_town_name="Town",
+            location_type="viewpoint",
+            description="Popular scenic park lookout with camping resort",
+        )
+        scenic_loc = StargazingLocation(
+            name="Scenic Park Viewpoint",
+            lat=40.1,
+            lon=116.1,
+            elevation=800.0,
+            distance_to_nearest_town=6.0,
+            nearest_town_name="Town",
+            location_type="viewpoint",
+            nearby_town_count=3,
+            road_accessible=True,
+            distance_to_road_km=0.03,
+        )
+
+        remote_result = analyze_location_popularity(remote_raw, remote_loc)
+        scenic_result = analyze_location_popularity(scenic_raw, scenic_loc)
+
+        assert remote_result.night_quiet_likelihood_score > scenic_result.night_quiet_likelihood_score
+        assert remote_result.static_popularity_risk_score < scenic_result.static_popularity_risk_score
+
+    def test_popularity_confidence_uses_available_signals(self):
+        """Confidence should rise when name, distance, and road signals are available."""
+        raw = Location(
+            name="Town Viewpoint",
+            lat=40.0,
+            lon=116.0,
+            elevation=900.0,
+            distance_to_nearest_town=8.0,
+            nearest_town_name="Town",
+            location_type="viewpoint",
+            description="Scenic viewpoint near park",
+        )
+        loc = StargazingLocation(
+            name="Town Viewpoint",
+            lat=40.0,
+            lon=116.0,
+            elevation=900.0,
+            distance_to_nearest_town=8.0,
+            nearest_town_name="Town",
+            location_type="viewpoint",
+            nearby_town_count=2,
+            road_accessible=True,
+            distance_to_road_km=0.1,
+        )
+
+        result = analyze_location_popularity(raw, loc)
+
+        assert result.temporal_popularity_confidence > 50
+        assert result.popularity_signals
+        assert result.temporal_popularity_signals
+        assert result.popularity_notes is not None
+
+    def test_generate_analysis_notes_includes_popularity_summary(self, analyzer, sample_location):
+        """Generated notes should include popularity summary when available."""
+        sample_location.popularity_notes = "热门风险中等; 夜间大概率退潮"
+        notes = analyzer._generate_analysis_notes(sample_location)
+        assert "热门风险中等" in notes
+
+    def test_popularity_preferences_adjust_score_when_enabled(self, analyzer):
+        """Popularity preferences should change the final score only when enabled."""
+        quiet_remote = StargazingLocation(
+            name="Quiet Remote",
+            lat=40.0,
+            lon=116.0,
+            elevation=1800.0,
+            distance_to_nearest_town=55.0,
+            nearest_town_name="Town",
+            height_difference=300.0,
+            light_pollution_brightness=25,
+            road_accessible=False,
+            distance_to_road_km=1.2,
+            static_popularity_risk_score=12.0,
+            night_quiet_likelihood_score=82.0,
+            temporal_popularity_confidence=70.0,
+        )
+        busy_viewpoint = StargazingLocation(
+            name="Busy Viewpoint",
+            lat=40.1,
+            lon=116.1,
+            elevation=900.0,
+            distance_to_nearest_town=6.0,
+            nearest_town_name="Town",
+            height_difference=80.0,
+            light_pollution_brightness=60,
+            road_accessible=True,
+            distance_to_road_km=0.03,
+            location_type="viewpoint",
+            static_popularity_risk_score=78.0,
+            night_quiet_likelihood_score=28.0,
+            temporal_popularity_confidence=72.0,
+        )
+
+        quiet_base = analyzer._calculate_stargazing_score(quiet_remote)
+        busy_base = analyzer._calculate_stargazing_score(busy_viewpoint)
+
+        quiet_adjusted = analyzer._calculate_stargazing_score(
+            quiet_remote,
+            avoid_popular_spots=True,
+            prefer_quiet_at_night=True,
+            popularity_radius_km=3.0,
+        )
+        busy_adjusted = analyzer._calculate_stargazing_score(
+            busy_viewpoint,
+            avoid_popular_spots=True,
+            prefer_quiet_at_night=True,
+            popularity_radius_km=3.0,
+        )
+
+        assert quiet_adjusted > quiet_base
+        assert busy_adjusted < busy_base
+
+    def test_popularity_preferences_leave_score_unchanged_when_disabled(self, analyzer, sample_location):
+        """Popularity fields should not affect the score unless the caller opts in."""
+        sample_location.static_popularity_risk_score = 90.0
+        sample_location.night_quiet_likelihood_score = 15.0
+        sample_location.temporal_popularity_confidence = 80.0
+
+        base = analyzer._calculate_stargazing_score(sample_location)
+        unchanged = analyzer._calculate_stargazing_score(
+            sample_location,
+            avoid_popular_spots=False,
+            prefer_quiet_at_night=False,
+            popularity_radius_km=6.0,
+        )
+
+        assert unchanged == base
 
     def test_recommendation_with_missing_light_pollution(self, analyzer, sample_location):
         """When light pollution data is missing, recommendation includes warning."""

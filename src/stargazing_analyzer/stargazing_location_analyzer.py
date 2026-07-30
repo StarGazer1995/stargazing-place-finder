@@ -18,6 +18,7 @@ from typing import Dict, List, Optional, Tuple
 from gis_service.config import load_db_config as _load_gis_db_config
 from gis_service.query_service import GisQueryService
 from light_pollution.light_pollution_analyzer import LightPollutionAnalyzer
+from popularity import analyze_location_popularity
 from road_connectivity.road_connectivity_checker import RoadConnectivityChecker
 from stargazingplacefinder.config import StargazingConfig
 from stargazingplacefinder.models import (
@@ -157,6 +158,9 @@ class StargazingLocationAnalyzer:
         include_road_connectivity: bool = True,
         min_distance_to_road_km: Optional[float] = None,
         max_distance_to_road_km: Optional[float] = None,
+        avoid_popular_spots: bool = False,
+        prefer_quiet_at_night: bool = False,
+        popularity_radius_km: float = 3.0,
     ) -> List[StargazingLocation]:
         """
         Analyze stargazing locations within specified area.
@@ -170,6 +174,9 @@ class StargazingLocationAnalyzer:
             include_road_connectivity: Whether to include road connectivity analysis
             min_distance_to_road_km: Minimum distance to road in km (filter out places too close)
             max_distance_to_road_km: Maximum distance to road in km (filter out places too far)
+            avoid_popular_spots: Whether to penalize heuristically popular locations
+            prefer_quiet_at_night: Whether to reward sites that are likelier to quiet down at night
+            popularity_radius_km: Preference horizon for popularity heuristics in km
 
         Returns:
             List of stargazing locations
@@ -198,6 +205,9 @@ class StargazingLocationAnalyzer:
             light_pollution_batch,
             include_road_connectivity,
             network_type,
+            avoid_popular_spots,
+            prefer_quiet_at_night,
+            popularity_radius_km,
         )
 
         stargazing_locations = self._filter_by_road_distance(
@@ -281,6 +291,9 @@ class StargazingLocationAnalyzer:
         light_pollution_batch: Dict[Tuple[float, float], LightPollutionInfo],
         include_road_connectivity: bool,
         network_type: str,
+        avoid_popular_spots: bool,
+        prefer_quiet_at_night: bool,
+        popularity_radius_km: float,
     ) -> List[StargazingLocation]:
         """Parallel comprehensive analysis with ThreadPoolExecutor (max_workers=4)."""
         total = len(locations)
@@ -296,6 +309,9 @@ class StargazingLocationAnalyzer:
                     network_type,
                     i,
                     total,
+                    avoid_popular_spots,
+                    prefer_quiet_at_night,
+                    popularity_radius_km,
                 ): i
                 for i, location in enumerate(locations, 1)
             }
@@ -341,6 +357,9 @@ class StargazingLocationAnalyzer:
         network_type,
         index,
         total,
+        avoid_popular_spots: bool = False,
+        prefer_quiet_at_night: bool = False,
+        popularity_radius_km: float = 3.0,
     ) -> Optional[StargazingLocation]:
         """
         Process a single location for comprehensive analysis.
@@ -361,9 +380,15 @@ class StargazingLocationAnalyzer:
             include_road_connectivity,
             network_type,
         )
+        self._enrich_popularity(stargazing_location, location, popularity_radius_km)
 
         # Stage 3 — Compute final scores, recommendation level, and notes
-        self._finalize_scores(stargazing_location)
+        self._finalize_scores(
+            stargazing_location,
+            avoid_popular_spots=avoid_popular_spots,
+            prefer_quiet_at_night=prefer_quiet_at_night,
+            popularity_radius_km=popularity_radius_km,
+        )
 
         return stargazing_location
 
@@ -450,9 +475,39 @@ class StargazingLocationAnalyzer:
             logger.error("  Road connectivity analysis failed: %s", e)
             stargazing_loc.road_check_error = str(e)
 
-    def _finalize_scores(self, stargazing_loc: StargazingLocation) -> None:
+    def _enrich_popularity(
+        self,
+        stargazing_loc: StargazingLocation,
+        raw_location: Location,
+        popularity_radius_km: float,
+    ) -> None:
+        """Enrich with heuristic popularity and temporal-quiet signals (Stage 2d)."""
+        del popularity_radius_km  # Reserved for future true nearby-POI sampling.
+        result = analyze_location_popularity(raw_location, stargazing_loc)
+        stargazing_loc.static_popularity_risk_score = result.static_popularity_risk_score
+        stargazing_loc.night_quiet_likelihood_score = result.night_quiet_likelihood_score
+        stargazing_loc.temporal_popularity_confidence = result.temporal_popularity_confidence
+        stargazing_loc.nearby_popular_poi_count = result.nearby_popular_poi_count
+        stargazing_loc.nearby_night_active_poi_count = result.nearby_night_active_poi_count
+        stargazing_loc.nearby_day_only_poi_count = result.nearby_day_only_poi_count
+        stargazing_loc.popularity_signals = result.popularity_signals
+        stargazing_loc.temporal_popularity_signals = result.temporal_popularity_signals
+        stargazing_loc.popularity_notes = result.popularity_notes
+
+    def _finalize_scores(
+        self,
+        stargazing_loc: StargazingLocation,
+        avoid_popular_spots: bool = False,
+        prefer_quiet_at_night: bool = False,
+        popularity_radius_km: float = 3.0,
+    ) -> None:
         """Compute final score, recommendation level, and analysis notes (Stage 3)."""
-        stargazing_loc.stargazing_score = self._calculate_stargazing_score(stargazing_loc)
+        stargazing_loc.stargazing_score = self._calculate_stargazing_score(
+            stargazing_loc,
+            avoid_popular_spots=avoid_popular_spots,
+            prefer_quiet_at_night=prefer_quiet_at_night,
+            popularity_radius_km=popularity_radius_km,
+        )
         stargazing_loc.recommendation_level = self._get_recommendation_level_with_warning(stargazing_loc)
         stargazing_loc.analysis_notes = self._generate_analysis_notes(stargazing_loc)
 
@@ -493,7 +548,13 @@ class StargazingLocationAnalyzer:
     # Bortle → score mapping (0–35 points)
     _BORTLE_SCORES = {1: 35, 2: 31, 3: 26, 4: 20, 5: 14, 6: 8, 7: 3, 8: 1, 9: 0}
 
-    def _calculate_stargazing_score(self, location: StargazingLocation) -> float:
+    def _calculate_stargazing_score(
+        self,
+        location: StargazingLocation,
+        avoid_popular_spots: bool = False,
+        prefer_quiet_at_night: bool = False,
+        popularity_radius_km: float = 3.0,
+    ) -> float:
         """
         Calculate comprehensive score for stargazing location.
 
@@ -510,6 +571,9 @@ class StargazingLocationAnalyzer:
 
         Args:
             location: Stargazing location object
+            avoid_popular_spots: Whether to penalize likely-popular sites
+            prefer_quiet_at_night: Whether to favor sites that get quieter at night
+            popularity_radius_km: Preference horizon used to scale the popularity adjustment
 
         Returns:
             Comprehensive score (0-100 points)
@@ -521,7 +585,38 @@ class StargazingLocationAnalyzer:
         score += self._score_road_accessibility(location, cfg)
         score += self._score_elevation_terrain(location, cfg.weight_elevation if cfg else 15)
         score += self._score_location_type(location, cfg.weight_location_type if cfg else 10)
-        return round(score, 1)
+        score += self._score_popularity_preferences(
+            location,
+            avoid_popular_spots=avoid_popular_spots,
+            prefer_quiet_at_night=prefer_quiet_at_night,
+            popularity_radius_km=popularity_radius_km,
+        )
+        return round(max(0.0, min(100.0, score)), 1)
+
+    def _score_popularity_preferences(
+        self,
+        location: StargazingLocation,
+        avoid_popular_spots: bool,
+        prefer_quiet_at_night: bool,
+        popularity_radius_km: float,
+    ) -> float:
+        """Apply limited popularity-based ranking adjustments when explicitly enabled."""
+        if not avoid_popular_spots and not prefer_quiet_at_night:
+            return 0.0
+
+        radius_factor = max(0.5, min(2.0, popularity_radius_km / 3.0))
+        adjustment = 0.0
+
+        if avoid_popular_spots and location.static_popularity_risk_score is not None:
+            adjustment -= min(12.0, (location.static_popularity_risk_score / 100.0) * 8.0 * radius_factor)
+
+        if prefer_quiet_at_night and location.night_quiet_likelihood_score is not None:
+            confidence = location.temporal_popularity_confidence or 50.0
+            confidence_factor = max(0.35, min(1.0, confidence / 100.0))
+            quiet_delta = (location.night_quiet_likelihood_score - 50.0) / 50.0
+            adjustment += quiet_delta * 6.0 * confidence_factor * min(1.5, radius_factor)
+
+        return round(adjustment, 1)
 
     def _score_light_pollution(self, location: StargazingLocation, max_weight: float = 35) -> float:
         """Light Pollution — Bortle-based or brightness fallback. Weight configurable."""
@@ -724,6 +819,9 @@ class StargazingLocationAnalyzer:
         elif location.distance_to_nearest_town < 10:
             notes.append("Close to town, may have light pollution impact")
 
+        if location.popularity_notes:
+            notes.append(location.popularity_notes)
+
         return "; ".join(notes) if notes else "No special notes"
 
     def save_results_to_json(self, locations: List[StargazingLocation], filename: str) -> None:
@@ -834,6 +932,9 @@ def analyze_stargazing_area(
     db_config_path: Optional[str] = None,
     min_distance_to_road_km: Optional[float] = None,
     max_distance_to_road_km: Optional[float] = None,
+    avoid_popular_spots: bool = False,
+    prefer_quiet_at_night: bool = False,
+    popularity_radius_km: float = 3.0,
     config: Optional[StargazingConfig] = None,
 ) -> List[StargazingLocation]:
     """
@@ -852,6 +953,9 @@ def analyze_stargazing_area(
         db_config_path: Optional path to database config file
         min_distance_to_road_km: Minimum distance to road in km (filter out places too close)
         max_distance_to_road_km: Maximum distance to road in km (filter out places too far)
+        avoid_popular_spots: Whether to penalize likely-popular sites
+        prefer_quiet_at_night: Whether to prefer sites that quiet down at night
+        popularity_radius_km: Preference horizon for popularity heuristics in km
         config: Centralised StargazingConfig instance. When provided, its
             values override the individual keyword defaults above.
 
@@ -885,6 +989,9 @@ def analyze_stargazing_area(
         include_road_connectivity=True,
         min_distance_to_road_km=min_distance_to_road_km,
         max_distance_to_road_km=max_distance_to_road_km,
+        avoid_popular_spots=avoid_popular_spots,
+        prefer_quiet_at_night=prefer_quiet_at_night,
+        popularity_radius_km=popularity_radius_km,
     )
 
     # Print summary

@@ -106,6 +106,9 @@ def analyze_area(
     include_road_connectivity: bool = True,
     min_distance_to_road_km: Optional[float] = None,
     max_distance_to_road_km: Optional[float] = None,
+    avoid_popular_spots: bool = False,
+    prefer_quiet_at_night: bool = False,
+    popularity_radius_km: float = 3.0,
     config: Optional[StargazingConfig] = None,
 ) -> List[Dict[str, object]]:
     """
@@ -119,6 +122,9 @@ def analyze_area(
         include_road_connectivity: 是否计算道路可达性
         min_distance_to_road_km: 最小离路距离（公里），过滤掉距路太近的地点
         max_distance_to_road_km: 最大离路距离（公里），过滤掉距路太远的地点
+        avoid_popular_spots: 是否降低热门地点的排序
+        prefer_quiet_at_night: 是否偏好夜间更安静的地点
+        popularity_radius_km: 热门度偏好的作用半径（公里）
         config: Centralised StargazingConfig 实例，提供时将覆盖上述独立参数默认值
 
     Returns:
@@ -140,6 +146,9 @@ def analyze_area(
         include_road_connectivity=include_road_connectivity,
         min_distance_to_road_km=min_distance_to_road_km,
         max_distance_to_road_km=max_distance_to_road_km,
+        avoid_popular_spots=avoid_popular_spots,
+        prefer_quiet_at_night=prefer_quiet_at_night,
+        popularity_radius_km=popularity_radius_km,
     )
     serialized: List[Dict[str, object]] = []
     for r in results:
@@ -158,6 +167,9 @@ def analyze_area_simple(
     network_type: str = "drive",
     min_distance_to_road_km: Optional[float] = None,
     max_distance_to_road_km: Optional[float] = None,
+    avoid_popular_spots: bool = False,
+    prefer_quiet_at_night: bool = False,
+    popularity_radius_km: float = 3.0,
     config: Optional[StargazingConfig] = None,
 ) -> List[Dict[str, object]]:
     """
@@ -174,6 +186,9 @@ def analyze_area_simple(
         network_type: 道路网络类型
         min_distance_to_road_km: 最小离路距离（公里）
         max_distance_to_road_km: 最大离路距离（公里）
+        avoid_popular_spots: 是否降低热门地点的排序
+        prefer_quiet_at_night: 是否偏好夜间更安静的地点
+        popularity_radius_km: 热门度偏好的作用半径（公里）
         config: Centralised StargazingConfig 实例，提供时将覆盖上述独立参数默认值
 
     Returns:
@@ -200,6 +215,9 @@ def analyze_area_simple(
         network_type=network_type,
         min_distance_to_road_km=min_distance_to_road_km,
         max_distance_to_road_km=max_distance_to_road_km,
+        avoid_popular_spots=avoid_popular_spots,
+        prefer_quiet_at_night=prefer_quiet_at_night,
+        popularity_radius_km=popularity_radius_km,
         config=config,
     )
     serialized: List[Dict[str, object]] = []
