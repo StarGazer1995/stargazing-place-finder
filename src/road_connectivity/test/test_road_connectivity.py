@@ -15,7 +15,10 @@ from road_connectivity.simple_road_checker import batch_road_check, quick_road_c
 
 def test_quick_check_returns_boolean():
     """quick_road_check returns a boolean with mocked response."""
-    with patch("road_connectivity.simple_road_checker.quick_road_check", return_value=True):
+    with patch(
+        "road_connectivity.test.test_road_connectivity.quick_road_check",
+        return_value=True,
+    ):
         result = quick_road_check(39.9042, 116.4074, search_radius_km=3.0)
     assert isinstance(result, bool)
 
