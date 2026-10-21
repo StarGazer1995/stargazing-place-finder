@@ -64,6 +64,12 @@ uv run uvicorn server.main:app --host 0.0.0.0 --port 5001 --reload
 docker run -p 3001:3001 -p 5001:5001 mcp-stargazing
 ```
 
+### 跨仓库 CI
+
+SPF 的 PR 会自动用当前候选 wheel 运行 `mcp-stargazing` 测试，并与基线结果比较。
+完整规则见
+[mcp-stargazing/docs/dependency-chain-ci.md](https://github.com/StarGazer1995/mcp-stargazing/blob/main/docs/dependency-chain-ci.md)。
+
 ## API 端点
 
 ### 地点分析
