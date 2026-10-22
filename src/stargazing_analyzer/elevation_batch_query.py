@@ -66,33 +66,16 @@ class BatchElevationQuery:
 
     def get_statistics(self) -> Dict:
         """获取 PostGIS 中海拔数据统计信息。"""
-        conn = psycopg2.connect(**self.db_config)
-        cursor = conn.cursor()
+        from gis_service.backends.postgis_backend import PostgisBackend
+
+        backend = PostgisBackend(self.db_config)
         try:
-            cursor.execute("""
-                SELECT
-                    COUNT(*) as total_points,
-                    COUNT(ele) as points_with_elevation,
-                    MIN(ele::float) as min_elevation,
-                    MAX(ele::float) as max_elevation,
-                    AVG(ele::float) as avg_elevation
-                FROM planet_osm_point
-                WHERE ele IS NOT NULL
-                    AND ele ~ '^[0-9]+(\.[0-9]+)?$'
-                    AND ele::float >= -500
-                    AND ele::float <= 9000;
-            """)
-            row = cursor.fetchone()
-            return {
-                "total_points": row[0],
-                "points_with_elevation": row[1],
-                "min_elevation": row[2],
-                "max_elevation": row[3],
-                "avg_elevation": float(row[4]) if row[4] else None,
-            }
+            return backend.get_elevation_statistics()
+        except (psycopg2.Error, NetworkError, ValueError, KeyError) as e:
+            logger.error("海拔统计查询失败: %s", e)
+            return {"error": str(e)}
         finally:
-            cursor.close()
-            conn.close()
+            backend.close()
 
 
 def batch_query_elevations(
