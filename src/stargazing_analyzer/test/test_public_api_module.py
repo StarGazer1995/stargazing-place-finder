@@ -266,3 +266,32 @@ class TestElevationBatchQuery:
             assert len(results) == 2
             assert all(r.error is not None for r in results)
             assert "db down" in results[0].error
+
+    def test_get_statistics_delegates_to_postgis_backend(self):
+        """Deprecated statistics path reuses the pooled PostGIS backend."""
+        from stargazing_analyzer.elevation_batch_query import BatchElevationQuery
+
+        with patch("gis_service.backends.postgis_backend.PostgisBackend") as mock_backend_cls:
+            backend = mock_backend_cls.return_value
+            backend.get_elevation_statistics.return_value = {"total_points": 42}
+
+            result = BatchElevationQuery(db_config={"host": "localhost"}).get_statistics()
+
+        assert result == {"total_points": 42}
+        backend.get_elevation_statistics.assert_called_once_with()
+        backend.close.assert_called_once_with()
+
+    def test_get_statistics_returns_error_and_closes_pool(self):
+        """Connection failures should be normalized and still close the backend."""
+        import psycopg2
+
+        from stargazing_analyzer.elevation_batch_query import BatchElevationQuery
+
+        with patch("gis_service.backends.postgis_backend.PostgisBackend") as mock_backend_cls:
+            backend = mock_backend_cls.return_value
+            backend.get_elevation_statistics.side_effect = psycopg2.Error("db down")
+
+            result = BatchElevationQuery(db_config={"host": "localhost"}).get_statistics()
+
+        assert result == {"error": "db down"}
+        backend.close.assert_called_once_with()

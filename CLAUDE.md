@@ -105,22 +105,25 @@ src/
 
 ## Known Sharp Edges
 
-### Real issues (verified 2026-07-07)
+### Active issues and accepted tradeoffs (verified 2026-10-22)
 
-- **Two `except (XError, Exception)` redundancies** — `stargazing_location_analyzer.py:251` and `road_connectivity_checker.py:373`. Both catch `(SpecificError, Exception)` where `SpecificError` is an `Exception` subclass, making this functionally `except Exception`. Both silently return `[]` or `None` without re-raising, which masks programming bugs like `TypeError` or `AttributeError`. Fix by removing `Exception` from the tuple.
-- **Cache implementations are not thread-safe** — `RoadAccessInfoCache` (`road_connectivity_checker.py`) and `GisQueryCache` (`gis_service/caching.py`) both write pickle files directly without file locks or atomic temp-file+rename. `RoadAccessInfoCache` has a TOCTOU race: reads old cache → merges new data → writes back, and concurrent callers silently overwrite each other. Both also lack in-memory locking for their `dict`-backed caches.
-- **No production WSGI server** — the FastAPI app is served via `uvicorn` directly. No gunicorn with Uvicorn workers configured in the Dockerfile (SPF is embedded in MCP's container via supervisord running `uv run uvicorn`). Acceptable for current deployment but not optimal for high concurrency.
-- **`calculate_distance` has a standalone duplicate** in `light_pollution/light_pollution_api.py` — identical Haversine algorithm but takes `(lat1, lon1, lat2, lon2)` floats instead of `(GeoCoordinate, GeoCoordinate)`. The version in `gis_service/parsers.py` is the canonical one; the `stargazing_place_finder.py` version is a thin delegate wrapper. Consolidate the API version to delegate to `parsers.py` by constructing temporary `GeoCoordinate` objects.
-- **TOML import boilerplate duplicated** — the 4-line `try: import tomllib except ImportError: import tomli as tomllib` stanza appears identically in `config/__init__.py` and `gis_service/config.py`. Extract a shared `_load_toml(path) -> dict` helper.
-- **`BatchElevationQuery.get_statistics()`** (deprecated module) still uses raw `psycopg2.connect()` — the only remaining non-pool connection in production code. Migrate to `PostgisBackend.get_elevation_statistics()` or remove the deprecated module.
-- **Tests share mutable disk state** (cache directory) — not fully isolated between test runs.
-- **Tag push triggers PyPI publish** — push a `v*` tag only ONCE. PyPI does not allow overwriting versions.
+- **Single Uvicorn process** — SPF is embedded in the MCP container and served by one Uvicorn process. This is the accepted deployment model for the current single-user/web-map workload; add Gunicorn/Uvicorn workers only if concurrency requirements change.
+- **Legacy module compatibility** — `light_pollution.light_pollution_api` and `stargazing_analyzer.elevation_batch_query` remain import-compatible shims. New code should use `server.main` and `PostgisBackend`.
+- **Tag push triggers PyPI publish** — push a `v*` tag only once. PyPI does not allow overwriting versions.
+
+### Resolved
+
+- Redundant broad exception tuples were removed.
+- `RoadAccessInfoCache` and `GisQueryCache` use in-memory locks and temp-file + atomic rename for disk writes.
+- `calculate_distance` has a single canonical implementation in `gis_service/parsers.py`; the finder method delegates to it.
+- TOML import fallback is centralized through `_import_tomllib()`.
+- Deprecated `BatchElevationQuery` delegates both batch queries and statistics to pooled `PostgisBackend`.
 
 ### Things previously listed that are no longer true
 
 - ~~Flask `app.run()` is dev-only, no Dockerfile~~ → Migrated to FastAPI. Production deployment via `mcp-stargazing` Docker container + supervisord.
 - ~~No PostGIS connection pool~~ → `PostgisBackend` uses `SimpleConnectionPool(1, 4)` since at least v0.6.x.
-- ~~Bare except Exception in ~5 places~~ → Only 2 remain (listed above). All other 57 except blocks catch specific exception types.
+- ~~Bare except Exception in ~5 places~~ → Specific exception types are used throughout the production paths; the former redundant exception tuples are gone.
 - ~~Frontend hides all UI controls on load~~ → Only loading overlay and empty data panels are hidden on init — search, legend, language toggle, and mode toggle are all visible. Standard UX pattern.
 - ~~`generateMockData()` dead code~~ → Does not exist anywhere in the codebase.
 - ~~`brightness_to_bortle()` / `bortle_to_sqm()` duplicated~~ → Each defined exactly once in `gis_service/parsers.py`.
@@ -138,7 +141,7 @@ src/
 
 ## Dependency: stargazing-core
 
-`stargazing-core` is published on PyPI (v0.1.0). SPF declares `stargazing-core>=0.1.0` as a normal dependency — it resolves from the PyPI registry by default. For local development with an editable core checkout, add a temporary `[tool.uv.sources]` override:
+`stargazing-core` is published on PyPI (v0.2.0). SPF declares `stargazing-core>=0.2.0` as a normal dependency — it resolves from the PyPI registry by default. For local development with an editable core checkout, add a temporary `[tool.uv.sources]` override:
 
 ```toml
 [tool.uv.sources]
