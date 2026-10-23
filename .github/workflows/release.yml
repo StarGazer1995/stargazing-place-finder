@@ -37,6 +37,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: src/source/package-lock.json
+
+      - name: Build frontend
+        run: |
+          cd src/source
+          npm ci
+          npm run build
+
       - name: Download GeoTIFF data from Release asset
         run: |
           mkdir -p src/light_pollution/resources
@@ -65,6 +78,14 @@ jobs:
 
       - name: Build package
         run: uv run python -m build
+
+      - name: Verify wheel contains the built frontend
+        run: |
+          WHEEL=$(ls dist/stargazing_place_finder-*.whl)
+          unzip -l "$WHEEL" | grep -q 'source/dist/index-vite.html'
+          unzip -l "$WHEEL" | grep -qE 'source/dist/assets/.*\.js'
+          unzip -l "$WHEEL" | grep -qE 'source/dist/assets/.*\.css'
+          echo "✅ Wheel contains Vite HTML, JS, and CSS"
 
       - name: Check package quality
         run: uv run twine check dist/*

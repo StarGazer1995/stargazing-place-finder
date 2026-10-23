@@ -194,6 +194,14 @@ jobs:
           uv pip install build -q
           uv run python -m build --wheel --outdir dist
 
+      - name: Verify wheel contains the built frontend
+        run: |
+          WHEEL=$(ls dist/stargazing_place_finder-*.whl)
+          unzip -l "$WHEEL" | grep -q 'source/dist/index-vite.html'
+          unzip -l "$WHEEL" | grep -qE 'source/dist/assets/.*\.js'
+          unzip -l "$WHEEL" | grep -qE 'source/dist/assets/.*\.css'
+          echo "✅ Wheel contains Vite HTML, JS, and CSS"
+
       - name: Install built wheel into a clean venv
         run: |
           WHEEL=$(ls dist/stargazing_place_finder-*.whl)
@@ -230,19 +238,23 @@ jobs:
 
           # Verify bundled CSS is served (extract href from HTML <link>)
           CSS_HREF=$(echo "$HTML" | grep -o 'href="/assets/[^"]*\.css"' | head -1 | sed 's/href="//;s/"//')
-          if [ -n "$CSS_HREF" ]; then
-            CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:5001$CSS_HREF")
-            echo "$CSS_HREF → HTTP $CSS_STATUS"
-            test "$CSS_STATUS" = "200" && echo "✅ Bundled CSS served"
+          if [ -z "$CSS_HREF" ]; then
+            echo "❌ Built frontend does not reference CSS"
+            exit 1
           fi
+          CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:5001$CSS_HREF")
+          echo "$CSS_HREF → HTTP $CSS_STATUS"
+          test "$CSS_STATUS" = "200" && echo "✅ Bundled CSS served"
 
           # Verify bundled JS is served (extract src from HTML <script>)
           JS_SRC=$(echo "$HTML" | grep -o 'src="/assets/[^"]*\.js"' | head -1 | sed 's/src="//;s/"//')
-          if [ -n "$JS_SRC" ]; then
-            JS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:5001$JS_SRC")
-            echo "$JS_SRC → HTTP $JS_STATUS"
-            test "$JS_STATUS" = "200" && echo "✅ Bundled JS served"
+          if [ -z "$JS_SRC" ]; then
+            echo "❌ Built frontend does not reference JS"
+            exit 1
           fi
+          JS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:5001$JS_SRC")
+          echo "$JS_SRC → HTTP $JS_STATUS"
+          test "$JS_STATUS" = "200" && echo "✅ Bundled JS served"
 
           kill $SERVER_PID 2>/dev/null || true
           echo "✅ Smoke test complete — fully functional"
