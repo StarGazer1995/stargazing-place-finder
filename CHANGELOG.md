@@ -9,6 +9,13 @@
   cached pixels, and untracked custom analyzers bypass shared caching. This does not add
   automatic file watching, dataset age validation, MCP result invalidation or client cache purging.
 
+- Isolate GIS location-query caches from database connection lifetimes: PostGIS results
+  remain in service-local memory; Overpass disk keys include a backend label and ignore
+  unlabelled legacy entries. A newly constructed database service cannot inherit another
+  source's disk results, and clearing it does not remove shared disk files.
+- This trades cross-instance database disk reuse for source isolation. Dataset ages,
+  config/file change observation, caller caches and deployed performance remain unverified.
+
 ## 0.8.0 (2026-07-07) — Telescope platform
 
 ### Telescope & astrophotography

@@ -71,7 +71,13 @@ class GisQueryService:
         # 缓存
         self._cache: Optional[GisQueryCache] = None
         if enable_cache:
-            self._cache = GisQueryCache(cache_expiry_hours=cache_expiry_hours)
+            # No reliable dataset/version identity is available for a DB connection.
+            # Keep its results local to this service instead of sharing disk entries
+            # with another connection, database, role or earlier service lifetime.
+            self._cache = GisQueryCache(
+                cache_expiry_hours=cache_expiry_hours,
+                persist_to_disk=not self.postgis_enabled,
+            )
 
     # ── 位置查询（PostGIS / Overpass 透明切换）────────────────
 
@@ -97,7 +103,13 @@ class GisQueryService:
         bbox_tuple = (bbox.south, bbox.west, bbox.north, bbox.east)
         cache_key = None
         if self._cache:
-            cache_key = self._cache._make_key("query_locations", bbox_tuple, location_type, filters)
+            cache_key = self._cache._make_key(
+                "postgis" if self.postgis_enabled else "overpass",
+                "query_locations",
+                bbox_tuple,
+                location_type,
+                filters,
+            )
             cached = self._cache.get(cache_key)
             if cached is not None:
                 logger.debug("Cache hit for %s %s", location_type, bbox_tuple)
