@@ -256,6 +256,7 @@ class TestRenderTilePipeline:
 
     def _fake_analyzer(self, with_src=True):
         analyzer = MagicMock()
+        analyzer._tile_cache_revision = "fixture-handle"
         if with_src:
             src = MagicMock()
             src.width = 1000
@@ -297,10 +298,11 @@ class TestRenderTilePipeline:
 
     def test_render_tile_cache_hit(self):
         # Pre-populate cache
-        set_tile_cache("5/10/10", b"cached_result")
-        analyzer = self._fake_analyzer(with_src=False)
+        set_tile_cache("fixture-handle:5/10/10", b"cached_result")
+        analyzer = self._fake_analyzer()
         png = render_tile(5, 10, 10, analyzer)
         assert png == b"cached_result"
+        analyzer._src.read.assert_not_called()
 
     def test_render_tile_out_of_bounds(self):
         """Tile with coords outside GeoTIFF returns empty tile."""

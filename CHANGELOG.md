@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (after 0.9.1)
+
+- Scope server-side map tile caches to the opened analyzer/model lifetime. Explicit
+  reinitialization no longer leaves fresh point readings paired with old cached PNGs;
+  late old publications cannot overwrite the new handle's entries.
+- Resolve the analyzer before tile lookup; closed/uninitialized handles cannot serve old
+  cached pixels, and untracked custom analyzers bypass shared caching. This does not add
+  automatic file watching, dataset age validation, MCP result invalidation or client cache purging.
+
 ## 0.8.0 (2026-07-07) — Telescope platform
 
 ### Telescope & astrophotography

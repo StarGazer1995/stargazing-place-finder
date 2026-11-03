@@ -14,6 +14,7 @@ import math
 import os
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
+from uuid import uuid4
 
 import numpy as np
 
@@ -171,6 +172,8 @@ class LightPollutionAnalyzer:
 
         self._geotiff_path = geotiff_path
         self._src = rasterio.open(geotiff_path)
+        # Identifies this opened handle/model lifetime, not a dataset age/version.
+        self._tile_cache_revision = uuid4().hex
         self._skyglow_sigma_km = skyglow_sigma_km
         self._skyglow_weight = skyglow_weight
         self._skyglow_grid = None

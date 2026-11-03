@@ -32,6 +32,17 @@ An application for stargazing enthusiasts to find optimal observation locations 
 
 ## Quick Start
 
+Map PNG tiles use a process-local cache (3600 seconds, up to 500 LRU entries), scoped to
+the actual opened analyzer/skyglow lifetime and tile coordinates. Explicit public analyzer
+reinitialization opens a new handle/model and isolates its tiles from old cached results,
+including late publications. Closed/uninitialized handles cannot reuse old tiles; custom
+handles without a known identity render without sharing the cache.
+
+This identity is not dataset age/version validation. Replacing a file alone does not reload
+it or invalidate MCP results, other analyzers or browser/CDN responses. The existing HTTP
+`max-age=3600` remains; clients may still reuse old responses. Concurrent close/read resource
+leases and broader source-age rules remain unverified.
+
 ```bash
 uv sync
 uv run uvicorn server.main:app --host 0.0.0.0 --port 5001 --reload

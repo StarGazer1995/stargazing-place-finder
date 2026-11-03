@@ -263,7 +263,7 @@ def read_tile_window(
 def render_tile_png(
     data: np.ndarray,
     src,  # rasterio.DatasetReader (for nodata)
-    cache_key: str,
+    cache_key: Optional[str],
 ) -> bytes:
     """Apply colormap to *data*, encode as PNG, cache, and return bytes."""
     lut = build_tile_cmap_lut()
@@ -287,7 +287,8 @@ def render_tile_png(
     buf = BytesIO()
     img.save(buf, format="PNG")
     png_data = buf.getvalue()
-    set_tile_cache(cache_key, png_data)
+    if cache_key is not None:
+        set_tile_cache(cache_key, png_data)
     return png_data
 
 
@@ -306,17 +307,17 @@ def render_tile(
 
     Returns PNG bytes, or *None* if the tile is outside the dataset.
     """
-    cache_key = f"{z}/{x}/{y}"
+    # Check the actual handle before reusing any computed data.
+    src = getattr(analyzer, "_src", None)
+    if src is None or getattr(src, "closed", False) is True:
+        return empty_tile_png()
 
-    # 1. Cache hit?
-    cached = get_cached_tile(cache_key)
+    revision = getattr(analyzer, "_tile_cache_revision", None)
+    # Unknown/custom analyzers can render, but must not share source-blind entries.
+    cache_key = f"{revision}:{z}/{x}/{y}" if isinstance(revision, str) else None
+    cached = get_cached_tile(cache_key) if cache_key is not None else None
     if cached is not None:
         return cached
-
-    # 2. Check analyzer
-    src = getattr(analyzer, "_src", None)
-    if src is None:
-        return empty_tile_png()
 
     # 3. Geographic bounds
     north, south, east, west = tile_bounds(x, y, z)
