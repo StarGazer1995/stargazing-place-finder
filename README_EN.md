@@ -14,6 +14,14 @@ An application for stargazing enthusiasts to find optimal observation locations 
 - **Road connectivity**: PostGIS `planet_osm_line` graph + OSMnx fallback
 - **Elevation filtering**: Prioritize high-altitude, open-view locations
 
+Raster validity: the analyzer honors GeoTIFF NoData and GDAL masks and treats NaN/infinity as missing.
+Missing pixels return `None` for point queries, `success=False` in batch results, and transparent tiles;
+finite zero values without a missing-data declaration remain valid. The skyglow model normalizes over
+valid samples and remains unknown without valid support; it does not impute missing raw radiance.
+This is not field calibration. Legacy Web/grid display defaults still require checking source markers.
+The location scoring formula is unchanged: unknown light pollution retains its existing 18-point fallback,
+which is not evidence of verified observing conditions.
+
 ### Telescope & Imaging
 - **Equipment presets**: Seestar S50, RedCat 51, Askar FRA300, and more
 - **Target matching**: Ranked Messier/NGC objects by FOV fit, surface brightness, and filter match

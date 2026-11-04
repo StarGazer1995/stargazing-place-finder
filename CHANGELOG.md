@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Honor GeoTIFF NoData, GDAL masks and non-finite radiance in point/batch analysis and PNG tiles.
+  Missing pixels stay unknown/transparent; unmasked finite zero remains valid. Normalize skyglow over
+  valid samples so missing cells neither contaminate neighbours nor act as dark emitters. Keep the
+  all-valid model and existing scoring formula; unknown light pollution still has the legacy 18-point
+  score fallback. Legacy Web/grid display defaults and automatic source reload are outside this change.
+
 ## 0.8.0 (2026-07-07) — Telescope platform
 
 ### Telescope & astrophotography
