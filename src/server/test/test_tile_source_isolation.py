@@ -29,20 +29,24 @@ def raster(tmp_path):
     path = tmp_path / "synthetic.tif"
     north, south, east, west = tiles.tile_bounds(53, 26, 6)
 
-    def replace(value):
+    def replace(value, *, nodata=None, masked=False):
         replacement = tmp_path / "replacement.tif"
-        with rasterio.open(
-            replacement,
-            "w",
-            driver="GTiff",
-            width=32,
-            height=32,
-            count=1,
-            dtype="float32",
-            crs="EPSG:4326",
-            transform=from_bounds(west, south, east, north, 32, 32),
-        ) as output:
-            output.write(np.full((32, 32), value, dtype="float32"), 1)
+        with rasterio.Env(GDAL_TIFF_INTERNAL_MASK=True):
+            with rasterio.open(
+                replacement,
+                "w",
+                driver="GTiff",
+                width=32,
+                height=32,
+                count=1,
+                dtype="float32",
+                crs="EPSG:4326",
+                nodata=nodata,
+                transform=from_bounds(west, south, east, north, 32, 32),
+            ) as output:
+                output.write(np.full((32, 32), value, dtype="float32"), 1)
+                if masked:
+                    output.write_mask(np.zeros((32, 32), dtype="uint8"))
         os.replace(replacement, path)
 
     api.reset_analyzer()
@@ -119,7 +123,8 @@ def test_closed_handle_cannot_serve_its_old_cached_pixels(raster, close_analyzer
     assert pixels(closed) != pixels(first)
 
 
-def test_late_old_tile_publication_cannot_overwrite_rebuilt_source(raster, monkeypatch):
+@pytest.mark.parametrize("new_missing", [False, True])
+def test_late_old_tile_publication_cannot_overwrite_rebuilt_source(raster, monkeypatch, new_missing):
     path, replace, _lat, _lon = raster
     old = api.init_light_pollution_analyzer(geotiff_path=path)
     old_key = f"{old._tile_cache_revision}:6/53/26"
@@ -137,10 +142,40 @@ def test_late_old_tile_publication_cannot_overwrite_rebuilt_source(raster, monke
         pending = pool.submit(tiles.render_tile, 6, 53, 26, old)
         try:
             assert waiting.wait(5)
-            replace(100)
+            replace(0 if new_missing else 100, nodata=0 if new_missing else None)
             current = api.init_light_pollution_analyzer(geotiff_path=path)
             fresh = tiles.render_tile(6, 53, 26, current)
         finally:
             release.set()
         assert pixels(pending.result(5)) != pixels(fresh)
     assert tiles.render_tile(6, 53, 26, current) == fresh
+
+
+@pytest.mark.parametrize("kind", ["nodata", "mask", "nan"])
+@pytest.mark.parametrize("first_missing", [False, True])
+def test_http_reinit_replaces_cached_validity_in_both_directions(raster, kind, first_missing):
+    path, replace, lat, lon = raster
+    value = {"nodata": 0, "mask": 5, "nan": np.nan}[kind]
+    app = FastAPI()
+    app.include_router(router)
+    previous = None
+    with TestClient(app) as client:
+        for missing in (first_missing, not first_missing):
+            replace(
+                value if missing else 0,
+                nodata=0 if missing and kind == "nodata" else None,
+                masked=missing and kind == "mask",
+            )
+            analyzer = api.init_light_pollution_analyzer(geotiff_path=path)
+            if previous is not None:
+                assert previous.closed  # A real new handle, not a renamed cache token.
+            previous = analyzer._src
+            raw = analyzer.get_raw_radiance(lat, lon)
+            assert raw is None if missing else raw == 0
+            batch = analyzer.batch_analyze_coordinates([(lat, lon)])
+            assert batch[0]["success"] is not missing
+            response = client.get("/api/light_pollution/tiles/6/53/26.png")
+            assert response.status_code == 200
+            rgba = np.asarray(Image.open(BytesIO(response.content)).convert("RGBA"))
+            assert np.all(rgba[:, :, 3] == (0 if missing else 255))
+            assert client.get("/api/light_pollution/tiles/6/53/26.png").content == response.content
