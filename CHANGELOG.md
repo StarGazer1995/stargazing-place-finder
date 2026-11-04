@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased (after 0.9.1)
+## 0.9.2 (2026-11-04) — Source isolation and raster validity
+
+- Require stargazing-core 0.2.2 for the validated offset-aware shooting scheduler.
 
 - Scope server-side map tile caches to the opened analyzer/model lifetime. Explicit
   reinitialization no longer leaves fresh point readings paired with old cached PNGs;
