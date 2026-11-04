@@ -27,8 +27,8 @@ class GisQueryCache:
     """
     通用 GIS 查询结果缓存。
 
-    支持内存缓存 + 磁盘 pickle 缓存两级，
-    自动过期清理。
+    支持内存缓存 + 可选磁盘 pickle 缓存两级，读取时检查过期。
+    persist_to_disk=False 时只复用当前实例内存，不读取、写入或清除磁盘条目。
     """
 
     def __init__(
@@ -36,11 +36,14 @@ class GisQueryCache:
         cache_expiry_hours: int = 24,
         cache_type: str = "location_results",
         config: Optional[StargazingConfig] = None,
+        *,
+        persist_to_disk: bool = True,
     ):
         if config is not None:
             cache_expiry_hours = config.cache_expiry_hours
         self.cache_expiry_seconds = cache_expiry_hours * 3600
         self.cache_dir = get_cache_dir(cache_type)
+        self.persist_to_disk = persist_to_disk
 
         # 内存缓存: {cache_key: (timestamp, data)}
         self._memory: Dict[str, tuple] = {}
@@ -62,6 +65,9 @@ class GisQueryCache:
                 if now - ts < self.cache_expiry_seconds:
                     return data
                 del self._memory[key]
+
+        if not self.persist_to_disk:
+            return None
 
         # 磁盘缓存（锁外读取 I/O，避免阻塞其他线程）
         cache_path = self._disk_path(key)
@@ -85,6 +91,8 @@ class GisQueryCache:
         now = time.time()
         with self._lock:
             self._memory[key] = (now, data)
+        if not self.persist_to_disk:
+            return
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             disk_path = self._disk_path(key)
@@ -110,7 +118,7 @@ class GisQueryCache:
     def clear(self):
         """清空所有缓存。"""
         self._memory.clear()
-        if self.cache_dir.exists():
+        if self.persist_to_disk and self.cache_dir.exists():
             import shutil
 
             shutil.rmtree(self.cache_dir)

@@ -14,6 +14,14 @@ An application for stargazing enthusiasts to find optimal observation locations 
 - **Road connectivity**: PostGIS `planet_osm_line` graph + OSMnx fallback
 - **Elevation filtering**: Prioritize high-altitude, open-view locations
 
+Raster validity: the analyzer honors GeoTIFF NoData and GDAL masks and treats NaN/infinity as missing.
+Missing pixels return `None` for point queries, `success=False` in batch results, and transparent tiles;
+finite zero values without a missing-data declaration remain valid. The skyglow model normalizes over
+valid samples and remains unknown without valid support; it does not impute missing raw radiance.
+This is not field calibration. Legacy Web/grid display defaults still require checking source markers.
+The location scoring formula is unchanged: unknown light pollution retains its existing 18-point fallback,
+which is not evidence of verified observing conditions.
+
 ### Telescope & Imaging
 - **Equipment presets**: Seestar S50, RedCat 51, Askar FRA300, and more
 - **Target matching**: Ranked Messier/NGC objects by FOV fit, surface brightness, and filter match
@@ -31,6 +39,30 @@ An application for stargazing enthusiasts to find optimal observation locations 
 - **Elevation heatmap**: Regional elevation distribution
 
 ## Quick Start
+
+Map PNG tiles use a process-local cache (3600 seconds, up to 500 LRU entries), scoped to
+the actual opened analyzer/skyglow lifetime and tile coordinates. Explicit public analyzer
+reinitialization opens a new handle/model and isolates its tiles from old cached results,
+including late publications. Closed/uninitialized handles cannot reuse old tiles; custom
+handles without a known identity render without sharing the cache.
+
+Reinitialization also replaces cached pixel validity in both directions: valid zero can
+become declared missing, and missing can become valid zero. Late PNG publication from
+the previous handle cannot overwrite the replacement's validity.
+
+This identity is not dataset age/version validation. Replacing a file alone does not reload
+it or invalidate MCP results, other analyzers or browser/CDN responses. The existing HTTP
+`max-age=3600` remains; clients may still reuse old responses. Concurrent close/read resource
+leases and broader source-age rules remain unverified.
+
+GIS location queries cache PostGIS results only in the current service instance's memory
+(24 hours by default; reads do not renew it). Reconstructing the service queries its actual
+connection again. Overpass keeps memory/disk reuse with a backend-specific key; unlabelled
+legacy entries are ignored. Clearing a database service's cache leaves shared disk files intact.
+Database service reconstruction therefore loses cross-instance disk reuse; deployed performance
+has not been measured. This is not configuration watching, dataset age validation or automatic
+invalidation of callers' result caches. Database content, config files and GeoTIFF lifetimes
+still need coordinated resource rebuilding; unknown source ages remain unknown.
 
 ```bash
 uv sync

@@ -246,10 +246,16 @@ def read_tile_window(
         return None
     data = src.read(
         1,
+        masked=True,
         window=((row_start, row_end), (col_start, col_end)),
         out_shape=(TILE_SIZE, TILE_SIZE),
     )
-    if hasattr(analyzer, "get_skyglow_for_window") and getattr(analyzer, "_skyglow_grid", None) is not None:
+    data = np.ma.masked_invalid(data, copy=False)
+    if (
+        hasattr(analyzer, "get_skyglow_for_window")
+        and getattr(analyzer, "_skyglow_grid", None) is not None
+        and analyzer._skyglow_weight != 0
+    ):
         sg = analyzer.get_skyglow_for_window(west, east, south, north, (TILE_SIZE, TILE_SIZE))
         data = data.astype(np.float32) + analyzer._skyglow_weight * sg
     return data
@@ -263,21 +269,21 @@ def read_tile_window(
 def render_tile_png(
     data: np.ndarray,
     src,  # rasterio.DatasetReader (for nodata)
-    cache_key: str,
+    cache_key: Optional[str],
 ) -> bytes:
     """Apply colormap to *data*, encode as PNG, cache, and return bytes."""
     lut = build_tile_cmap_lut()
 
-    if data.dtype.kind == "f":
-        valid = ~np.isnan(data)
-    else:
-        valid = np.ones_like(data, dtype=bool)
+    valid = ~np.ma.getmaskarray(data) & np.isfinite(np.ma.getdata(data))
     nodata = src.nodata
-    if nodata is not None:
+    if not np.ma.isMaskedArray(data) and nodata is not None:
+        # Legacy direct callers pass raw arrays. Pipeline arrays already carry
+        # the original mask, which must survive skyglow value transformations.
         valid = valid & (data != nodata)
+    values = np.ma.getdata(data)
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        intensity = np.where(valid, data, 0.0)
+        intensity = np.where(valid, values, 0.0)
         intensity = np.minimum(1.0, 1.0 - 1.0 / (1.0 + intensity * 0.1))
     idx = np.clip((intensity * 255).astype(np.uint8), 0, 255)
     rgba = lut[idx].copy()
@@ -287,7 +293,8 @@ def render_tile_png(
     buf = BytesIO()
     img.save(buf, format="PNG")
     png_data = buf.getvalue()
-    set_tile_cache(cache_key, png_data)
+    if cache_key is not None:
+        set_tile_cache(cache_key, png_data)
     return png_data
 
 
@@ -306,17 +313,17 @@ def render_tile(
 
     Returns PNG bytes, or *None* if the tile is outside the dataset.
     """
-    cache_key = f"{z}/{x}/{y}"
+    # Check the actual handle before reusing any computed data.
+    src = getattr(analyzer, "_src", None)
+    if src is None or getattr(src, "closed", False) is True:
+        return empty_tile_png()
 
-    # 1. Cache hit?
-    cached = get_cached_tile(cache_key)
+    revision = getattr(analyzer, "_tile_cache_revision", None)
+    # Unknown/custom analyzers can render, but must not share source-blind entries.
+    cache_key = f"{revision}:{z}/{x}/{y}" if isinstance(revision, str) else None
+    cached = get_cached_tile(cache_key) if cache_key is not None else None
     if cached is not None:
         return cached
-
-    # 2. Check analyzer
-    src = getattr(analyzer, "_src", None)
-    if src is None:
-        return empty_tile_png()
 
     # 3. Geographic bounds
     north, south, east, west = tile_bounds(x, y, z)

@@ -14,6 +14,7 @@ import math
 import os
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
+from uuid import uuid4
 
 import numpy as np
 
@@ -171,6 +172,8 @@ class LightPollutionAnalyzer:
 
         self._geotiff_path = geotiff_path
         self._src = rasterio.open(geotiff_path)
+        # Identifies this opened handle/model lifetime, not a dataset age/version.
+        self._tile_cache_revision = uuid4().hex
         self._skyglow_sigma_km = skyglow_sigma_km
         self._skyglow_weight = skyglow_weight
         self._skyglow_grid = None
@@ -200,7 +203,7 @@ class LightPollutionAnalyzer:
         if self._src is None or gaussian_filter is None:
             return
 
-        full = self._src.read(1)
+        full = self._read_valid()
 
         # Downsample factor (16x → ~7.4 km/px at equator)
         ds = 16
@@ -208,16 +211,23 @@ class LightPollutionAnalyzer:
         dh, dw = h // ds, w // ds
         trimmed = full[: dh * ds, : dw * ds]
 
-        # Block average — mean of each ds × ds block
-        downsampled = trimmed.reshape(dh, ds, dw, ds).mean(axis=(1, 3))
-
         # Convert sigma from km to pixels in downsampled grid
         sigma_px = self._skyglow_sigma_km / (_GEOTIFF_RES_KM * ds)
 
-        # Apply Gaussian blur — this is the skyglow model
-        self._skyglow_grid = gaussian_filter(downsampled.astype(np.float64), sigma=max(sigma_px, 0.5)).astype(
-            np.float32
-        )
+        if np.ma.is_masked(trimmed):
+            # Normalized convolution excludes missing samples instead of treating
+            # them as dark emitters or letting a sentinel contaminate neighbours.
+            valid = ~np.ma.getmaskarray(trimmed)
+            sums = trimmed.filled(0).reshape(dh, ds, dw, ds).sum(axis=(1, 3), dtype=np.float64)
+            counts = valid.reshape(dh, ds, dw, ds).sum(axis=(1, 3), dtype=np.float64)
+            signal = gaussian_filter(sums, sigma=max(sigma_px, 0.5))
+            weight = gaussian_filter(counts, sigma=max(sigma_px, 0.5))
+            grid = np.divide(signal, weight, out=np.full_like(signal, np.nan), where=weight > 0)
+        else:
+            # Preserve the existing all-valid model exactly.
+            downsampled = np.ma.getdata(trimmed).reshape(dh, ds, dw, ds).mean(axis=(1, 3))
+            grid = gaussian_filter(downsampled.astype(np.float64), sigma=max(sigma_px, 0.5))
+        self._skyglow_grid = grid.astype(np.float32)
 
         # Geo-transform for the downsampled grid
         self._skyglow_transform = (
@@ -333,6 +343,16 @@ class LightPollutionAnalyzer:
     # Radiance accessors
     # ------------------------------------------------------------------
 
+    def _read_valid(self, **kwargs) -> np.ma.MaskedArray:
+        """Honor GDAL nodata/masks and reject non-finite samples without value guessing."""
+        return np.ma.masked_invalid(self._src.read(1, masked=True, **kwargs), copy=False)
+
+    def _correct_radiance(self, raw: float, latitude: float, longitude: float) -> Optional[float]:
+        value = (
+            raw if self._skyglow_weight == 0 else raw + self._skyglow_weight * self._get_skyglow(latitude, longitude)
+        )
+        return float(value) if math.isfinite(value) else None
+
     def get_raw_radiance(self, latitude: float, longitude: float) -> Optional[float]:
         """Get raw VIIRS DNB radiance (nW/cm²/sr) WITHOUT skyglow correction.
 
@@ -349,8 +369,8 @@ class LightPollutionAnalyzer:
             row, col = self._src.index(longitude, latitude)
             if not (0 <= row < self._src.height and 0 <= col < self._src.width):
                 return None
-            val = float(self._src.read(1, window=((row, row + 1), (col, col + 1)))[0, 0])
-            return val
+            val = self._read_valid(window=((row, row + 1), (col, col + 1)))[0, 0]
+            return None if np.ma.is_masked(val) else float(val)
         except GeoError:
             return None
 
@@ -370,8 +390,7 @@ class LightPollutionAnalyzer:
         raw = self.get_raw_radiance(latitude, longitude)
         if raw is None:
             return None
-        skyglow = self._get_skyglow(latitude, longitude)
-        return raw + self._skyglow_weight * skyglow
+        return self._correct_radiance(raw, latitude, longitude)
 
     def get_light_pollution_color(self, latitude: float, longitude: float) -> Optional[LightPollutionInfo]:
         """Get light pollution information at the given coordinates.
@@ -455,12 +474,14 @@ class LightPollutionAnalyzer:
         results = [None] * len(coordinates_list)
 
         for row, items in row_groups.items():
-            row_data = self._src.read(1, window=((row, row + 1), (0, self._src.width)))
+            row_data = self._read_valid(window=((row, row + 1), (0, self._src.width)))
             for idx, col, lat, lon in items:
-                # Add skyglow correction
-                raw = float(row_data[0, col])
-                skyglow = self._get_skyglow(lat, lon)
-                radiance = raw + self._skyglow_weight * skyglow
+                sample = row_data[0, col]
+                if np.ma.is_masked(sample):
+                    continue
+                radiance = self._correct_radiance(float(sample), lat, lon)
+                if radiance is None:
+                    continue
                 bortle = radiance_to_bortle(radiance)
                 r, g, b = radiance_to_false_color(radiance)
                 results[idx] = {
@@ -488,7 +509,7 @@ class LightPollutionAnalyzer:
                     "coordinates": coordinates_list[i],
                     "pollution_info": None,
                     "success": False,
-                    "error": "Outside data coverage",
+                    "error": "Outside coverage or no valid radiance data",
                 }
         return results
 

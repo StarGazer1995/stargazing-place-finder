@@ -681,22 +681,27 @@ class TestFastApiRoutes:
 
     # ── Tile slow path ───────────────────────────────────────────────
 
-    @patch("server.routes.tiles.get_cached_tile", return_value=b"cached_png_data")
-    def test_tile_fast_path_cache_hit(self, mock_cache):
+    @patch("server.routes.tiles._require_analyzer")
+    @patch("server.tile_renderer.get_cached_tile", return_value=b"cached_png_data")
+    def test_tile_cache_hit_uses_current_analyzer(self, mock_cache, mock_req):
         from fastapi.testclient import TestClient
 
         from server.main import app
 
+        analyzer = MagicMock()
+        analyzer._tile_cache_revision = "fixture-handle"
+        mock_req.return_value = analyzer
         with TestClient(app) as client:
             resp = client.get("/api/light_pollution/tiles/3/1/1.png")
             assert resp.status_code == 200
             assert resp.content == b"cached_png_data"
             assert resp.headers["content-type"] == "image/png"
+            mock_req.assert_called_once()
+            mock_cache.assert_called_once_with("fixture-handle:3/1/1")
 
     @patch("server.routes.tiles._require_analyzer")
     @patch("server.routes.tiles.render_tile")
-    @patch("server.routes.tiles.get_cached_tile", return_value=None)
-    def test_tile_slow_path(self, mock_cache, mock_render, mock_req):
+    def test_tile_slow_path(self, mock_render, mock_req):
         from fastapi.testclient import TestClient
 
         from server.main import app
@@ -711,8 +716,7 @@ class TestFastApiRoutes:
 
     @patch("server.routes.tiles._require_analyzer")
     @patch("server.routes.tiles.render_tile", return_value=None)
-    @patch("server.routes.tiles.get_cached_tile", return_value=None)
-    def test_tile_slow_path_empty(self, mock_cache, mock_render, mock_req):
+    def test_tile_slow_path_empty(self, mock_render, mock_req):
         from fastapi.testclient import TestClient
 
         from server.main import app
