@@ -8,10 +8,9 @@
  * The app entry point is `/index-vite.html` (not `/`) because the repo
  * keeps a minimal `index.html` fallback for pre-build states.
  *
- * We use `waitUntil: 'domcontentloaded'` because CDN resources (unpkg
- * Leaflet, Aladin) may be slow or unreachable in CI.  UI elements are
- * present in the DOM regardless of whether the loading overlay has been
- * dismissed — the overlay is a CSS-only cover, not a conditional render.
+ * We use `waitUntil: 'domcontentloaded'` because CDN resources may be slow.
+ * The startup regression also checks that controls accept actual input while
+ * data requests are pending or unavailable, rather than only checking DOM presence.
  */
 import { test, expect } from '@playwright/test';
 
@@ -36,7 +35,7 @@ test.describe('Page load', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Core UI elements (DOM presence — overlay may still be visible)
+// Core UI elements
 // ---------------------------------------------------------------------------
 
 test.describe('Core UI elements', () => {
@@ -44,8 +43,8 @@ test.describe('Core UI elements', () => {
     await page.goto(PAGE, { waitUntil: 'domcontentloaded' });
   });
 
-  test('should show the loading overlay on initial load', async ({ page }) => {
-    await expect(page.locator('#loading-overlay')).toBeVisible();
+  test('should dismiss the loading overlay when the UI is ready', async ({ page }) => {
+    await expect(page.locator('#loading-overlay')).toHaveClass(/\bhidden\b/);
   });
 
   test('should show the search input', async ({ page }) => {

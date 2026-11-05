@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Dismiss the Web startup cover after the UI initializes so it no longer blocks
+  map controls indefinitely. Data loading retains its separate indicator and
+  does not imply that missing light-pollution or weather data became available.
+- Add browser regressions that type into search and switch language with pending
+  or unavailable API responses; DOM presence alone does not establish usability.
+
 ## 0.9.2 (2026-11-04) — Source isolation and raster validity
 
 - Require stargazing-core 0.2.2 for the validated offset-aware shooting scheduler.
