@@ -174,6 +174,7 @@ function boot(): void {
   initTelescopeMode();
   initMosaic();
   syncPanelVisibility();
+  document.getElementById('loading-overlay')?.classList.add('hidden');
   console.log('[Stargazing] App initialized');
 }
 
