@@ -25,8 +25,10 @@ declare module 'leaflet.markercluster' {
   }
 }
 
-// Aladin Lite v3 — loaded dynamically from CDN (no npm package available)
-declare var A: any;
+declare module 'aladin-lite' {
+  const A: any;
+  export default A;
+}
 
 // Application config injected by the server (if any)
 interface Window {

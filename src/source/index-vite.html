@@ -120,8 +120,8 @@
 
     <!-- 右上角按钮组 -->
     <div class="top-right-buttons">
-        <button id="mode-toggle-btn" class="mode-toggle-btn" aria-label="切换模式">🎯 区域分析</button>
-        <button id="telescope-toggle-btn" class="telescope-toggle-btn" aria-label="切换望远镜模式">🔭 望远镜</button>
+        <button id="mode-toggle-btn" class="mode-toggle-btn" aria-label="切换模式" aria-pressed="false">🎯 区域分析</button>
+        <button id="telescope-toggle-btn" class="telescope-toggle-btn" aria-label="切换望远镜模式" aria-pressed="false">🔭 望远镜</button>
         <button id="language-btn" class="language-btn" aria-label="切换语言">中/EN</button>
     </div>
 
@@ -201,6 +201,7 @@
 
         <div id="target-results-section" class="target-results-section" style="display: none;">
             <h4 id="target-results-header" class="target-results-header">🎯 推荐拍摄目标 <span class="target-count"></span> <span class="collapse-arrow">▼</span></h4>
+            <div id="moon-card" class="moon-card" style="display: none;"></div>
             <div id="target-results-list" class="target-results-body"></div>
         </div>
     </div>
@@ -215,9 +216,6 @@
     <div id="telescope-status" class="telescope-status" style="display: none;">
         🖱️ 拖动星图浏览天区 | 🔍 在上方搜索天体 | 蓝色框 = 你的设备画幅
     </div>
-
-    <!-- Leaflet LocateControl (no reliable npm package) -->
-    <script src="https://unpkg.com/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js"></script>
 
     <!-- Vite entry point — all other JS is bundled via ES module imports -->
     <script type="module" src="/js/index.ts"></script>

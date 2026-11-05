@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.4 (2026-11-05) — Restore telescope interaction
+
+- Restore telescope mode wiring by binding the actual telescope button, panel and Aladin
+  container IDs, and make area-analysis and sky-chart modes display exclusively.
+- Use same-origin API requests by default so Vite and reverse-proxy deployments no longer
+  invent a separate backend port or trigger cross-origin POSTs.
+- Bundle Aladin Lite locally and use ESA's reachable DSS HiPS mirror. Correct Aladin
+  promise initialisation, target overlay construction and the avoided CDS lookup.
+- Align the frontend with backend telescope responses: unix altitude curves,
+  `start_alt`/`end_alt`, dark-time totals and moon fields. Optional reverse geocoding no
+  longer blocks the target-matching API.
+- Add unit, backend-contract and browser regressions. Browser coverage validates exact
+  request bodies and same-origin URLs, drives target/mosaic/plan interactions, and proves
+  telescope mode still opens when every external HTTPS request is blocked.
+
 ## 0.9.3 (2026-11-05) — Unblock Web startup
 
 - Dismiss the Web startup cover after the UI initializes so it no longer blocks

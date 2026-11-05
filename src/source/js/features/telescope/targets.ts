@@ -2,13 +2,12 @@
 // Telescope targets — API calls for target matching & shooting plan
 // =============================================================================
 
-import { aladinInstance, map, telescopeTargetLocation, lastMatchBody, lastMoon, lastTargets } from '../../state';
+import { aladinInstance, map, telescopeTargetLocation, lastMatchBody } from '../../state';
 import {
   setLastMatchBody, setLastMoon, setLastTargets, setTelescopeTargetLocation,
 } from '../../state';
-import { API_CONFIG } from '../../core/api';
+import { API_CONFIG, fetchWithTimeout } from '../../core/api';
 import { renderTargetResults, renderMoonCard, overlayTargetsOnAladin, renderShootingPlan } from './target-renderer';
-import { showAltitudeChart } from './altitude-chart';
 import type { TelescopeTargetRequest } from '../../types/api';
 
 // ---------------------------------------------------------------------------
@@ -64,7 +63,6 @@ export async function matchTelescopeTargets(): Promise<void> {
     const sw = parseFloat((document.getElementById('telescope-sensor-width') as HTMLInputElement)?.value || '23.5');
     const sh = parseFloat((document.getElementById('telescope-sensor-height') as HTMLInputElement)?.value || '15.7');
 
-    const raDec = aladinInstance ? aladinInstance.getRaDec() : [0, 0];
     let obsLat: number, obsLng: number;
     if (telescopeTargetLocation) {
       obsLat = telescopeTargetLocation.lat;
@@ -79,20 +77,29 @@ export async function matchTelescopeTargets(): Promise<void> {
 
     const body = buildTargetRequest(fl, sw, sh, obsLat, obsLng, Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', buildTimeString());
 
-    // Reverse-geocode for display
     let placeName = '';
-    try {
-      const geoResp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${obsLat}&lon=${obsLng}&zoom=10`);
-      const geoData = await geoResp.json();
-      placeName = geoData.display_name || '';
-    } catch { /* ignore */ }
-    if (countEl) countEl.textContent = placeName ? `📍 ${placeName} ` : '';
+    let targetCount: number | null = null;
+    const renderCount = () => {
+      if (!countEl || targetCount === null) return;
+      countEl.textContent = `${placeName ? `📍 ${placeName} ` : ''}(${targetCount} 个目标)`;
+    };
+    const geocodePromise = fetchWithTimeout(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${obsLat}&lon=${obsLng}&zoom=10`,
+      {},
+      2_500,
+    )
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        placeName = data?.display_name || '';
+        renderCount();
+      })
+      .catch(() => { /* Reverse geocoding is optional and must never block matching. */ });
 
-    const resp = await fetch(`${API_CONFIG.baseUrl}/api/telescope/targets`, {
+    const resp = await fetchWithTimeout(`${API_CONFIG.baseUrl}/api/telescope/targets`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    });
+    }, 60_000);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     const targets = data.targets || [];
@@ -102,13 +109,15 @@ export async function matchTelescopeTargets(): Promise<void> {
     setLastMatchBody(body);
     setLastTargets(targets);
 
-    if (countEl) countEl.textContent += `(${targets.length} 个目标)`;
+    targetCount = targets.length;
+    renderCount();
     if (list) renderTargetResults(targets, list);
     renderMoonCard(moon);
     overlayTargetsOnAladin(targets);
 
     const planBtn = document.getElementById('plan-btn');
     if (planBtn) planBtn.style.display = '';
+    void geocodePromise;
   } catch (e: any) {
     console.error('Target matching failed:', e);
     if (list) list.innerHTML = `<p class="target-error">匹配失败: ${e.message}</p>`;
@@ -131,11 +140,11 @@ export async function fetchShootingPlan(): Promise<void> {
   if (panel) panel.style.display = 'block';
 
   try {
-    const resp = await fetch(`${API_CONFIG.baseUrl}/api/telescope/plan`, {
+    const resp = await fetchWithTimeout(`${API_CONFIG.baseUrl}/api/telescope/plan`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(lastMatchBody),
-    });
+    }, 60_000);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     const plan = data.plan;

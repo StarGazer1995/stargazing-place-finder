@@ -2,11 +2,12 @@
 // Target renderer — DOM rendering and Aladin overlay for telescope targets
 // =============================================================================
 
-import { aladinInstance, targetCatalog, lastMosaicTarget } from '../../state';
-import { setTargetCatalog, setLastMosaicTarget } from '../../state';
+import { aladinInstance, lastTargets } from '../../state';
+import { setTargetCatalog } from '../../state';
 import { showAltitudeChart } from './altitude-chart';
 import { fetchMosaicGrid } from '../mosaic/index';
-import type { TelescopeTarget, MoonData, ShootingPlan, PlanSlot } from '../../types/telescope';
+import { getAladin } from './aladin-core';
+import type { TelescopeTarget, MoonData, ShootingPlan } from '../../types/telescope';
 
 // ---------------------------------------------------------------------------
 // Target list rendering (testable — returns HTML strings)
@@ -25,13 +26,47 @@ function renderTargetCard(t: TelescopeTarget, rank: number): string {
   const rot = t.optimal_rotation_deg != null ? `${t.optimal_rotation_deg.toFixed(0)}°` : null;
   return `
     <div class="target-card" data-target-name="${t.name}" data-ra="${t.ra}" data-dec="${t.dec}">
-      <span class="tc-rank">#${rank}</span>
-      <span class="tc-name">${t.name}</span>
-      <span class="tc-score">${sc}</span>
-      <span class="tc-fov">FOV ${((t.fov_fit_score ?? 0) * 100).toFixed(0)}%</span>
-      ${sb ? `<span class="tc-sb">🌌 SB ${sb}</span>` : ''}
-      ${rot ? `<span class="tc-rot">🔄 ${rot}</span>` : ''}
+      <span class="target-rank">#${rank}</span>
+      <span class="target-info">
+        <span class="target-name">${t.name}${t.mosaic_recommended ? ' 🧩' : ''}</span>
+        <span class="target-type">${t.type || 'Deep-sky object'}</span>
+        <span class="target-detail">
+          FOV ${((t.fov_fit_score ?? 0) * 100).toFixed(0)}%
+          ${sb ? ` · 🌌 SB ${sb}` : ''}
+          ${rot ? ` · 🔄 ${rot}` : ''}
+        </span>
+      </span>
+      <span class="target-score">${sc}</span>
     </div>`;
+}
+
+/** Bind target-card clicks to the altitude and mosaic views. */
+export function bindTargetInteractions(
+  container: HTMLElement,
+  handlers: {
+    showAltitude?: (target: TelescopeTarget) => void;
+    fetchMosaic?: (target: TelescopeTarget) => Promise<void>;
+  } = {
+    showAltitude: showAltitudeChart,
+    fetchMosaic: fetchMosaicGrid,
+  },
+): void {
+  container.addEventListener('click', (event) => {
+    const card = (event.target as HTMLElement).closest<HTMLElement>('[data-target-name]');
+    if (!card) return;
+
+    const target = lastTargets.find((item) => item.name === card.dataset.targetName);
+    if (!target) return;
+
+    if (aladinInstance) {
+      try {
+        aladinInstance.gotoRaDec(target.ra, target.dec);
+      } catch { /* Aladin may still be settling after mode activation */ }
+    }
+
+    handlers.showAltitude?.(target);
+    if (target.mosaic_recommended) void handlers.fetchMosaic?.(target);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -78,9 +113,10 @@ export function renderShootingPlan(
         <div class="plan-row">
           <span>${s.start_time}–${s.end_time}</span>
           <span>${s.target_name}</span>
-          <span>${s.altitude_start?.toFixed(0) ?? '?'}°→${s.altitude_end?.toFixed(0) ?? '?'}°</span>
+          <span>${s.start_alt.toFixed(0)}°→${s.end_alt.toFixed(0)}°</span>
         </div>`).join('')}
-      ${plan.total_exposure_min ? `<p class="plan-total">总曝光: ${plan.total_exposure_min} min</p>` : ''}
+      <p class="plan-summary">已安排 ${plan.used_min} / ${plan.total_dark_min} 分钟 · 月面 ${Math.round(plan.moon_illumination * 100)}%</p>
+      ${plan.warnings.map((warning) => `<p class="plan-warning">⚠️ ${warning}</p>`).join('')}
     </div>`;
 }
 /* c8 ignore stop */
@@ -102,10 +138,10 @@ export function overlayTargetsOnAladin(targets: TelescopeTarget[]): void {
     aladinInstance.removeCatalogs();
   } catch { /* ignore */ }
 
-  const A = (window as any).A;
-  if (!A?.catalog) return;
+  const Aladin = getAladin();
+  if (!Aladin?.catalog) return;
 
-  const catalog = A.catalog({
+  const catalog = Aladin.catalog({
     name: 'Targets',
     sourceSize: 8,
     shape: 'circle',
@@ -113,9 +149,9 @@ export function overlayTargetsOnAladin(targets: TelescopeTarget[]): void {
     onClick: 'showTable',
   });
 
-  targets.forEach((t) => {
-    catalog.addSources([{ ra: t.ra, dec: t.dec, name: t.name }]);
-  });
+  catalog.addSources(
+    targets.map((target) => Aladin.source(target.ra, target.dec, { name: target.name })),
+  );
 
   aladinInstance.addCatalog(catalog);
   setTargetCatalog(catalog);

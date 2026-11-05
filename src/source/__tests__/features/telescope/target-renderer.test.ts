@@ -1,6 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { renderTargetResults, renderMoonCard } from '../../../js/features/telescope/target-renderer';
-import type { TelescopeTarget, MoonData } from '../../../js/types/telescope';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+  bindTargetInteractions,
+  renderMoonCard,
+  renderShootingPlan,
+  renderTargetResults,
+} from '../../../js/features/telescope/target-renderer';
+import { setAladinInstance, setLastTargets } from '../../../js/state';
+import type { TelescopeTarget, MoonData, ShootingPlan } from '../../../js/types/telescope';
 
 function makeTarget(
   name: string,
@@ -70,6 +76,52 @@ describe('renderTargetResults', () => {
     renderTargetResults([makeTarget('M31', 85)], container);
     expect(container.innerHTML).not.toContain('🔄');
   });
+
+  it('marks large targets as mosaic candidates', () => {
+    const container = document.createElement('div');
+    renderTargetResults([makeTarget('M31', 85, 0.8, { mosaic_recommended: true })], container);
+    expect(container.innerHTML).toContain('🧩');
+  });
+});
+
+describe('bindTargetInteractions', () => {
+  beforeEach(() => {
+    setLastTargets([]);
+    setAladinInstance(null);
+  });
+
+  it('navigates to the selected target and opens mosaic for recommended targets', () => {
+    const target = makeTarget('M31', 85, 0.8, { mosaic_recommended: true });
+    const gotoRaDec = vi.fn();
+    const showAltitude = vi.fn();
+    const fetchMosaic = vi.fn().mockResolvedValue(undefined);
+    const container = document.createElement('div');
+    container.innerHTML = '<div data-target-name="M31"><span>select</span></div>';
+
+    setLastTargets([target]);
+    setAladinInstance({ gotoRaDec });
+    bindTargetInteractions(container, { showAltitude, fetchMosaic });
+    container.querySelector('span')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(gotoRaDec).toHaveBeenCalledWith(target.ra, target.dec);
+    expect(showAltitude).toHaveBeenCalledWith(target);
+    expect(fetchMosaic).toHaveBeenCalledWith(target);
+  });
+
+  it('does not request a mosaic for ordinary targets', () => {
+    const target = makeTarget('M42', 75);
+    const showAltitude = vi.fn();
+    const fetchMosaic = vi.fn().mockResolvedValue(undefined);
+    const container = document.createElement('div');
+    container.innerHTML = '<div data-target-name="M42">select</div>';
+
+    setLastTargets([target]);
+    bindTargetInteractions(container, { showAltitude, fetchMosaic });
+    container.querySelector('div')?.click();
+
+    expect(showAltitude).toHaveBeenCalledWith(target);
+    expect(fetchMosaic).not.toHaveBeenCalled();
+  });
 });
 
 describe('renderMoonCard', () => {
@@ -98,5 +150,48 @@ describe('renderMoonCard', () => {
     expect(el.style.display).toBe('none');
 
     document.body.removeChild(el);
+  });
+});
+
+describe('renderShootingPlan', () => {
+  const plan: ShootingPlan = {
+    date: '2026-11-05',
+    dusk: '2026-11-05T09:39:00.000',
+    dawn: '2026-11-05T22:21:00.000',
+    moon_phase: 'Waning Crescent',
+    moon_illumination: 0.13,
+    moon_delay_min: 0,
+    slots: [{
+      start_time: '2026-11-05T11:18:00+00:00',
+      end_time: '2026-11-05T13:16:00+00:00',
+      target_name: 'M 31',
+      target_type: 'Gx',
+      start_alt: 25.1,
+      end_alt: 47.1,
+      duration_min: 118,
+      fov_fit_score: 1,
+      suitability_score: 88,
+      mosaic_recommended: true,
+      notes: [],
+    }],
+    total_dark_min: 762,
+    used_min: 652,
+    warnings: ['110 min of dark time unallocated'],
+  };
+
+  it('renders backend start_alt/end_alt and dark-time totals', () => {
+    const container = document.createElement('div');
+    renderShootingPlan(plan, [makeTarget('M 31', 88)], container);
+
+    expect(container.textContent).toContain('25°→47°');
+    expect(container.textContent).toContain('652 / 762');
+    expect(container.textContent).toContain('13%');
+    expect(container.textContent).toContain('110 min of dark time unallocated');
+  });
+
+  it('renders an empty state when the backend returns no slots', () => {
+    const container = document.createElement('div');
+    renderShootingPlan({ ...plan, slots: [] }, [], container);
+    expect(container.textContent).toContain('无可用拍摄计划');
   });
 });

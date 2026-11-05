@@ -101,6 +101,10 @@ class TestTelescopeTargets:
                 "suitability_score": 85.0,
                 "mosaic_recommended": True,
                 "catalog": "Messier",
+                "altitude_curve": [
+                    {"time": 1793871600.0, "alt": 35.0},
+                    {"time": 1793896800.0, "alt": 75.0},
+                ],
             }
         ]
         monkeypatch.setattr(
@@ -135,6 +139,7 @@ class TestTelescopeTargets:
         assert data["total"] == 1
         assert len(data["targets"]) == 1
         assert data["targets"][0]["name"] == "M 31"
+        assert data["targets"][0]["altitude_curve"][0] == {"time": 1793871600.0, "alt": 35.0}
         assert "config" in data
 
     def test_get_targets_defaults(self, client: TestClient, monkeypatch) -> None:
@@ -205,7 +210,10 @@ class TestTelescopePlan:
                 "suitability_score": 85.0,
                 "mosaic_recommended": False,
                 "catalog": "Messier",
-                "altitude_curve": [],
+                "altitude_curve": [
+                    {"time": 1706202000.0, "alt": 30.0},
+                    {"time": 1706252400.0, "alt": 30.0},
+                ],
                 "civil_dusk": "2024-01-25T17:00:00",
                 "civil_dawn": "2024-01-26T07:00:00",
                 "observation_time": "2024-01-25T17:00:00",
@@ -249,6 +257,8 @@ class TestTelescopePlan:
         assert "slots" in plan
         assert "date" in plan
         assert "total_dark_min" in plan
+        assert plan["slots"][0]["start_alt"] == 30.0
+        assert plan["slots"][0]["end_alt"] == 30.0
 
     def test_get_plan_empty_targets(self, client: TestClient, monkeypatch) -> None:
         """Plan endpoint handles empty targets gracefully."""

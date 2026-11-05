@@ -2,7 +2,7 @@
 // Altitude chart — Canvas-drawn altitude curve for the selected target
 // =============================================================================
 
-import type { TelescopeTarget } from '../../types/telescope';
+import type { AltitudeCurvePoint, TelescopeTarget } from '../../types/telescope';
 
 // ---------------------------------------------------------------------------
 // Pure math helpers (testable)
@@ -33,6 +33,20 @@ export function formatTimeLabel(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h}:${String(m).padStart(2, '0')}`;
+}
+
+export interface ProjectedAltitudePoint {
+  offsetMinutes: number;
+  altitude: number;
+}
+
+/** Convert the backend's unix-time/altitude payload into chart coordinates. */
+export function mapAltitudeCurve(curve: AltitudeCurvePoint[]): ProjectedAltitudePoint[] {
+  const startTime = curve[0]?.time ?? 0;
+  return curve.map((point) => ({
+    offsetMinutes: Math.round((point.time - startTime) / 60),
+    altitude: point.alt,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -85,31 +99,31 @@ export function showAltitudeChart(target: TelescopeTarget): void {
     }
 
     // X-axis time labels
-    const times = curve.map(p => p.time);
-    const step = Math.max(1, Math.floor(times.length / 6));
+    const points = mapAltitudeCurve(curve);
+    const step = Math.max(1, Math.floor(points.length / 6));
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.font = '9px sans-serif';
     ctx.textAlign = 'center';
-    for (let i = 0; i < times.length; i += step) {
-      const x = pad.left + (i / (times.length - 1)) * pw;
-      ctx.fillText(times[i]!, x, h - 2);
+    for (let i = 0; i < points.length; i += step) {
+      const x = pad.left + (i / (points.length - 1)) * pw;
+      ctx.fillText(formatTimeLabel(points[i]!.offsetMinutes), x, h - 2);
     }
 
     // Altitude curve
     ctx.strokeStyle = '#4a90e2';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    curve.forEach((p, i) => {
+    points.forEach((point, i) => {
       const x = pad.left + (i / (curve.length - 1)) * pw;
-      const y = scaleAltitudeToPixel(p.altitude, ph, pad.top);
+      const y = scaleAltitudeToPixel(point.altitude, ph, pad.top);
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
     ctx.stroke();
 
     // Endpoints
-    curve.forEach((p, i) => {
+    points.forEach((point, i) => {
       const x = pad.left + (i / (curve.length - 1)) * pw;
-      const y = scaleAltitudeToPixel(p.altitude, ph, pad.top);
+      const y = scaleAltitudeToPixel(point.altitude, ph, pad.top);
       ctx.fillStyle = '#4a90e2';
       ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
     });

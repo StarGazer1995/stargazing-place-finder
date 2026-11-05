@@ -66,20 +66,28 @@ describe('resolveApiBaseUrl', () => {
     expect(resolveApiBaseUrl()).toBe('http://query:8080');
   });
 
-  it('uses localhost hostname with port 5001 when no config', () => {
+  it('uses the current same-origin page by default', () => {
     Object.defineProperty(window, 'location', {
-      value: { search: '', protocol: 'http:', hostname: 'localhost' },
+      value: { search: '', protocol: 'http:', hostname: 'localhost', port: '5173' },
       writable: true, configurable: true,
     });
-    expect(resolveApiBaseUrl()).toBe('http://127.0.0.1:5001');
+    expect(resolveApiBaseUrl()).toBe('http://localhost:5173');
   });
 
-  it('preserves non-localhost hostname', () => {
+  it('preserves non-localhost page origin including its port', () => {
     Object.defineProperty(window, 'location', {
-      value: { search: '', protocol: 'https:', hostname: 'stargazing.example.com' },
+      value: { search: '', protocol: 'https:', hostname: 'stargazing.example.com', port: '5001' },
       writable: true, configurable: true,
     });
     expect(resolveApiBaseUrl()).toBe('https://stargazing.example.com:5001');
+  });
+
+  it('uses a reverse proxy origin without inventing a backend port', () => {
+    Object.defineProperty(window, 'location', {
+      value: { search: '', protocol: 'https:', hostname: 'stargazing.example.com', port: '' },
+      writable: true, configurable: true,
+    });
+    expect(resolveApiBaseUrl()).toBe('https://stargazing.example.com');
   });
 
   it('falls back to hardcoded default when hostname is empty', () => {

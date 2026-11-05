@@ -4,7 +4,7 @@
 
 import { aladinInstance, mosaicGrid, mosaicOverlay, lastMatchBody, lastMosaicTarget } from '../../state';
 import { setMosaicGrid, setMosaicOverlay, setLastMosaicTarget } from '../../state';
-import { API_CONFIG } from '../../core/api';
+import { API_CONFIG, fetchWithTimeout } from '../../core/api';
 import { onAladinReady } from '../telescope/aladin-core';
 import type { MosaicGrid, MosaicPanel, TelescopeTarget } from '../../types/telescope';
 
@@ -73,11 +73,11 @@ export async function fetchMosaicGrid(target: TelescopeTarget): Promise<void> {
   };
 
   try {
-    const resp = await fetch(`${API_CONFIG.baseUrl}/api/telescope/mosaic`, {
+    const resp = await fetchWithTimeout(`${API_CONFIG.baseUrl}/api/telescope/mosaic`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reqBody),
-    });
+    }, 30_000);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     if (data.error) { body.innerHTML = `<p class="target-error">${data.error}</p>`; return; }

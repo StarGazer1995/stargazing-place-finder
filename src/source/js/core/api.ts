@@ -17,7 +17,7 @@ export function normalizeBaseUrl(url: string): string {
  * Resolve the API base URL using a cascading fallback chain:
  *  1. URL query parameter `?apiBaseUrl=`
  *  2. Global config `window.APP_CONFIG.apiBaseUrl`
- *  3. Current page hostname with default API port (5001)
+ *  3. Current page origin (the backend serves the SPA, and Vite proxies /api)
  *  4. Hardcoded fallback for local development
  */
 export function resolveApiBaseUrl(): string {
@@ -28,11 +28,13 @@ export function resolveApiBaseUrl(): string {
 
   if (configuredBaseUrl) return normalizeBaseUrl(configuredBaseUrl);
 
-  const { protocol, hostname } = window.location;
+  const { protocol, host, hostname, port } = window.location;
+  if (host) {
+    return `${protocol === 'https:' ? 'https:' : 'http:'}//${host}`;
+  }
   if (hostname) {
     const resolvedProtocol = protocol === 'https:' ? 'https:' : 'http:';
-    const resolvedHost = hostname === 'localhost' ? '127.0.0.1' : hostname;
-    return `${resolvedProtocol}//${resolvedHost}:5001`;
+    return `${resolvedProtocol}//${hostname}${port ? `:${port}` : ''}`;
   }
 
   return 'http://127.0.0.1:5001';
