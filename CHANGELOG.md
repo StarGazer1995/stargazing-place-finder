@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.3 (2026-11-05) — Unblock Web startup
 
 - Dismiss the Web startup cover after the UI initializes so it no longer blocks
   map controls indefinitely. Data loading retains its separate indicator and
