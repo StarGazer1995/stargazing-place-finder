@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeChartLayout,
+  mapAltitudeCurve,
   scaleAltitudeToPixel,
   formatTimeLabel,
 } from '../../../js/features/telescope/altitude-chart';
@@ -73,5 +74,29 @@ describe('formatTimeLabel', () => {
   it('handles large values', () => {
     expect(formatTimeLabel(600)).toBe('10:00');
     expect(formatTimeLabel(1439)).toBe('23:59');
+  });
+});
+
+describe('mapAltitudeCurve', () => {
+  it('maps backend unix timestamps and alt fields into chart points', () => {
+    expect(mapAltitudeCurve([
+      { time: 1793871600, alt: 35 },
+      { time: 1793875200, alt: 60 },
+      { time: 1793882400, alt: 80 },
+    ])).toEqual([
+      { offsetMinutes: 0, altitude: 35 },
+      { offsetMinutes: 60, altitude: 60 },
+      { offsetMinutes: 180, altitude: 80 },
+    ]);
+  });
+
+  it('preserves negative altitude values used below the horizon', () => {
+    expect(mapAltitudeCurve([
+      { time: 1000, alt: -8 },
+      { time: 1060, alt: 2 },
+    ])).toEqual([
+      { offsetMinutes: 0, altitude: -8 },
+      { offsetMinutes: 1, altitude: 2 },
+    ]);
   });
 });

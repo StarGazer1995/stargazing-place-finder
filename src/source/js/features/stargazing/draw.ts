@@ -73,10 +73,17 @@ function handleDrawCreated(e: any): void {
   };
 
   setCurrentPolygon({ layer, coordinates, bbox });
+
+  const analyzeBtn = document.getElementById('analyze-button') as HTMLButtonElement | null;
+  if (analyzeBtn) analyzeBtn.disabled = false;
+  const status = document.getElementById('status-indicator');
+  if (status) status.textContent = '区域已选好，点击“分析观星地点”';
 }
 
 function handleDrawDeleted(_e: any): void {
   setCurrentPolygon(null);
+  const analyzeBtn = document.getElementById('analyze-button') as HTMLButtonElement | null;
+  if (analyzeBtn) analyzeBtn.disabled = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,4 +104,6 @@ export function clearAll(): void {
   if (drawnItems) drawnItems.clearLayers();
   setCurrentPolygon(null);
   clearAnalysisResults();
+  const analyzeBtn = document.getElementById('analyze-button') as HTMLButtonElement | null;
+  if (analyzeBtn) analyzeBtn.disabled = true;
 }

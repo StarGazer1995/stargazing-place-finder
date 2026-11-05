@@ -1,8 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import {
+  SKY_SURVEY_URL,
   TELESCOPE_PRESETS,
   calculateFov,
 } from '../../../js/features/telescope/aladin-core';
+
+describe('sky survey configuration', () => {
+  it('uses the reachable ESA DSS mirror instead of the blocked CDS default', () => {
+    const survey = new URL(SKY_SURVEY_URL);
+    expect(survey.protocol).toBe('https:');
+    expect(survey.hostname).toBe('skies.esac.esa.int');
+    expect(survey.pathname).toBe('/DSSColor');
+  });
+});
 
 describe('calculateFov', () => {
   it('computes FOV for a typical APS-C setup', () => {

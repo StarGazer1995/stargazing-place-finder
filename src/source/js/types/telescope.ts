@@ -40,8 +40,10 @@ export interface TelescopeTarget {
 
 /** Single point on an altitude-vs-time curve. */
 export interface AltitudeCurvePoint {
-  time: string;
-  altitude: number;
+  /** UTC unix timestamp in seconds. */
+  time: number;
+  /** Altitude above the horizon in degrees. */
+  alt: number;
 }
 
 /** Moon illumination data. */
@@ -77,16 +79,28 @@ export interface PlanSlot {
   start_time: string;
   end_time: string;
   target_name: string;
-  exposure_count?: number;
-  altitude_start?: number;
-  altitude_end?: number;
+  target_type: string;
+  start_alt: number;
+  end_alt: number;
+  duration_min: number;
+  fov_fit_score: number;
+  suitability_score: number;
+  mosaic_recommended: boolean;
+  notes: string[];
 }
 
 /** Single-night shooting plan. */
 export interface ShootingPlan {
   date: string;
+  dusk: string;
+  dawn: string;
+  moon_phase: string;
+  moon_illumination: number;
+  moon_delay_min: number;
   slots: PlanSlot[];
-  total_exposure_min?: number;
+  total_dark_min: number;
+  used_min: number;
+  warnings: string[];
 }
 
 /** Marker style configuration for a stargazing quality tier. */

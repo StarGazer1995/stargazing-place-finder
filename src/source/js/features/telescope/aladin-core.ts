@@ -1,23 +1,27 @@
 // =============================================================================
-// Telescope mode — Aladin Lite CDN bridge (coverage-exempt)
+// Telescope mode — Aladin Lite bridge (coverage-exempt)
 // =============================================================================
 //
-// This module dynamically loads the Aladin Lite v3 script from CDN and provides
-// typed wrappers around the global `A` API.  Because Aladin Lite is loaded at
-// runtime via a <script> injection, the integration code (loadAladinScript,
-// ensureAladinReady) cannot be unit-tested — these sections are marked with
-// c8 ignore comments.
+// Aladin Lite is bundled with the frontend. Runtime integration requires WebGL
+// and a live sky survey, so the initialisation path remains coverage-exempt.
 // =============================================================================
 
 import {
-  aladinInstance, aladinInitialized, aladinInitPromise,
-  aladinScriptLoaded, aladinScriptPromise,
-  fovCanvas, fovCanvasCtx, fovAnimFrame, mosaicGrid,
+  aladinInstance, aladinInitPromise,
+  fovCanvas, fovCanvasCtx, fovAnimFrame,
   setAladinInstance, setAladinInitialized, setAladinInitPromise,
-  setAladinScriptLoaded, setAladinScriptPromise,
   setFovCanvas, setFovCanvasCtx, setFovAnimFrame,
 } from '../../state';
 import type { TelescopePreset } from '../../types/telescope';
+
+// The CDS-hosted Aladin script and default survey are unreachable from the
+// deployment network. The npm package removes the script dependency; ESA's
+// public HiPS mirror supplies the survey imagery.
+let Aladin: any = null;
+export function getAladin(): any {
+  return Aladin;
+}
+export const SKY_SURVEY_URL = 'https://skies.esac.esa.int/DSSColor';
 
 // ---------------------------------------------------------------------------
 // Telescope presets (pure data — testable)
@@ -32,42 +36,26 @@ export const TELESCOPE_PRESETS: Record<string, TelescopePreset> = {
 };
 
 // ---------------------------------------------------------------------------
-// Aladin Lite dynamic loading (coverage-exempt)
+// Aladin Lite initialisation (coverage-exempt)
 // ---------------------------------------------------------------------------
 
-/* c8 ignore start — Aladin Lite CDN: cannot test without browser + network */
-function loadAladinScript(): Promise<void> {
-  if (aladinScriptLoaded) return aladinScriptPromise!;
-  if (aladinScriptPromise) return aladinScriptPromise;
-
-  const promise = new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js';
-    script.onload = () => { setAladinScriptLoaded(true); resolve(); };
-    script.onerror = () => reject(new Error('Aladin Lite script failed to load'));
-    document.head.appendChild(script);
-  });
-
-  setAladinScriptPromise(promise);
-  return promise;
-}
-
+/* c8 ignore start — Aladin Lite: requires WebGL + live survey */
 export async function ensureAladinReady(): Promise<any> {
   if (aladinInstance) return aladinInstance;
   if (aladinInitPromise) return aladinInitPromise;
 
   const promise = (async () => {
-    await loadAladinScript();
-    const A = (window as any).A;
-    if (!A) throw new Error('Aladin Lite global (A) not found');
+    const module = await import('aladin-lite');
+    Aladin = module.default;
+    await Aladin.init;
 
-    await A.init();
-
-    const instance = A.aladin('#aladin-lite-div', {
-      target: 'M31',
+    const instance = Aladin.aladin('#aladin-lite-div', {
+      target: '00:42:44.3 +41:16:09',
       fov: 2,
-      survey: 'P/DSS2/color',
+      survey: Aladin.imageHiPS(SKY_SURVEY_URL, { name: 'DSS Color (ESA mirror)' }),
       cooFrame: 'equatorial',
+      mode: 'dark',
+      log: false,
       showCooGridControl: false,
       showSimbadPointerControl: false,
       showProjectionControl: false,

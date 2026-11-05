@@ -19,11 +19,12 @@ export type StatusType = 'info' | 'loading' | 'success' | 'error';
 /** Update the floating status bar text and style. */
 /* c8 ignore start — DOM mode toggling + event binding: requires full browser environment */
 export function updateStatus(message: string, type: StatusType = 'info'): void {
-  const el = document.getElementById('analysis-status');
+  const el = document.getElementById('status-indicator');
   if (!el) return;
 
   el.textContent = message;
-  el.className = `status-bar status-${type}`;
+  el.className = `status-indicator ${type}`;
+  el.style.display = 'block';
 }
 
 // ---------------------------------------------------------------------------
@@ -35,16 +36,25 @@ export function toggleMode(): void {
   if (isTelescopeMode) return; // Don't toggle analysis while telescope is active
 
   setIsAnalysisMode(!isAnalysisMode);
+  const panel = document.getElementById('stargazing-control-panel');
+  const button = document.getElementById('mode-toggle-btn');
 
   if (isAnalysisMode) {
     if (drawControl) {
       map.addControl(drawControl);
     }
+    if (panel) panel.style.display = 'block';
+    button?.classList.add('active');
+    button?.setAttribute('aria-pressed', 'true');
+    updateStatus('在地图上拖拽绘制分析区域', 'info');
   } else {
     if (drawControl) {
       map.removeControl(drawControl);
     }
     clearAll();
+    if (panel) panel.style.display = 'none';
+    button?.classList.remove('active');
+    button?.setAttribute('aria-pressed', 'false');
   }
 }
 
@@ -70,7 +80,7 @@ export function initializeStargazingSelector(): void {
   }
 
   // Wire up the mode toggle
-  const modeBtn = document.getElementById('mode-toggle');
+  const modeBtn = document.getElementById('mode-toggle-btn');
   if (modeBtn) {
     modeBtn.addEventListener('click', toggleMode);
   }
