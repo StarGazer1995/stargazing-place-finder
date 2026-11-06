@@ -1,3 +1,9 @@
+// Bundle map styles so a slow external CDN cannot block app startup.
+import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet-draw/dist/leaflet.draw.css';
+
 // =============================================================================
 // Vite entry point — explicit import chain (no side-effect-only imports)
 // =============================================================================

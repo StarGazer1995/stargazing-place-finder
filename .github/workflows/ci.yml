@@ -60,6 +60,10 @@ jobs:
       - name: Run E2E tests
         run: npm run test:e2e
 
+      - name: Production frontend browser regressions
+        working-directory: src/source
+        run: SPF_E2E_PRODUCTION=1 npm run test:e2e
+
       - name: Upload E2E test report (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
