@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const production = process.env.SPF_E2E_PRODUCTION === '1';
+
 export default defineConfig({
   testDir: '__tests__/e2e',
   timeout: 30_000,
@@ -23,9 +25,11 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npx vite --port 5173 --strictPort',
+    command: production
+      ? 'npm run build && npx vite preview --port 5173 --strictPort'
+      : 'npx vite --port 5173 --strictPort',
     port: 5173,
-    reuseExistingServer: !process.env.CI,
-    timeout: 15_000,
+    reuseExistingServer: !process.env.CI && !production,
+    timeout: production ? 60_000 : 15_000,
   },
 });

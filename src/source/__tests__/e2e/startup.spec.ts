@@ -25,3 +25,29 @@ for (const apiState of ['pending', 'unavailable'] as const) {
     }
   });
 }
+
+test('telescope controls initialize while external HTTPS requests stay pending', async ({ page }) => {
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('https://**', async (route) => {
+    await pending;
+    await route.abort();
+  });
+  await page.route('**/api/**', (route) =>
+    route.fulfill({ status: 503, json: { error: 'fixture unavailable' } }),
+  );
+
+  try {
+    // DOMContentLoaded itself can wait for blocking remote stylesheets.
+    await page.goto('/index-vite.html', { waitUntil: 'commit' });
+    await expect(page.locator('#telescope-toggle-btn')).toBeAttached();
+    await expect(page.locator('link[rel="stylesheet"][href^="https://"]')).toHaveCount(0);
+    await expect(page.locator('#loading-overlay')).toHaveClass(/\bhidden\b/);
+    await page.locator('#telescope-toggle-btn').click();
+    await expect(page.locator('#telescope-toggle-btn')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#telescope-control-panel')).toBeVisible();
+    await expect(page.locator('#aladin-lite-div canvas').first()).toBeVisible();
+  } finally {
+    release();
+  }
+});

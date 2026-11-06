@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — Remove startup stylesheet CDN dependency
+
+- Bundle Leaflet, marker-cluster and draw styles and their image assets with Vite.
+  An unreachable or stalled external stylesheet CDN no longer blocks the UI shell.
+- Exercise pending external requests and run browser regressions against production
+  builds as well as the development server.
+
 ## 0.9.4 (2026-11-05) — Restore telescope interaction
 
 - Restore telescope mode wiring by binding the actual telescope button, panel and Aladin
