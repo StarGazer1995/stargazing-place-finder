@@ -51,11 +51,16 @@ jobs:
           npm run build
 
       - name: Download GeoTIFF data from Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p src/light_pollution/resources
-          curl -fSL --retry 5 --retry-all-errors --retry-delay 2 \
-            -o src/light_pollution/resources/viirs_china_2025.tif \
-            "https://github.com/StarGazer1995/stargazing-place-finder/releases/download/geotiff-data-v1/viirs_china_2025.tif"
+          gh release download geotiff-data-v1 \
+            --repo StarGazer1995/stargazing-place-finder \
+            --pattern viirs_china_2025.tif \
+            --output src/light_pollution/resources/viirs_china_2025.tif \
+            --clobber
+          test "$(stat -c%s src/light_pollution/resources/viirs_china_2025.tif)" -gt 70000000
           ls -lh src/light_pollution/resources/viirs_china_2025.tif
 
       - name: Verify tag matches pyproject.toml version
