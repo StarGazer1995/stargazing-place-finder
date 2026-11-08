@@ -6,6 +6,8 @@
   An unreachable or stalled external stylesheet CDN no longer blocks the UI shell.
 - Exercise pending external requests and run browser regressions against production
   builds as well as the development server.
+- Exercise browse, area-analysis and telescope mode transitions in both directions,
+  including visible panels, pressed-button state, search availability and language switching.
 
 ## 0.9.4 (2026-11-05) — Restore telescope interaction
 
