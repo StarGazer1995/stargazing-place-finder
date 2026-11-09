@@ -21,8 +21,6 @@ export default defineConfig({
         // Type declarations (no runtime code)
         'js/vite-env.d.ts',
         'js/types/**/*.ts',
-        // Entry point — thin orchestrator, verified by smoke test
-        'js/index.ts',
         // Aladin Lite CDN bridge — cannot unit-test without browser + network
         'js/features/telescope/aladin-core.ts',
       ],

@@ -45,6 +45,7 @@
     <div id="search-container" class="search-container">
         <input type="text" id="search-input" placeholder="搜索地点..." 
                aria-label="搜索地点" autocomplete="off" />
+        <div id="search-status" class="search-status" role="status" aria-live="polite"></div>
     </div>
 
     <!-- 光污染图例 — 紧凑渐变条 -->
@@ -121,9 +122,6 @@
     <!-- Aladin Lite 星图容器 -->
     <div id="aladin-container" class="aladin-container" style="display: none;">
         <div id="aladin-lite-div"></div>
-        <div id="aladin-search-container" class="aladin-search-container">
-            <input type="text" id="aladin-search-input" placeholder="搜索天体 (如 M31, M42, NGC 7000)..." aria-label="搜索天体" autocomplete="off" />
-        </div>
     </div>
 
     <!-- 望远镜控制面板 -->

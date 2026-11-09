@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from server.routes.health import router as health_router
+from server.routes.name_resolution import router as name_resolution_router
 from server.routes.pollution import router as pollution_router
 from server.routes.stargazing import router as stargazing_router
 from server.routes.telescope import router as telescope_router
@@ -92,6 +93,7 @@ app.include_router(tiles_router)
 app.include_router(pollution_router)
 app.include_router(stargazing_router)
 app.include_router(telescope_router)
+app.include_router(name_resolution_router)
 
 # Static assets — always mount /assets (dist/ in prod, source/ in dev)
 _assets_dir = _STATIC_DIR / "assets"

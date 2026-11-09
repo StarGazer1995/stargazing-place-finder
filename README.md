@@ -96,10 +96,18 @@ SPF 的 PR 会自动用当前候选 wheel 运行 `mcp-stargazing` 测试，并�
 | 端点 | 方法 | 说明 |
 |------|------|------|
 | `/api/telescope/presets` | GET | 望远镜设备预设列表 |
+| `/api/telescope/resolve?name=M42` | GET | 优先从本地星表解析天体坐标（ICRS，度），其它名称有界查询远程解析服务 |
 | `/api/telescope/optics` | POST | 计算光学参数（FOV、放大倍率、极限星等） |
 | `/api/telescope/targets` | POST | 匹配深空天体目标（排名 + FOV 适配 + 月相） |
 | `/api/telescope/plan` | POST | 生成单晚拍摄计划（时间序列 + 中天翻转 + 窄带推荐） |
 | `/api/telescope/mosaic` | POST | 马赛克拼接规划（多面板 + 可调重叠率） |
+
+顶部搜索框随模式切换：地图/区域分析搜索地点，望远镜模式搜索天体。
+M、NGC、IC 编号忽略空格和大小写，命中 `stargazing-core` 随包星表时不访问外部解析服务；
+返回 `name`、`ra`、`dec`、`source`（本地为 `local_catalog`）。天体定位不等待星图影像下载。
+其它名称的远程解析总等待上限为 5 秒：确认未找到返回 HTTP 404 / `OBJECT_NOT_FOUND`，
+网络、超时或无效回复返回 HTTP 503 / `RESOLVER_UNAVAILABLE`，不把网络失败当成天体不存在。
+页面显示搜索中、已定位或明确失败提示；影像能否显示仍取决于 HiPS 图源网络。
 
 ## 技术架构
 
