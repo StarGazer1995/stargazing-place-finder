@@ -1,12 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.9.5 (2026-11-10) — Restore sky view and reliable target search
 
 - Keep the sky chart in the viewport after Aladin injects its runtime CSS; add viewport and hit-testing regressions.
 - Use a single mode-aware search field with translated hints and stale-result protection.
 - Resolve sky catalog IDs locally through a same-origin API; decouple positioning from survey loading, bound remote lookups and show explicit search status/errors.
-
-## Unreleased — Remove startup stylesheet CDN dependency
 
 - Bundle Leaflet, marker-cluster and draw styles and their image assets with Vite.
   An unreachable or stalled external stylesheet CDN no longer blocks the UI shell.
