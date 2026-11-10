@@ -1,20 +1,37 @@
 """Telescope optics endpoints — presets, FOV calculation, and target matching.
 
-These are thin wrappers around ``stargazing-core``.  No astropy required.
+Shared optics are provided by core; SPF adds display-specific explanations.
 """
 
 import astropy.units as u
 from astropy.coordinates import EarthLocation
 from astropy.time import Time
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import ValidationError
 from stargazing_core import (
     TELESCOPE_PRESETS,
     TelescopeConfig,
     TelescopeOptics,
     compute_mosaic_grid,
     generate_shooting_schedule,
+    load_objects,
     match_telescope_targets,
 )
+from starlette.concurrency import run_in_threadpool
+
+from server.routes.telescope_advice import TargetDisplayOptions, explain_targets, sho_advice, sort_targets
+
+
+def display_options(body: dict) -> TargetDisplayOptions:
+    try:
+        return TargetDisplayOptions.model_validate(
+            {key: body[key] for key in ("sort_by", "camera_type", "limit") if key in body}
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422, detail=exc.errors(include_url=False, include_context=False, include_input=False)
+        ) from exc
+
 
 router = APIRouter(tags=["telescope"])
 
@@ -22,7 +39,10 @@ router = APIRouter(tags=["telescope"])
 @router.get("/api/telescope/presets")
 async def get_presets() -> dict:
     """Return all built-in telescope + camera presets."""
-    return {name: cfg.model_dump() for name, cfg in TELESCOPE_PRESETS.items()}
+    return {
+        name: {**cfg.model_dump(), "camera_type": "color" if name == "hope_d60_asi2600mc_air" else "unknown"}
+        for name, cfg in TELESCOPE_PRESETS.items()
+    }
 
 
 @router.post("/api/telescope/optics")
@@ -48,7 +68,8 @@ async def get_targets(body: dict) -> dict:
     lat = body["lat"]
     time_str = body["time"]
     time_zone = body.get("time_zone", "UTC")
-    limit = body.get("limit", 20)
+    options = display_options(body)
+    limit = options.limit
 
     config = TelescopeConfig(**cfg)
     observer = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
@@ -67,12 +88,22 @@ async def get_targets(body: dict) -> dict:
     else:
         t = Time(dt)
 
-    results = match_telescope_targets(config, observer, t, limit)
+    # Search the full eligible pool before applying the requested ordering/limit.
+    candidate_limit = len(load_objects())
+    results = await run_in_threadpool(match_telescope_targets, config, observer, t, candidate_limit)
+    explained = await run_in_threadpool(
+        explain_targets, results["targets"], results["moon"], observer, t, options.camera_type
+    )
+    ranked = sort_targets(explained, options.sort_by)
+    selected = ranked[:limit]
     return {
-        "targets": results["targets"],
+        "targets": selected,
+        "total_available": len(ranked),
+        "sort_by": options.sort_by,
+        "camera_type": options.camera_type,
         "moon": results["moon"],
         "config": config.model_dump(exclude_none=True),
-        "total": len(results["targets"]),
+        "total": len(selected),
     }
 
 
@@ -89,6 +120,7 @@ async def get_plan(body: dict) -> dict:
     time_str = body["time"]
     time_zone = body.get("time_zone", "UTC")
     limit = body.get("limit", 20)
+    options = display_options(body)
     min_altitude = body.get("min_altitude", 25.0)
 
     config = TelescopeConfig(**cfg)
@@ -108,7 +140,10 @@ async def get_plan(body: dict) -> dict:
         t = Time(dt)
 
     results = match_telescope_targets(config, observer, t, limit)
-    targets = results["targets"]
+    targets = [
+        {**target, "sho_advice": sho_advice(target.get("type", ""), options.camera_type).model_dump()}
+        for target in results["targets"]
+    ]
     moon = results["moon"]
     dusk = targets[0]["civil_dusk"] if targets else t.iso
     dawn = targets[0]["civil_dawn"] if targets else t.iso

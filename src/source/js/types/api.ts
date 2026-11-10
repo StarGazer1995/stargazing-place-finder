@@ -66,6 +66,16 @@ export interface ApiConfig {
 
 /** Telescope target matching request body. */
 export interface TelescopeTargetRequest {
+  sort_by?: 'imaging_time' | 'setting_soon' | 'fov' | 'heuristic';
+  camera_type?: 'unknown' | 'color' | 'mono';
+  aperture_mm?: number | null;
+  sensor_pixel_size_um?: number | null;
+  central_obstruction_pct?: number;
+  reducer_factor?: number;
+  barlow_factor?: number;
+  mount_type?: string;
+  guiding_supported?: boolean;
+  filter_type?: string | null;
   focal_length_mm: number;
   sensor_width_mm: number;
   sensor_height_mm: number;
@@ -78,6 +88,9 @@ export interface TelescopeTargetRequest {
 
 /** Telescope target matching response. */
 export interface TelescopeTargetResponse {
+  sort_by?: TelescopeTargetRequest['sort_by'];
+  camera_type?: TelescopeTargetRequest['camera_type'];
+  total_available?: number;
   targets?: TelescopeTarget[];
   moon?: MoonData;
   error?: string;

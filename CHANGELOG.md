@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.6 (2026-11-10) — Equipment, target ordering and SHO guidance
+
+- Load the shared equipment catalog, including HOPE D60 + ASI2600MC Air, and forward complete optical configurations to matching, plans and mosaics.
+- Order the complete candidate pool by remaining imaging time, current-window urgency or FOV fit; retain the composite score as a legacy reference option.
+- Show total and continuous imaging windows, query time, and conservative camera-aware SHO guidance. Missing SII strength remains unknown; ambiguous open-cluster fields require verification.
+- Clear stale results when controls change and keep expanded advice visible. Preserve the independent shooting-plan scheduler and public MCP contract.
+- Require core 0.2.3 for corrected imaging-window eligibility, mosaic penalties and attributed optical open-cluster sizes.
+
 ## 0.9.5 (2026-11-10) — Restore sky view and reliable target search
 
 - Keep the sky chart in the viewport after Aladin injects its runtime CSS; add viewport and hit-testing regressions.

@@ -159,7 +159,7 @@
 
 .target-results-section {
     margin-top: 8px; border-top: 1px solid rgba(142,68,173,0.3);
-    max-height: 35vh; overflow-y: auto;
+    max-height: none; overflow: visible;
 }
 .target-results-header {
     padding: 8px 0; margin: 0; font-size: 13px;
@@ -169,7 +169,7 @@
 .target-results-header .collapse-arrow { float: right; font-size: 10px; transition: transform 0.2s; }
 .target-results-section.collapsed .collapse-arrow { transform: rotate(-90deg); }
 .target-results-section.collapsed .target-results-body { display: none; }
-.target-results-list { max-height: 400px; overflow-y: auto; }
+.target-results-body { max-height: 55vh; overflow-y: auto; }
 
 .target-loading, .target-empty, .target-error {
     padding: 20px 14px; text-align: center; color: #aaa; font-size: 13px;
@@ -177,7 +177,7 @@
 .target-error { color: var(--error); }
 
 .target-card {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: flex-start; gap: 8px;
     padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.04);
     cursor: pointer; transition: background 0.15s;
 }
@@ -272,3 +272,17 @@
     .telescope-toggle-btn { padding: 8px 14px; font-size: 12px; }
     .aladin-search-container { top: 10px; padding: 0 10px; }
 }
+
+/* Target explanations share the existing compact telescope panel. */
+.target-name, .target-type, .target-detail, .target-window, .target-sho { display: block; }
+.target-window { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-top: 4px; }
+.target-sho { font-size: 11px; line-height: 1.6; margin-top: 3px; }
+.target-sho-consider { color: #a6d8b2; }
+.target-sho-verify { color: #e6c487; }
+.target-sho-not_primary { color: var(--text-muted); }
+.target-sho-details { margin-top: 3px; font-size: 11px; line-height: 1.5; color: var(--text-muted); }
+.target-sho-details summary, .target-method summary { cursor: pointer; }
+.target-sho-details p { margin: 4px 0; }
+.target-score small { display: block; font-size: 9px; font-weight: normal; color: var(--text-muted); }
+.target-ranking-note, .target-method { font-size: 11px; line-height: 1.6; color: var(--text-muted); margin: 8px 0; }
+.target-method p { margin: 5px 0; }
