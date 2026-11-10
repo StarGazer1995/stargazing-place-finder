@@ -27,6 +27,15 @@ export function detectUserLanguage(): Language {
 interface TranslationTables {
   title: string;
   searchPlaceholder: string;
+  skySearchPlaceholder: string;
+  skySearchLabel: string;
+  locationSearchLabel: string;
+  skySearching: string;
+  skyLocated: string;
+  skyNotFound: string;
+  skyResolverUnavailable: string;
+  skySearchTimeout: string;
+  skySearchFailed: string;
   lightPollutionInfo: string;
   coordinates: string;
   bortleClass: string;
@@ -49,6 +58,15 @@ interface TranslationTables {
 const zh: TranslationTables = {
   title: '观星地点查找器',
   searchPlaceholder: '搜索地点...',
+  skySearchPlaceholder: '搜索天体（如 M31、M42、NGC 7000）...',
+  skySearchLabel: '搜索天体',
+  locationSearchLabel: '搜索地点',
+  skySearching: '正在搜索天体…',
+  skyLocated: '已定位：',
+  skyNotFound: '未找到该天体，请检查名称或编号',
+  skyResolverUnavailable: '天体名称服务暂不可用，可重试或使用 M、NGC、IC 编号',
+  skySearchTimeout: '天体搜索超时，请重试或使用 M、NGC、IC 编号',
+  skySearchFailed: '天体搜索失败，请重试',
   lightPollutionInfo: '光污染信息',
   coordinates: '坐标',
   bortleClass: '波特尔等级',
@@ -87,6 +105,15 @@ const zh: TranslationTables = {
 const en: TranslationTables = {
   title: 'Stargazing Place Finder',
   searchPlaceholder: 'Search location...',
+  skySearchPlaceholder: 'Search sky objects (e.g. M31, M42, NGC 7000)...',
+  skySearchLabel: 'Search sky objects',
+  locationSearchLabel: 'Search location',
+  skySearching: 'Searching sky objects…',
+  skyLocated: 'Located: ',
+  skyNotFound: 'Object not found. Check the name or catalog ID.',
+  skyResolverUnavailable: 'Name service unavailable. Retry or use an M, NGC or IC identifier.',
+  skySearchTimeout: 'Search timed out. Retry or use an M, NGC or IC identifier.',
+  skySearchFailed: 'Sky search failed. Please retry.',
   lightPollutionInfo: 'Light Pollution Info',
   coordinates: 'Coordinates',
   bortleClass: 'Bortle Class',

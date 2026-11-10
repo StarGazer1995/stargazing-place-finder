@@ -14,6 +14,7 @@ import { currentLanguage, setCurrentLanguage } from './state';
 // Core
 import { detectUserLanguage, getText, toggleLanguage } from './core/i18n';
 import { API_CONFIG } from './core/api';
+import { initSearch, syncSearchMode } from './core/search';
 import { showToast } from './utils/dom';
 
 // Map
@@ -105,6 +106,7 @@ function updateLanguageElements(): void {
   if (langBtn) langBtn.textContent = currentLanguage === 'zh' ? '中/EN' : 'EN/中';
 
   updateLegend();
+  syncSearchMode();
 }
 
 function updateLegend(): void {
@@ -117,31 +119,6 @@ function updateLegend(): void {
     html += `<div class="legend-item"><span class="legend-color" style="background:${getBortleColor(i)}"></span>${description}</div>`;
   }
   legendPanel.innerHTML = html;
-}
-
-function initSearch(): void {
-  const input = document.getElementById('search-input') as HTMLInputElement | null;
-  if (!input) return;
-
-  input.addEventListener('keypress', async function (this: HTMLInputElement, e: KeyboardEvent) {
-    if (e.key !== 'Enter') return;
-    const query = this.value.trim();
-    if (!query) return;
-
-    try {
-      const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-      const results = await resp.json();
-      if (results?.[0]) {
-        const lat = parseFloat(results[0].lat);
-        const lng = parseFloat(results[0].lon);
-        getMap().setView([lat, lng], 13);
-        showToast(`已定位到: ${results[0].display_name}`, 'success');
-      }
-    } catch (err) {
-      console.error('Search failed:', err);
-      showToast('搜索失败', 'error');
-    }
-  });
 }
 
 // Global event delegation (replaces inline onclick handlers)

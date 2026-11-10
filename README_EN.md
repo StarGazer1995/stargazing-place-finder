@@ -97,10 +97,18 @@ docker run -p 3001:3001 -p 5001:5001 mcp-stargazing
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/telescope/presets` | GET | Telescope presets |
+| `/api/telescope/resolve?name=M42` | GET | Resolve ICRS coordinates in degrees from the bundled catalog first, with bounded remote lookup for other names |
 | `/api/telescope/optics` | POST | Compute optical parameters |
 | `/api/telescope/targets` | POST | Match deep-sky targets |
 | `/api/telescope/plan` | POST | Generate shooting plan |
 | `/api/telescope/mosaic` | POST | Mosaic panel planning |
+
+The shared search field resolves locations in map/analysis mode and sky objects
+in telescope mode. Exact M/NGC/IC IDs ignore whitespace and case; bundled catalog
+hits return `name`, `ra`, `dec`, and `source: local_catalog` without remote lookup.
+Other names have a five-second remote deadline: confirmed absence is HTTP 404
+(`OBJECT_NOT_FOUND`); network failures or invalid replies are HTTP 503
+(`RESOLVER_UNAVAILABLE`). Positioning is independent of survey image loading.
 
 ## Tech Stack
 

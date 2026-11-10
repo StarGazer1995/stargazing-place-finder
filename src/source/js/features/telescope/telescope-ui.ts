@@ -1,4 +1,3 @@
-/* c8 ignore start — integration code: requires full browser environment */
 // =============================================================================
 // Telescope UI — panel bindings, mode switching, preset handling
 // =============================================================================
@@ -6,6 +5,7 @@
 import { isTelescopeMode, isAnalysisMode, aladinInstance } from '../../state';
 import { setIsTelescopeMode, setTelescopeTargetLocation } from '../../state';
 import { showToast } from '../../utils/dom';
+import { syncSearchMode } from '../../core/search';
 import { ensureAladinReady, updateFovOverlay, applyPreset } from './aladin-core';
 import { matchTelescopeTargets, fetchShootingPlan } from './targets';
 import { bindTargetInteractions } from './target-renderer';
@@ -62,19 +62,6 @@ export function initTelescopeMode(): void {
   const targetList = document.getElementById('target-results-list');
   if (targetList) bindTargetInteractions(targetList);
 
-  // ── Celestial search via unified search bar ──
-  const searchInput = document.getElementById('search-input') as HTMLInputElement | null;
-  if (searchInput) {
-    searchInput.addEventListener('keypress', async function (this: HTMLInputElement, e: KeyboardEvent) {
-      if (e.key !== 'Enter' || !isTelescopeMode || !aladinInstance) return;
-      const query = this.value.trim();
-      if (!query) return;
-      aladinInstance.gotoObject(query, {
-        success: () => setTimeout(() => updateFovOverlay(), 300),
-        error: () => showToast('未找到天体: ' + query, 'error'),
-      });
-    });
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -85,6 +72,7 @@ export function initTelescopeMode(): void {
 export async function toggleTelescopeMode(): Promise<void> {
   const newMode = !isTelescopeMode;
   setIsTelescopeMode(newMode);
+  syncSearchMode();
 
   const panel = document.getElementById('telescope-control-panel');
   const aladinContainer = document.getElementById('aladin-container');
@@ -103,6 +91,7 @@ export async function toggleTelescopeMode(): Promise<void> {
     } catch (e: any) {
       showToast('Aladin Lite 加载失败: ' + e.message, 'error');
       setIsTelescopeMode(false);
+      syncSearchMode();
       if (panel) panel.style.display = 'none';
       if (aladinContainer) aladinContainer.style.display = 'none';
       if (status) status.style.display = 'none';
@@ -171,5 +160,3 @@ export function syncPanelVisibility(): void {
     // Browse mode — info/stats shown on demand by their respective update functions
   }
 }
-
-/* c8 ignore stop */

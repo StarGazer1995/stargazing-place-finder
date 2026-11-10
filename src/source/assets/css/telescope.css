@@ -4,25 +4,17 @@
 
 /* ── Aladin container ────────────────────────────────────────────── */
 
-.aladin-container {
+/* Aladin injects a .aladin-container { position: relative } rule at runtime.
+   Scope our fullscreen wrapper by ID so it stays over the map, and leave
+   Aladin's inner container positioning to the library. */
+#aladin-container {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 500;
 }
 #aladin-lite-div { width: 100%; height: 100%; }
-.aladin-search-container {
-    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-    z-index: 1010; width: 100%; max-width: 420px;
+.search-status:not(:empty) {
+    margin-top: 6px; padding: 6px 12px; color: white;
+    background: rgba(0, 0, 0, 0.8); border-radius: 8px; font-size: 13px;
 }
-#aladin-search-input {
-    width: 100%; padding: 12px 20px; border: none; border-radius: 25px;
-    background: rgba(0,0,0,0.8); color: white; font-size: 16px;
-    backdrop-filter: var(--blur-panel);
-    border: 1px solid rgba(74,144,226,0.3); transition: all 0.3s ease;
-}
-#aladin-search-input:focus {
-    outline: none; background: rgba(0,0,0,0.9);
-    border-color: var(--primary); box-shadow: 0 0 20px rgba(74,144,226,0.4);
-}
-#aladin-search-input::placeholder { color: rgba(255,255,255,0.5); }
 
 /* ── Telescope toggle button ─────────────────────────────────────── */
 
