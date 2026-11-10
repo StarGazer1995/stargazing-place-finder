@@ -2,9 +2,29 @@
 // Telescope / astrophotography domain types
 // =============================================================================
 
+export type CameraType = 'unknown' | 'color' | 'mono';
+export type TargetSort = 'imaging_time' | 'setting_soon' | 'fov' | 'heuristic';
+
+/** Shared optics contract returned by /api/telescope/presets. */
+export interface TelescopeConfig {
+  focal_length_mm: number;
+  camera_type?: CameraType;
+  sensor_width_mm?: number | null;
+  sensor_height_mm?: number | null;
+  aperture_mm?: number | null;
+  sensor_pixel_size_um?: number | null;
+  central_obstruction_pct?: number;
+  reducer_factor?: number;
+  barlow_factor?: number;
+  mount_type?: string;
+  guiding_supported?: boolean;
+  filter_type?: string | null;
+}
+
 /** Telescope + camera preset definition. */
 export interface TelescopePreset {
   name: string;
+  config?: TelescopeConfig;
   focalLength?: number;
   sensorWidth?: number;
   sensorHeight?: number;
@@ -13,6 +33,20 @@ export interface TelescopePreset {
 /** A matched astrophotography target returned by the backend. */
 export interface TelescopeTarget {
   name: string;
+  visibility?: {
+    total_minutes: number | null;
+    longest_minutes: number | null;
+    available_now: boolean | null;
+    windows: Array<{start: number; end: number}>;
+  };
+  sho_advice?: {
+    status: 'consider' | 'not_primary' | 'verify';
+    label: string;
+    reason: string;
+    camera_note: string;
+    basis: 'catalog_type_only';
+    sii_strength: null;
+  };
   ra: number;
   dec: number;
   angular_size_arcmin: number;

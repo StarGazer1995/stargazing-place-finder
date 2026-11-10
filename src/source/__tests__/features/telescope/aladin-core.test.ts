@@ -56,36 +56,7 @@ describe('calculateFov', () => {
 });
 
 describe('TELESCOPE_PRESETS', () => {
-  it('has at least 4 presets', () => {
-    expect(Object.keys(TELESCOPE_PRESETS)).toHaveLength(5);
-  });
-
-  it('has a "custom" preset with no optical params', () => {
-    const custom = TELESCOPE_PRESETS.custom;
-    expect(custom).toBeDefined();
-    expect(custom!.name).toBe('自定义');
-    expect(custom!.focalLength).toBeUndefined();
-  });
-
-  it('Seestar S50 preset has correct specs', () => {
-    const s50 = TELESCOPE_PRESETS['seestar-s50'];
-    expect(s50).toBeDefined();
-    expect(s50!.focalLength).toBe(250);
-    expect(s50!.sensorWidth).toBe(7.6);
-    expect(s50!.sensorHeight).toBe(5.7);
-  });
-
-  it('RedCat51 preset has correct specs', () => {
-    const rc = TELESCOPE_PRESETS['redcat51-asi2600'];
-    expect(rc).toBeDefined();
-    expect(rc!.focalLength).toBe(250);
-    expect(rc!.sensorWidth).toBe(23.5);
-    expect(rc!.sensorHeight).toBe(15.7);
-  });
-
-  it('all presets have a name', () => {
-    Object.values(TELESCOPE_PRESETS).forEach((p) => {
-      expect(p!.name).toBeTruthy();
-    });
+  it('starts with custom optics until backend presets load', () => {
+    expect(TELESCOPE_PRESETS.custom).toEqual({ name: '自定义' });
   });
 });

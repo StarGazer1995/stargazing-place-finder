@@ -34,6 +34,15 @@ class TestTelescopePresets:
         ):
             assert key in seestar, f"Missing field: {key}"
 
+    def test_hope_preset_is_the_shared_core_configuration(self, client: TestClient) -> None:
+        from stargazing_core import TELESCOPE_PRESETS
+
+        config = client.get("/api/telescope/presets").json()["hope_d60_asi2600mc_air"]
+        assert config.pop("camera_type") == "color"
+        assert config == TELESCOPE_PRESETS["hope_d60_asi2600mc_air"].model_dump()
+        assert config["focal_length_mm"] == 280
+        assert config["aperture_mm"] == 60
+
 
 class TestTelescopeOptics:
     def test_compute_optics_returns_fov(self, client: TestClient) -> None:

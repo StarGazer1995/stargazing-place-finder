@@ -135,3 +135,48 @@ stargazing-place-finder
 ## License
 
 MIT
+
+### Equipment and imaging ranking
+
+The browser loads `/api/telescope/presets` from the shared core catalog and forwards
+complete selected configurations to matching, plans and mosaics. The existing HOPE
+D60 + ASI2600MC Air configuration is included with core 0.2.3. Custom optics remain
+available if the catalog request fails; manual edits clear preset-only parameters.
+Imaging requires 30 continuous sampled minutes above 25° in astronomical darkness;
+midnight/dawn gates and visual magnitude limits no longer remove imaging candidates.
+The base 40/30/20/10 weights cover FOV, surface brightness, filter and usable-sample
+mean altitude, with a continuous-window factor and target-specific Moon penalty.
+Oversized targets incur a coverage penalty. Pure open clusters use attributed
+OpenNGC optical sizes, without replacing nebula extents. These remain heuristics,
+not weather, exposure or success predictions.
+
+
+### SPF ordering and SHO guidance (0.9.6)
+
+The page explicitly requests `sort_by=imaging_time`: remaining geometric imaging
+minutes, then longest continuous window, then FOV fit. Other modes are `setting_soon`
+(currently available targets whose current window ends first, followed by future
+windows), `fov`, and the legacy `heuristic` reference score. All modes order
+the full candidate pool before limiting results. Time modes reject known remaining
+windows shorter than 30 minutes. Unknown evidence stays null and sorts last.
+
+Cards show total versus continuous time and camera-aware SHO guidance. Geometry
+uses 15-minute samples, target altitude >=25 degrees, Sun <=-18 degrees, and Moon
+separation >=15 degrees when illumination >0.1 and the Moon is up. Elapsed time and
+missing-sample gaps are excluded; weather, terrain and equipment overhead are not modeled.
+These inherited thresholds are not yet configurable in the page.
+
+SHO advice is catalog-type guidance only, never measured emission-line strength:
+HII targets are conditional; SNR, planetary nebulae and ambiguous open-cluster fields
+need verification; galaxies, reflection nebulae and globular-cluster subjects favor
+broadband. SII strength remains null. The existing HOPE MC Air preset is marked color;
+other unverified cameras stay unknown, with a manual color/mono/unknown selector.
+Color SHO requires independently acquired SII/Ha/OIII (for example paired dual-band
+filters); a single ordinary Ha/OIII dual-band filter lacks SII.
+
+REST `/api/telescope/targets` accepts top-level `sort_by`, `camera_type`, and `limit`
+(1-100). Omitted sorting keeps legacy heuristic order for compatibility; camera type
+defaults to unknown. Responses add `total_available`, sorting/camera metadata, per-target
+`visibility` and `sho_advice`. Presets include camera display metadata; plans include
+SHO guidance but retain their separate scheduling algorithm. Changing controls clears
+stale target results and requires a new match. No public MCP schema was changed.

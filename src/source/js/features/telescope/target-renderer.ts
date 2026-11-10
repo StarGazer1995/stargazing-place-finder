@@ -20,23 +20,40 @@ export function renderTargetResults(targets: TelescopeTarget[], container: HTMLE
     : targets.map((t, i) => renderTargetCard(t, i + 1)).join('');
 }
 
+function escapeHtml(value: string): string {
+  const escapes: Record<string, string> = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
+  return value.replace(/[&<>"']/g, (char) => escapes[char]!);
+}
+
+function windowDescription(target: TelescopeTarget): string {
+  const visibility = target.visibility;
+  if (visibility?.total_minutes == null || visibility.longest_minutes == null) return '可拍时段未核实';
+  const time = (stamp: number) => new Date(stamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false});
+  const next = visibility.windows[0];
+  return `剩余 ${visibility.total_minutes.toFixed(0)} 分钟 · 最长连续 ${visibility.longest_minutes.toFixed(0)} 分钟`
+    + (next ? ` · ${visibility.available_now ? '当前' : '下个'} ${time(next.start)}–${time(next.end)}` : ' · 无剩余时段');
+}
+
 function renderTargetCard(t: TelescopeTarget, rank: number): string {
   const sc = t.suitability_score?.toFixed(0) ?? '?';
   const sb = t.surface_brightness != null ? t.surface_brightness.toFixed(1) : null;
   const rot = t.optimal_rotation_deg != null ? `${t.optimal_rotation_deg.toFixed(0)}°` : null;
   return `
-    <div class="target-card" data-target-name="${t.name}" data-ra="${t.ra}" data-dec="${t.dec}">
+    <div class="target-card" data-target-name="${escapeHtml(t.name)}" data-ra="${t.ra}" data-dec="${t.dec}">
       <span class="target-rank">#${rank}</span>
-      <span class="target-info">
-        <span class="target-name">${t.name}${t.mosaic_recommended ? ' 🧩' : ''}</span>
-        <span class="target-type">${t.type || 'Deep-sky object'}</span>
+      <div class="target-info">
+        <span class="target-name">${escapeHtml(t.name)}${t.mosaic_recommended ? ' 🧩' : ''}</span>
+        <span class="target-type">${escapeHtml(t.type || 'Deep-sky object')}</span>
         <span class="target-detail">
           FOV ${((t.fov_fit_score ?? 0) * 100).toFixed(0)}%
           ${sb ? ` · 🌌 SB ${sb}` : ''}
           ${rot ? ` · 🔄 ${rot}` : ''}
         </span>
-      </span>
-      <span class="target-score">${sc}</span>
+        <span class="target-window">${escapeHtml(windowDescription(t))}</span>
+        <span class="target-sho target-sho-${t.sho_advice?.status || 'verify'}">${escapeHtml(t.sho_advice?.label || 'SHO：资料不足，待核实')}</span>
+        ${t.sho_advice ? `<details class="target-sho-details"><summary>理由与采集方式</summary><p>${escapeHtml(t.sho_advice.reason)}</p><p>${escapeHtml(t.sho_advice.camera_note)}</p><p>依据：目录类型；SII 强度未核实。</p></details>` : ''}
+      </div>
+      <span class="target-score" title="旧启发式分数，不是成片成功率"><small>参考分</small>${sc}</span>
     </div>`;
 }
 
@@ -52,6 +69,7 @@ export function bindTargetInteractions(
   },
 ): void {
   container.addEventListener('click', (event) => {
+    if ((event.target as HTMLElement).closest('details')) return;
     const card = (event.target as HTMLElement).closest<HTMLElement>('[data-target-name]');
     if (!card) return;
 

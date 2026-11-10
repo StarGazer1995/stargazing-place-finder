@@ -135,10 +135,6 @@
                 <label for="telescope-preset">📷 设备预设</label>
                 <select id="telescope-preset">
                     <option value="custom">自定义</option>
-                    <option value="seestar-s50">Seestar S50 (250mm / 7.6×5.7mm)</option>
-                    <option value="redcat51-asi2600">RedCat51 + ASI2600 (250mm / 23.5×15.7mm)</option>
-                    <option value="fullframe-200mm">全画幅 + 200mm (200mm / 36×24mm)</option>
-                    <option value="sct14-reducer">14" SCT + 减焦 (2500mm / 23.5×15.7mm)</option>
                 </select>
             </div>
             <div class="control-group">
@@ -152,6 +148,23 @@
             <div class="control-group">
                 <label for="telescope-sensor-height">📏 传感器高 (mm)</label>
                 <input type="number" id="telescope-sensor-height" min="0.1" max="100" value="15.7" step="0.1">
+            </div>
+            <div class="control-group">
+                <label for="telescope-camera-type">相机类型（用于滤镜建议）</label>
+                <select id="telescope-camera-type">
+                    <option value="unknown">未指定</option>
+                    <option value="color">彩色相机</option>
+                    <option value="mono">单色相机</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="telescope-target-sort">目标排序</label>
+                <select id="telescope-target-sort">
+                    <option value="imaging_time">今晚值得拍 · 剩余可拍时长</option>
+                    <option value="setting_soon">现在先拍 · 即将结束的窗口</option>
+                    <option value="fov">构图适配 · 画幅匹配</option>
+                    <option value="heuristic">辅助综合分（旧算法）</option>
+                </select>
             </div>
             <div class="control-group fov-display">
                 <label>视场 (FOV)</label>
@@ -192,6 +205,9 @@
 
         <div id="target-results-section" class="target-results-section" style="display: none;">
             <h4 id="target-results-header" class="target-results-header">🎯 推荐拍摄目标 <span class="target-count"></span> <span class="collapse-arrow">▼</span></h4>
+            <p id="target-query-time" class="target-ranking-note"></p>
+            <p class="target-ranking-note">时长从查询时刻起计算；同等时长再看画幅适配。SHO 建议不影响排名。</p>
+            <details class="target-method"><summary>时段与滤镜建议的依据</summary><p>时段按目标高度至少 25°、太阳低于 −18°及月距筛选，15 分钟采样；未计天气、地形遮挡和设备开销。SHO 即 SII / Hα / OIII，建议仅依据目录类型，不代表已测得各发射线强度。拍摄计划采用独立调度，列表排序不是执行顺序。</p></details>
             <div id="moon-card" class="moon-card" style="display: none;"></div>
             <div id="target-results-list" class="target-results-body"></div>
         </div>

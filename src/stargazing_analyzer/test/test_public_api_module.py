@@ -76,12 +76,19 @@ class TestInit:
 class TestRequireAnalyzer:
     """Test _require_analyzer lazy init."""
 
-    def test_requires_init_when_none(self):
-        """Should call init_stargazing_analyzer when global is None."""
-        result = _require_analyzer()
-        # Since _sa_analyzer was already initialized by previous tests,
-        # this just confirms it returns an analyzer
-        assert result is not None
+    @patch("stargazing_analyzer.public_api.StargazingLocationAnalyzer")
+    def test_requires_init_when_none(self, MockAnalyzer):
+        """Lazy init constructs one analyzer and reuses it on subsequent calls."""
+        import stargazing_analyzer.public_api as pub
+
+        pub.reset_analyzer()
+        try:
+            result = _require_analyzer()
+            assert result is MockAnalyzer.return_value
+            assert _require_analyzer() is result
+            MockAnalyzer.assert_called_once()
+        finally:
+            pub.reset_analyzer()
 
 
 class TestAnalyzeArea:

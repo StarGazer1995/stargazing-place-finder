@@ -3,10 +3,11 @@
 // =============================================================================
 
 import { isTelescopeMode, isAnalysisMode, aladinInstance } from '../../state';
-import { setIsTelescopeMode, setTelescopeTargetLocation } from '../../state';
+import { setIsTelescopeMode, setTelescopeTargetLocation, setLastMatchBody, setLastTargets } from '../../state';
 import { showToast } from '../../utils/dom';
 import { syncSearchMode } from '../../core/search';
 import { ensureAladinReady, updateFovOverlay, applyPreset } from './aladin-core';
+import { loadTelescopePresets } from './presets';
 import { matchTelescopeTargets, fetchShootingPlan } from './targets';
 import { bindTargetInteractions } from './target-renderer';
 
@@ -14,13 +15,26 @@ import { bindTargetInteractions } from './target-renderer';
 // Bootstrap
 // ---------------------------------------------------------------------------
 
+function invalidateTargetResults(): void {
+  setLastMatchBody(null);
+  setLastTargets([]);
+  ['target-results-section', 'plan-btn', 'plan-panel'].forEach((id) => {
+    const element = document.getElementById(id);
+    if (element) element.style.display = 'none';
+  });
+}
+
 /** Wire up telescope panel interactions (runs once at page load). */
 export function initTelescopeMode(): void {
   // ── Preset selector ──
   const presetSelect = document.getElementById('telescope-preset') as HTMLSelectElement | null;
   if (presetSelect) {
+    void loadTelescopePresets(presetSelect).catch(() => {
+      showToast('设备列表加载失败，可使用自定义参数。刷新页面可重试。', 'error');
+    });
     presetSelect.addEventListener('change', function (this: HTMLSelectElement) {
       applyPreset(this.value);
+      invalidateTargetResults();
       updateFovOverlay();
     });
   }
@@ -32,6 +46,7 @@ export function initTelescopeMode(): void {
       el.addEventListener('input', () => {
         const ps = document.getElementById('telescope-preset') as HTMLSelectElement | null;
         if (ps) ps.value = 'custom';
+        invalidateTargetResults();
         updateFovOverlay();
       });
     }
@@ -40,6 +55,14 @@ export function initTelescopeMode(): void {
   // ── Match button ──
   const matchBtn = document.getElementById('match-targets-btn');
   if (matchBtn) matchBtn.addEventListener('click', matchTelescopeTargets);
+
+  // Controls apply to the next match; do not silently reorder a stale result pool.
+  ['telescope-target-sort', 'telescope-camera-type'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('change', () => {
+      invalidateTargetResults();
+      showToast('选项已更新，请重新匹配目标。', 'info');
+    });
+  });
 
   // ── Plan button ──
   const planBtn = document.getElementById('plan-btn');

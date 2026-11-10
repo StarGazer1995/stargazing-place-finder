@@ -8,6 +8,8 @@ import {
 } from '../../state';
 import { API_CONFIG, fetchWithTimeout } from '../../core/api';
 import { renderTargetResults, renderMoonCard, overlayTargetsOnAladin, renderShootingPlan } from './target-renderer';
+import { selectedOpticalConfig } from './presets';
+import type { TelescopeConfig, CameraType, TargetSort } from '../../types/telescope';
 import type { TelescopeTargetRequest } from '../../types/api';
 
 // ---------------------------------------------------------------------------
@@ -24,8 +26,14 @@ export function buildTargetRequest(
   tz: string,
   timeStr: string,
   limit: number = 100,
+  opticalConfig?: TelescopeConfig,
+  sortBy: TargetSort = 'imaging_time',
+  cameraType: CameraType = opticalConfig?.camera_type ?? 'unknown',
 ): TelescopeTargetRequest {
   return {
+    ...opticalConfig,
+    sort_by: sortBy,
+    camera_type: cameraType,
     focal_length_mm: focalLength,
     sensor_width_mm: sensorW,
     sensor_height_mm: sensorH,
@@ -75,7 +83,9 @@ export async function matchTelescopeTargets(): Promise<void> {
       obsLat = 40; obsLng = 116;
     }
 
-    const body = buildTargetRequest(fl, sw, sh, obsLat, obsLng, Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', buildTimeString());
+    const body = buildTargetRequest(fl, sw, sh, obsLat, obsLng, Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', buildTimeString(), 100, selectedOpticalConfig(),
+      (document.getElementById('telescope-target-sort') as HTMLSelectElement)?.value as TargetSort || 'imaging_time',
+      (document.getElementById('telescope-camera-type') as HTMLSelectElement)?.value as CameraType || 'unknown');
 
     let placeName = '';
     let targetCount: number | null = null;
@@ -108,6 +118,8 @@ export async function matchTelescopeTargets(): Promise<void> {
     setLastMoon(moon);
     setLastMatchBody(body);
     setLastTargets(targets);
+    const queryTime = document.getElementById('target-query-time');
+    if (queryTime) queryTime.textContent = `计算于 ${body.time}（本地时间）`;
 
     targetCount = targets.length;
     renderCount();

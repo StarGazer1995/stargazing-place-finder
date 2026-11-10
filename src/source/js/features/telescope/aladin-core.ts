@@ -12,7 +12,8 @@ import {
   setAladinInstance, setAladinInitialized, setAladinInitPromise,
   setFovCanvas, setFovCanvasCtx, setFovAnimFrame,
 } from '../../state';
-import type { TelescopePreset } from '../../types/telescope';
+import { TELESCOPE_PRESETS, selectedOpticalConfig } from './presets';
+export { TELESCOPE_PRESETS } from './presets';
 
 // The CDS-hosted Aladin script and default survey are unreachable from the
 // deployment network. The npm package removes the script dependency; ESA's
@@ -27,13 +28,7 @@ export const SKY_SURVEY_URL = 'https://skies.esac.esa.int/DSSColor';
 // Telescope presets (pure data — testable)
 // ---------------------------------------------------------------------------
 
-export const TELESCOPE_PRESETS: Record<string, TelescopePreset> = {
-  custom: { name: '自定义' },
-  'seestar-s50': { name: 'Seestar S50', focalLength: 250, sensorWidth: 7.6, sensorHeight: 5.7 },
-  'redcat51-asi2600': { name: 'RedCat51 + ASI2600', focalLength: 250, sensorWidth: 23.5, sensorHeight: 15.7 },
-  'fullframe-200mm': { name: '全画幅 + 200mm', focalLength: 200, sensorWidth: 36, sensorHeight: 24 },
-  'fullframe-85mm': { name: '全画幅 + 85mm', focalLength: 85, sensorWidth: 36, sensorHeight: 24 },
-};
+
 
 // ---------------------------------------------------------------------------
 // Aladin Lite initialisation (coverage-exempt)
@@ -92,7 +87,8 @@ export function calculateFovFromInputs(): { fovW: number; fovH: number } {
   const fl = parseFloat((document.getElementById('telescope-focal-length') as HTMLInputElement)?.value || '250');
   const sw = parseFloat((document.getElementById('telescope-sensor-width') as HTMLInputElement)?.value || '23.5');
   const sh = parseFloat((document.getElementById('telescope-sensor-height') as HTMLInputElement)?.value || '15.7');
-  return calculateFov(fl, sw, sh);
+  const config = selectedOpticalConfig();
+  return calculateFov(fl * (config?.reducer_factor ?? 1) * (config?.barlow_factor ?? 1), sw, sh);
 }
 
 /* c8 ignore start — Canvas rendering — visual correctness requires manual/e2e verification */
@@ -152,6 +148,9 @@ export function applyPreset(presetKey: string): void {
   const fl = document.getElementById('telescope-focal-length') as HTMLInputElement | null;
   const sw = document.getElementById('telescope-sensor-width') as HTMLInputElement | null;
   const sh = document.getElementById('telescope-sensor-height') as HTMLInputElement | null;
+
+  const camera = document.getElementById('telescope-camera-type') as HTMLSelectElement | null;
+  if (camera) camera.value = preset.config?.camera_type ?? 'unknown';
 
   if (fl && preset.focalLength != null) fl.value = String(preset.focalLength);
   if (sw && preset.sensorWidth != null) sw.value = String(preset.sensorWidth);
