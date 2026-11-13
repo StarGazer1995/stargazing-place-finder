@@ -1,25 +1,30 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-import { setIsTelescopeMode } from '@/state';
+import { setIsTelescopeMode, setPollutionTileLayer } from '@/state';
 vi.mock('@/map/map-instance', () => ({ initializeMap: vi.fn(), getMap: vi.fn() }));
 vi.mock('@/features/stargazing/index', () => ({ initializeStargazingSelector: vi.fn(), toggleMode: vi.fn(), updateStatus: vi.fn() }));
 vi.mock('@/features/mosaic/index', () => ({ initMosaic: vi.fn(), fetchMosaicGrid: vi.fn(), renderMosaicPanel: vi.fn() }));
 beforeEach(() => {
   setIsTelescopeMode(false);
   vi.stubGlobal('fetch', vi.fn());
+  vi.stubGlobal('localStorage', {getItem: () => 'zh', setItem: vi.fn()});
   Object.defineProperty(navigator, 'language', { configurable: true, value: 'zh-CN' });
-  document.body.innerHTML = '<div id="loading-overlay"></div><input id="search-input"><div id="search-status"></div><button id="language-btn"></button>';
+  document.body.innerHTML = '<div id="loading-overlay"></div><input id="search-input"><div id="search-status"></div><button id="language-btn"></button><input id="pollution-opacity" type="range" value="75">';
 });
 afterEach(() => vi.unstubAllGlobals());
 it('boot and language changes update the single search field for the active mode', async () => {
   await import('@/index');
   if (!document.getElementById('loading-overlay')!.classList.contains('hidden')) document.dispatchEvent(new Event('DOMContentLoaded'));
   const input = document.getElementById('search-input') as HTMLInputElement;
-  expect(input.placeholder).toBe('搜索地点...');
+  expect(input.placeholder).toBe('搜索地点，如上海、安吉（回车确认）');
+  const opacity = vi.fn();
+  setPollutionTileLayer({setOpacity:opacity});
+  document.getElementById('pollution-opacity')!.dispatchEvent(new Event('input'));
+  expect(opacity).toHaveBeenCalledWith(0.75);
   setIsTelescopeMode(true);
   document.getElementById('language-btn')!.click();
   expect(input.placeholder).toContain('Search sky objects');
   expect(input.getAttribute('aria-label')).toBe('Search sky objects');
   setIsTelescopeMode(false);
   document.getElementById('language-btn')!.click();
-  expect(input.placeholder).toBe('搜索地点...');
+  expect(input.placeholder).toBe('搜索地点，如上海、安吉（回车确认）');
 });

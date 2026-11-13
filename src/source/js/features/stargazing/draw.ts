@@ -6,10 +6,49 @@ import L from 'leaflet';
 import 'leaflet-draw';
 import {
   map, drawnItems, drawControl, currentPolygon,
-  analysisResults, resultsPanel, isAnalysisMode,
+  resultsPanel,
   setDrawnItems, setDrawControl, setCurrentPolygon, setAnalysisResults,
 } from '../../state';
 import type { GeoBounds } from '../../types/api';
+import { getText } from '../../core/i18n';
+import { cancelAreaAnalysis } from './analyzer';
+import { clearResultMarkers } from './results';
+
+let rectangle: any = null;
+let drawing = false;
+let suppressClickUntil = 0;
+
+export function shouldIgnoreMapClick(): boolean {
+  return drawing || Date.now() < suppressClickUntil;
+}
+
+export function startDrawing(): void {
+  cancelAreaAnalysis();
+  map.closePopup();
+  rectangle?.disable();
+  // Leaflet.Draw 1.0.4's metric area tooltip references an undeclared `type`
+  // in strict bundles. Area is not needed to select a bbox; keep drawing usable.
+  rectangle = new (L as any).Draw.Rectangle(map, { showArea: false, shapeOptions: { color: '#4a90e2', weight: 2 } });
+  rectangle.enable();
+}
+
+export function stopDrawing(): void {
+  rectangle?.disable();
+  // Also disable tools activated from the Leaflet toolbar.
+  const toolbars = drawControl?._toolbars || {};
+  Object.values(toolbars).forEach((toolbar: any) => toolbar.disable());
+  setDrawing(false);
+}
+
+function setDrawing(active: boolean): void {
+  drawing = active;
+  if (!active) suppressClickUntil = Date.now() + 350;
+  document.body.classList.toggle('drawing-area', active);
+  const cancel = document.getElementById('cancel-draw-button');
+  if (cancel) cancel.hidden = !active;
+  const label = document.getElementById('selection-status');
+  if (label) label.textContent = getText(active ? 'ui.dragPrompt' : currentPolygon ? 'ui.selected' : 'ui.noSelection');
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -31,6 +70,7 @@ export function initializeDrawControls(): void {
       circlemarker: false,
       marker: false,
       rectangle: {
+        showArea: false,
         shapeOptions: {
           color: '#4a90e2',
           weight: 2,
@@ -41,7 +81,6 @@ export function initializeDrawControls(): void {
   });
 
   setDrawControl(control);
-  map.addControl(drawControl);
 
   bindDrawEventListeners();
 }
@@ -51,12 +90,22 @@ export function initializeDrawControls(): void {
 // ---------------------------------------------------------------------------
 
 function bindDrawEventListeners(): void {
+  map.on('draw:drawstart draw:editstart draw:deletestart', () => {
+    cancelAreaAnalysis();
+    map.closePopup();
+    setDrawing(true);
+  });
+  map.on('draw:drawstop draw:editstop draw:deletestop', () => setDrawing(false));
   map.on((L as any).Draw.Event.CREATED, handleDrawCreated);
   map.on((L as any).Draw.Event.DELETED, handleDrawDeleted);
+  map.on('draw:edited', (event: any) => event.layers.eachLayer((layer: any) => handleDrawCreated({ layer })));
 }
 
 function handleDrawCreated(e: any): void {
   const layer = e.layer;
+  cancelAreaAnalysis();
+  drawnItems.clearLayers();
+  clearAnalysisResults();
   drawnItems.addLayer(layer);
 
   const latlngs = layer.getLatLngs()[0];
@@ -73,6 +122,9 @@ function handleDrawCreated(e: any): void {
   };
 
   setCurrentPolygon({ layer, coordinates, bbox });
+  setDrawing(false);
+  const clear = document.getElementById('clear-button') as HTMLButtonElement | null;
+  if (clear) clear.disabled = false;
 
   const analyzeBtn = document.getElementById('analyze-button') as HTMLButtonElement | null;
   if (analyzeBtn) analyzeBtn.disabled = false;
@@ -81,7 +133,9 @@ function handleDrawCreated(e: any): void {
 }
 
 function handleDrawDeleted(_e: any): void {
+  cancelAreaAnalysis();
   setCurrentPolygon(null);
+  setDrawing(false);
   const analyzeBtn = document.getElementById('analyze-button') as HTMLButtonElement | null;
   if (analyzeBtn) analyzeBtn.disabled = true;
 }
@@ -92,6 +146,8 @@ function handleDrawDeleted(_e: any): void {
 
 /** Clear all analysis results and drawn shapes. */
 export function clearAnalysisResults(): void {
+  cancelAreaAnalysis();
+  clearResultMarkers();
   setAnalysisResults([]);
   if (resultsPanel) {
     resultsPanel.style.display = 'none';
@@ -101,9 +157,13 @@ export function clearAnalysisResults(): void {
 
 /** Remove drawn items and reset analysis state. */
 export function clearAll(): void {
+  stopDrawing();
   if (drawnItems) drawnItems.clearLayers();
   setCurrentPolygon(null);
   clearAnalysisResults();
   const analyzeBtn = document.getElementById('analyze-button') as HTMLButtonElement | null;
   if (analyzeBtn) analyzeBtn.disabled = true;
+  const clear = document.getElementById('clear-button') as HTMLButtonElement | null;
+  if (clear) clear.disabled = true;
+  setDrawing(false);
 }

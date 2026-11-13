@@ -180,3 +180,9 @@ defaults to unknown. Responses add `total_available`, sorting/camera metadata, p
 `visibility` and `sho_advice`. Presets include camera display metadata; plans include
 SHO guidance but retain their separate scheduling algorithm. Changing controls clears
 stale target results and requires a new match. No public MCP schema was changed.
+
+### Web workspace flow (development version)
+
+Use **Find a place → Select area on map** to draw a rectangle and analyze places. Advanced options contain result limits and analysis toggles. Stopping a wait preserves the area for retry; server-side map queries may still finish.
+
+The imaging planner shows editable observer coordinates, wall-clock time and IANA timezone. Map actions set the terrestrial observer without slewing to geographic coordinates as RA/Dec. Equipment details are expandable and primary actions remain visible. Reference scores live in card details; editing observing conditions invalidates pending results. Layer opacity and model limitations are available in the map legend, and Leaflet styles are bundled locally.

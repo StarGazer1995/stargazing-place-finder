@@ -44,9 +44,10 @@ export async function ensureAladinReady(): Promise<any> {
     Aladin = module.default;
     await Aladin.init;
 
+    const initialFov = calculateFovFromInputs();
     const instance = Aladin.aladin('#aladin-lite-div', {
       target: '00:42:44.3 +41:16:09',
-      fov: 2,
+      fov: Number.isFinite(initialFov.fovW) && initialFov.fovW > 0 ? initialFov.fovW * 1.3 : 6,
       survey: Aladin.imageHiPS(SKY_SURVEY_URL, { name: 'DSS Color (ESA mirror)' }),
       cooFrame: 'equatorial',
       mode: 'dark',
@@ -58,10 +59,21 @@ export async function ensureAladinReady(): Promise<any> {
     });
 
     initAladinInstance(instance);
+    const root = document.getElementById('aladin-lite-div');
+    if (root) {
+      // Aladin exposes control tooltips as text but omits button names.
+      const nameControls = () => root.querySelectorAll<HTMLButtonElement>('button:not([aria-label])').forEach((button) => {
+        const tooltip = button.closest('.aladin-tooltip-container')?.textContent?.trim();
+        if (tooltip) button.setAttribute('aria-label', tooltip);
+      });
+      nameControls();
+      new MutationObserver(nameControls).observe(root, { childList: true, subtree: true });
+    }
     setAladinInitialized(true);
     return instance;
   })();
 
+  void promise.catch(() => setAladinInitPromise(null));
   setAladinInitPromise(promise);
   return promise;
 }
@@ -115,20 +127,30 @@ export function setupFovCanvas(): void {
     const h = el.height = el.clientHeight;
     ctx.clearRect(0, 0, w, h);
     const { fovW, fovH } = calculateFovFromInputs();
-    if (fovW <= 0 || fovH <= 0) { setFovAnimFrame(requestAnimationFrame(draw)); return; }
+    const showFrame = (document.getElementById('show-fov-checkbox') as HTMLInputElement | null)?.checked ?? true;
+    if (!showFrame || !Number.isFinite(fovW + fovH) || fovW <= 0 || fovH <= 0) { setFovAnimFrame(requestAnimationFrame(draw)); return; }
     const raDec = aladinInstance.getRaDec();
     const tl = aladinInstance.world2pix(raDec[0] - fovW / 2, raDec[1] + fovH / 2);
     const br = aladinInstance.world2pix(raDec[0] + fovW / 2, raDec[1] - fovH / 2);
     if (!tl || !br) { setFovAnimFrame(requestAnimationFrame(draw)); return; }
     ctx.strokeStyle = 'rgba(52,152,219,0.8)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(tl[0], tl[1], br[0] - tl[0], br[1] - tl[1]);
+    ctx.lineWidth = 2;
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    const rotation = Number((document.getElementById('telescope-rotation') as HTMLInputElement | null)?.value || 0);
+    ctx.rotate(rotation * Math.PI / 180);
+    ctx.strokeRect(tl[0] - w / 2, tl[1] - h / 2, br[0] - tl[0], br[1] - tl[1]);
+    ctx.restore();
     setFovAnimFrame(requestAnimationFrame(draw));
   };
   setFovAnimFrame(requestAnimationFrame(draw));
 }
 
 export function updateFovOverlay(): void {
+  const { fovW, fovH } = calculateFovFromInputs();
+  const label = document.getElementById('fov-display');
+  if (label) label.textContent = Number.isFinite(fovW + fovH) && fovW > 0 && fovH > 0
+    ? `${fovW.toFixed(1)}° × ${fovH.toFixed(1)}°` : '未核实';
   if (fovCanvasCtx && fovCanvas) {
     fovCanvasCtx.clearRect(0, 0, fovCanvas.width, fovCanvas.height);
   }

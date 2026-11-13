@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const production = process.env.SPF_E2E_PRODUCTION === '1';
+const production = process.env.SPF_E2E_PRODUCTION === '1' || process.env.SPF_E2E_PREVIEW === '1';
 
 export default defineConfig({
   testDir: '__tests__/e2e',

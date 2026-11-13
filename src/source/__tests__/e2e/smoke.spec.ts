@@ -83,12 +83,12 @@ test.describe('Mode switching', () => {
     const btn = page.locator('#mode-toggle-btn');
     await expect(btn).toBeVisible();
     // Button text reflects the current mode implied by the aria-label
-    await expect(btn).toHaveAttribute('aria-label', '切换模式');
+    await expect(btn).toHaveAttribute('aria-label', '找观测地');
   });
 
   test('telescope toggle button targets the correct element', async ({ page }) => {
     const btn = page.locator('#telescope-toggle-btn');
     await expect(btn).toBeVisible();
-    await expect(btn).toHaveAttribute('aria-label', '切换望远镜模式');
+    await expect(btn).toHaveAttribute('aria-label', '拍摄规划');
   });
 });

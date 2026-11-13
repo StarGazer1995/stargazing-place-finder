@@ -211,14 +211,6 @@
     border-radius: 4px !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
 }
-.leaflet-draw-toolbar a { color: #333 !important; background: transparent !important; border-bottom: 1px solid #ddd !important; }
-.leaflet-draw-toolbar a:hover { background: rgba(0,123,255,0.1) !important; color: #007bff !important; }
-.leaflet-draw-toolbar a:last-child { border-bottom: none !important; }
-.leaflet-draw-toolbar .leaflet-draw-draw-rectangle {
-    background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMyIgeT0iNSIgd2lkdGg9IjE0IiBoZWlnaHQ9IjEwIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8L3N2Zz4K') !important;
-    background-size: 16px 16px !important; background-position: center !important; background-repeat: no-repeat !important;
-}
-
 /* ── Responsive: stargazing ──────────────────────────────────────── */
 
 @media (max-width: 768px) {

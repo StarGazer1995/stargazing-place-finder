@@ -30,7 +30,7 @@ function skyResponse(): Response {
 describe('single search field', () => {
   it('updates the hint and accessible label in each mode and language', () => {
     const input = document.querySelector('input')!;
-    expect(input.placeholder).toBe('搜索地点...');
+    expect(input.placeholder).toBe('搜索地点，如上海、安吉（回车确认）');
     expect(input.getAttribute('aria-label')).toBe('搜索地点');
     setIsTelescopeMode(true); syncSearchMode();
     expect(input.placeholder).toContain('M31');

@@ -4,11 +4,13 @@
 
 import {
   isAnalysisMode, isTelescopeMode, drawControl,
-  statusIndicator,
-  setIsAnalysisMode, setStatusIndicator,
+  setIsAnalysisMode,
 } from '../../state';
-import { clearAll, initializeDrawControls } from './draw';
-import { analyzeStargazingArea, checkApiHealth } from './analyzer';
+import { clearAll, initializeDrawControls, startDrawing, stopDrawing } from './draw';
+import { analyzeStargazingArea, cancelAreaAnalysis, checkApiHealth } from './analyzer';
+
+import { toggleTelescopeMode } from '../telescope/telescope-ui';
+import { getText } from '../../core/i18n';
 
 // ---------------------------------------------------------------------------
 // Status bar
@@ -32,8 +34,11 @@ export function updateStatus(message: string, type: StatusType = 'info'): void {
 // ---------------------------------------------------------------------------
 
 /** Toggle analysis mode on/off, showing/hiding the draw control. */
-export function toggleMode(): void {
-  if (isTelescopeMode) return; // Don't toggle analysis while telescope is active
+export async function toggleMode(): Promise<void> {
+  if (isTelescopeMode) {
+    await toggleTelescopeMode();
+    if (isAnalysisMode) return;
+  }
 
   setIsAnalysisMode(!isAnalysisMode);
   const panel = document.getElementById('stargazing-control-panel');
@@ -46,12 +51,14 @@ export function toggleMode(): void {
     if (panel) panel.style.display = 'block';
     button?.classList.add('active');
     button?.setAttribute('aria-pressed', 'true');
-    updateStatus('在地图上拖拽绘制分析区域', 'info');
+    updateStatus(getText('ui.drawPrompt'), 'info');
   } else {
     if (drawControl) {
       map.removeControl(drawControl);
     }
-    clearAll();
+    stopDrawing();
+    cancelAreaAnalysis();
+    document.getElementById('status-indicator')!.style.display = 'none';
     if (panel) panel.style.display = 'none';
     button?.classList.remove('active');
     button?.setAttribute('aria-pressed', 'false');
@@ -84,6 +91,10 @@ export function initializeStargazingSelector(): void {
   if (modeBtn) {
     modeBtn.addEventListener('click', toggleMode);
   }
+
+  document.getElementById('draw-area-button')?.addEventListener('click', startDrawing);
+  document.getElementById('cancel-draw-button')?.addEventListener('click', stopDrawing);
+  document.getElementById('cancel-analysis-button')?.addEventListener('click', () => cancelAreaAnalysis(true));
 
   // Initialize draw controls
   initializeDrawControls();

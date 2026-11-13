@@ -23,6 +23,11 @@ const MARKER_STYLES: Record<string, MarkerStyle> = {
   fair: { className: 'stargazing-marker fair-marker', iconSize: [12, 12], iconAnchor: [6, 6] },
   poor: { className: 'stargazing-marker poor-marker', iconSize: [10, 10], iconAnchor: [5, 5] },
 };
+let resultMarkers: L.FeatureGroup | null = null;
+
+export function clearResultMarkers(): void {
+  if (resultMarkers) { map.removeLayer(resultMarkers); resultMarkers = null; }
+}
 
 // ---------------------------------------------------------------------------
 // Pure calculations
@@ -103,17 +108,16 @@ export function displayAnalysisResults(result: any): void {
   const locations: StargazingLocation[] = result.locations || [];
   setAnalysisResults(locations);
 
-  // Clear old markers
-  if (drawnItems) drawnItems.clearLayers();
+  // Keep the selected rectangle editable; result markers are not draw tools.
+  clearResultMarkers();
 
   // Render markers
   const featureGroup = L.featureGroup();
   locations.forEach((loc) => {
     featureGroup.addLayer(createStargazingMarker(loc));
   });
-  if (drawnItems) {
-    drawnItems.addLayer(featureGroup);
-  }
+  resultMarkers = featureGroup;
+  featureGroup.addTo(map);
 
   if (locations.length > 0) {
     const lats = locations.map((l) => l.lat);
@@ -135,7 +139,7 @@ function showResultsPanel(locations: StargazingLocation[]): void {
   setResultsPanel(panel);
 
   if (locations.length === 0) {
-    panel.innerHTML = '<p>未找到符合条件的观星地点</p>';
+    panel.innerHTML = '<h3>分析结果</h3><p class="panel-note">未找到符合条件的观星地点，可调整范围或交通方式重试。</p><button class="secondary-button" data-action="clear-results">返回选区</button>';
     panel.style.display = 'block';
     return;
   }
@@ -179,7 +183,8 @@ function renderLocationCard(loc: StargazingLocation): string {
       <span class="loc-score">${loc.score}</span>
       <span class="loc-name">${loc.name || `${loc.lat.toFixed(3)}, ${loc.lng.toFixed(3)}`}</span>
       <span class="loc-bortle">Bortle ${loc.bortleClass}</span>
-      <button class="btn-focus" data-action="focus-location" data-lat="${loc.lat}" data-lng="${loc.lng}">📍</button>
+      <button class="btn-focus secondary-button" aria-label="在地图查看地点" data-action="focus-location" data-lat="${loc.lat}" data-lng="${loc.lng}">在地图查看</button>
+      <button class="secondary-button" data-action="jump-telescope" data-lat="${loc.lat}" data-lng="${loc.lng}">在此拍摄</button>
     </div>`;
 }
 

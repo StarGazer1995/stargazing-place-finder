@@ -3,13 +3,12 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
-
 // =============================================================================
 // Vite entry point — explicit import chain (no side-effect-only imports)
 // =============================================================================
 
 // State & foundation modules
-import { currentLanguage, setCurrentLanguage } from './state';
+import { currentLanguage, setCurrentLanguage, pollutionTileLayer } from './state';
 
 // Core
 import { detectUserLanguage, getText, toggleLanguage } from './core/i18n';
@@ -70,8 +69,10 @@ import { initMosaic, fetchMosaicGrid, renderMosaicPanel } from './features/mosai
 // =============================================================================
 
 function initLanguage(): void {
-  const detected = detectUserLanguage();
-  setCurrentLanguage(detected);
+  let detected = document.documentElement.lang === 'en' ? 'en' : 'zh';
+  try { detected = localStorage.getItem('stargazing-language') || detected; } catch { /* unavailable */ }
+  if (detected !== 'en' && detected !== 'zh') detected = 'zh';
+  setCurrentLanguage(detected as 'en' | 'zh');
 
   document.documentElement.lang = currentLanguage;
 
@@ -103,7 +104,9 @@ function updateLanguageElements(): void {
   });
 
   const langBtn = document.getElementById('language-btn');
-  if (langBtn) langBtn.textContent = currentLanguage === 'zh' ? '中/EN' : 'EN/中';
+  if (langBtn) langBtn.textContent = currentLanguage === 'zh' ? 'English' : '中文';
+  document.querySelectorAll<HTMLButtonElement>('.top-right-buttons button[data-i18n]').forEach(el => el.setAttribute('aria-label', el.textContent || ''));
+  window.dispatchEvent(new Event('languagechange'));
 
   updateLegend();
   syncSearchMode();
@@ -158,6 +161,10 @@ function boot(): void {
   initMosaic();
   syncPanelVisibility();
   document.getElementById('loading-overlay')?.classList.add('hidden');
+  document.getElementById('loading-overlay')?.setAttribute('aria-hidden', 'true');
+  document.getElementById('pollution-opacity')?.addEventListener('input', (event) => {
+    pollutionTileLayer?.setOpacity(Number((event.target as HTMLInputElement).value) / 100);
+  });
   console.log('[Stargazing] App initialized');
 }
 

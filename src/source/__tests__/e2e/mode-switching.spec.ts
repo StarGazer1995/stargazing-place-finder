@@ -56,7 +56,7 @@ async function expectTelescopeMode(
 ): Promise<void> {
   await expect(page.locator('#mode-toggle-btn')).toHaveAttribute(
     'aria-pressed',
-    String(analysisWasActive),
+    'false',
   );
   await expect(page.locator('#telescope-toggle-btn')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#stargazing-control-panel')).toBeHidden();
@@ -67,8 +67,7 @@ async function expectTelescopeMode(
 }
 
 test('browse, analysis and telescope modes switch in either direction', async ({ page }) => {
-  // Analysis keeps its selected state while telescope is active. Going back from
-  // telescope therefore returns to analysis before returning to browse.
+  // Analysis selection is retained, while only the active workspace is pressed.
   await openApp(page);
   await expectBrowseMode(page);
 
@@ -98,9 +97,9 @@ test('telescope mode opens and closes without disturbing analysis state', async 
   await expectTelescopeMode(page);
 
   await page.locator('#mode-toggle-btn').click();
-  await expectTelescopeMode(page);
+  await expectAnalysisMode(page);
 
-  await page.locator('#telescope-toggle-btn').click();
+  await page.locator('#mode-toggle-btn').click();
   await expectBrowseMode(page);
 
   await page.locator('#mode-toggle-btn').click();

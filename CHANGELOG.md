@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Make place/sky workspace activation mutually exclusive, add direct area selection, and preserve selections through cancellation, bounded waits and retries.
+- Show editable observer coordinates, wall-clock time and IANA timezone; keep planner actions visible on desktop and mobile. Map actions no longer treat terrestrial coordinates as RA/Dec.
+- Separate result markers from editable geometry, reject invalid observing inputs and ignore late responses after settings change. Demote legacy reference scores and expose keyboard-operable target selection.
+- Update device FOV labels and make frame visibility and rotation controls effective. Show plan timestamps in the selected timezone with explicit day rollover.
+- Preserve dark popup surfaces when bundled Leaflet defaults load later; verify readable text and working planner actions against production builds. Fix toolbar sprite overrides, hidden loading content and mobile panel clipping.
+
 ## 0.9.6 (2026-11-10) — Equipment, target ordering and SHO guidance
 
 - Load the shared equipment catalog, including HOPE D60 + ASI2600MC Air, and forward complete optical configurations to matching, plans and mosaics.
