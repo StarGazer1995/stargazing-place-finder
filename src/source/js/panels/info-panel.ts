@@ -8,6 +8,7 @@ import { API_CONFIG } from '../core/api';
 import { getText } from '../core/i18n';
 import { estimateBortleClass, getIntensityRadius } from '../map/layers';
 import type { SuitabilityLevel, LightPollutionPoint } from '../types/stargazing';
+import { shouldIgnoreMapClick } from '../features/stargazing/draw';
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -48,6 +49,7 @@ export function createPopupContent(lat: number, lng: number, bortleClass: number
       <p><strong>${getText('bortleClass')}:</strong> ${getText(`bortleDescriptions.${bortleClass}`)}</p>
       <p><strong>${getText('observationSuitability')}:</strong> ${getText(`suitabilityLevels.${suitability}`)}</p>
       ${tipsHTML}
+      <p class="panel-note">${getText('ui.fallbackNote')}</p>
       <div class="popup-actions">
         <button class="btn-jump-telescope" data-action="jump-telescope" data-lat="${lat}" data-lng="${lng}" data-label="${lat.toFixed(4)}, ${lng.toFixed(4)}">🔭 ${getText('shootHere') || '在此拍摄'}</button>
       </div>
@@ -67,7 +69,6 @@ export function createDetailedPopupContent(lat: number, lng: number, data: any):
   const bortleClass: number = lp.bortle_class;
   const sqmValue: number = lp.sqm_value;
   const intensity: number = lp.intensity;
-  const description: string = lp.description;
   const suitability = getSuitabilityLevel(bortleClass);
   const tips = getTips(bortleClass);
 
@@ -76,13 +77,14 @@ export function createDetailedPopupContent(lat: number, lng: number, data: any):
       <h4>🌟 ${getText('lightPollutionInfo')}</h4>
       <div class="popup-section">
         <p><strong>📍 ${getText('coordinates')}:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
-        <p><strong>🌃 ${getText('bortleClass')}:</strong> ${bortleClass} - ${description}</p>
-        <p><strong>✨ SQM值:</strong> ${sqmValue} mag/arcsec²</p>
-        <p><strong>💡 光污染强度:</strong> ${(intensity * 100).toFixed(1)}%</p>
+        <p><strong>🌃 ${getText('bortleClass')}:</strong> ${getText(`bortleDescriptions.${bortleClass}`)}</p>
+        <p><strong>SQM (${getText('ui.estimated')}):</strong> ${sqmValue} mag/arcsec²</p>
+        <p><strong>${getText('lightPollutionLevel')}:</strong> ${(intensity * 100).toFixed(1)}%</p>
         <p><strong>🔭 ${getText('observationSuitability')}:</strong>
           <span class="suitability-${suitability}">${getText(`suitabilityLevels.${suitability}`)}</span></p>
       </div>
       ${tips.length > 0 ? `<div class="popup-section"><h5>💡 ${getText('observationTips')}:</h5><ul>${tips.map((t) => `<li>${t}</li>`).join('')}</ul></div>` : ''}
+      <p class="panel-note">${getText('ui.pollutionNote')}</p>
       <div class="popup-actions">
         <button class="btn-jump-telescope" data-action="jump-telescope" data-lat="${lat}" data-lng="${lng}" data-label="${lat.toFixed(4)}, ${lng.toFixed(4)}">🔭 ${getText('shootHere') || '在此拍摄'}</button>
       </div>
@@ -173,15 +175,17 @@ export function updateInfoPanel(lat: number, lng: number, bortleClass: number): 
  */
 /* c8 ignore start — Leaflet popup + API: requires full browser map */
 export async function onMapClick(e: L.LeafletMouseEvent): Promise<void> {
+  if (isTelescopeMode || shouldIgnoreMapClick()) return;
   const { lat, lng } = e.latlng;
 
-  const loadingPopup = L.popup()
+  const loadingPopup = L.popup({ maxWidth: 300, maxHeight: 320, autoPanPaddingTopLeft: L.point(20, window.innerWidth <= 768 ? 130 : 100), autoPanPaddingBottomRight: L.point(window.innerWidth <= 768 ? 20 : 390, 30) })
     .setLatLng(e.latlng)
     .setContent('<div style="text-align:center">🔍 正在分析坐标点...</div>')
     .openOn(map);
 
   try {
     const result = await analyzeCoordinate(lat, lng);
+    if (isTelescopeMode || shouldIgnoreMapClick()) { map.closePopup(loadingPopup); return; }
 
     if (result?.success) {
       const bortleClass: number = result.data.light_pollution.bortle_class;

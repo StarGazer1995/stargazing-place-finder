@@ -2,23 +2,28 @@
 // Telescope UI — panel bindings, mode switching, preset handling
 // =============================================================================
 
-import { isTelescopeMode, isAnalysisMode, aladinInstance } from '../../state';
-import { setIsTelescopeMode, setTelescopeTargetLocation, setLastMatchBody, setLastTargets } from '../../state';
+import { isTelescopeMode, isAnalysisMode, aladinInstance, map, drawControl, resultsPanel } from '../../state';
+import { setIsTelescopeMode, setLastMatchBody, setLastTargets } from '../../state';
 import { showToast } from '../../utils/dom';
 import { syncSearchMode } from '../../core/search';
 import { ensureAladinReady, updateFovOverlay, applyPreset } from './aladin-core';
+import { initObservationContext, setObservationLocation, syncObserverFromMap } from './observation-context';
+import { stopDrawing } from '../stargazing/draw';
+import { cancelAreaAnalysis } from '../stargazing/analyzer';
 import { loadTelescopePresets } from './presets';
-import { matchTelescopeTargets, fetchShootingPlan } from './targets';
+import { matchTelescopeTargets, fetchShootingPlan, invalidateTargetRequests } from './targets';
 import { bindTargetInteractions } from './target-renderer';
 
 // ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
 
-function invalidateTargetResults(): void {
+export function invalidateTargetResults(): void {
+  invalidateTargetRequests();
+  try { aladinInstance?.removeCatalogs(); } catch { /* sky may be initializing */ }
   setLastMatchBody(null);
   setLastTargets([]);
-  ['target-results-section', 'plan-btn', 'plan-panel'].forEach((id) => {
+  ['target-results-section', 'plan-btn', 'plan-panel', 'moon-card', 'mosaic-panel', 'mosaic-controls', 'altitude-chart-panel'].forEach((id) => {
     const element = document.getElementById(id);
     if (element) element.style.display = 'none';
   });
@@ -26,6 +31,7 @@ function invalidateTargetResults(): void {
 
 /** Wire up telescope panel interactions (runs once at page load). */
 export function initTelescopeMode(): void {
+  initObservationContext(invalidateTargetResults);
   // ── Preset selector ──
   const presetSelect = document.getElementById('telescope-preset') as HTMLSelectElement | null;
   if (presetSelect) {
@@ -91,8 +97,11 @@ export function initTelescopeMode(): void {
 // Mode toggle
 // ---------------------------------------------------------------------------
 
+let modeGeneration = 0;
+
 /** Toggle telescope mode on/off. */
 export async function toggleTelescopeMode(): Promise<void> {
+  const generation = ++modeGeneration;
   const newMode = !isTelescopeMode;
   setIsTelescopeMode(newMode);
   syncSearchMode();
@@ -102,7 +111,23 @@ export async function toggleTelescopeMode(): Promise<void> {
   const status = document.getElementById('telescope-status');
   const toggleBtn = document.getElementById('telescope-toggle-btn');
 
+  stopDrawing();
+  cancelAreaAnalysis();
+  map?.closePopup();
+  const areaStatus = document.getElementById('status-indicator');
+  if (areaStatus) areaStatus.style.display = 'none';
+  const areaBtn = document.getElementById('mode-toggle-btn');
+  areaBtn?.classList.toggle('active', !newMode && isAnalysisMode);
+  areaBtn?.setAttribute('aria-pressed', String(!newMode && isAnalysisMode));
+  document.body.classList.toggle('telescope-workspace', newMode);
+  const legend = document.querySelector<HTMLElement>('.bortle-bar-container');
+  if (legend) legend.hidden = newMode;
+  if (drawControl) {
+    map.removeControl(drawControl);
+    if (!newMode && isAnalysisMode) map.addControl(drawControl);
+  }
   if (newMode) {
+    syncObserverFromMap();
     if (panel) panel.style.display = 'block';
     if (aladinContainer) aladinContainer.style.display = 'block';
     if (status) status.style.display = 'block';
@@ -110,10 +135,18 @@ export async function toggleTelescopeMode(): Promise<void> {
     toggleBtn?.setAttribute('aria-pressed', 'true');
     try {
       await ensureAladinReady();
+      if (generation !== modeGeneration) return;
       updateFovOverlay();
     } catch (e: any) {
+      if (generation !== modeGeneration) return;
       showToast('Aladin Lite 加载失败: ' + e.message, 'error');
       setIsTelescopeMode(false);
+      document.body.classList.remove('telescope-workspace');
+      if (legend) legend.hidden = false;
+      areaBtn?.classList.toggle('active', isAnalysisMode);
+      areaBtn?.setAttribute('aria-pressed', String(isAnalysisMode));
+      if (drawControl && isAnalysisMode) map.addControl(drawControl);
+      syncPanelVisibility();
       syncSearchMode();
       if (panel) panel.style.display = 'none';
       if (aladinContainer) aladinContainer.style.display = 'none';
@@ -123,6 +156,7 @@ export async function toggleTelescopeMode(): Promise<void> {
       return;
     }
   } else {
+    invalidateTargetRequests();
     if (panel) panel.style.display = 'none';
     if (aladinContainer) aladinContainer.style.display = 'none';
     if (status) status.style.display = 'none';
@@ -131,6 +165,7 @@ export async function toggleTelescopeMode(): Promise<void> {
   }
 
   syncPanelVisibility();
+  if (!newMode) map?.invalidateSize();
 }
 
 // ---------------------------------------------------------------------------
@@ -143,15 +178,11 @@ export async function jumpToTelescopeMode(
   lng: number,
   label: string,
 ): Promise<void> {
-  setTelescopeTargetLocation({ lat, lng });
+  invalidateTargetResults();
+  setObservationLocation(lat, lng);
 
   if (!isTelescopeMode) {
     await toggleTelescopeMode();
-  }
-
-  if (aladinInstance) {
-    aladinInstance.gotoRaDec(lng, lat);
-    setTimeout(() => updateFovOverlay(), 300);
   }
 
   showToast(`🔭 望远镜模式已定位到: ${label}`, 'info');
@@ -179,6 +210,7 @@ export function syncPanelVisibility(): void {
   } else if (isAnalysisMode) {
     if (info) info.style.display = 'none';
     if (analysis) analysis.style.display = 'block';
+    if (results && resultsPanel?.innerHTML) results.style.display = 'block';
   } else {
     // Browse mode — info/stats shown on demand by their respective update functions
   }

@@ -35,6 +35,7 @@ test('backend-only HOPE preset reaches matching, plan and mosaic without losing 
   await expect(page.locator('#telescope-preset option')).toHaveCount(2);
   await page.locator('#telescope-preset').selectOption('hope_d60_asi2600mc_air');
   await expect(page.locator('#telescope-focal-length')).toHaveValue('280');
+  await expect(page.locator('#fov-display')).toHaveText('4.8° × 3.2°');
   await page.locator('#match-targets-btn').click();
   await expect(page.locator('.target-card')).toContainText('M 31');
   expect(requests.targets).toMatchObject(hope);
@@ -42,6 +43,7 @@ test('backend-only HOPE preset reaches matching, plan and mosaic without losing 
   await expect.poll(() => requests.mosaic?.config).toMatchObject(hope);
   await page.locator('#plan-btn').click();
   await expect.poll(() => requests.plan).toMatchObject(hope);
+  await page.locator('#telescope-config-details > summary').click();
   await page.locator('#telescope-focal-length').fill('300');
   await expect(page.locator('#telescope-preset')).toHaveValue('custom');
   await page.locator('#match-targets-btn').click();

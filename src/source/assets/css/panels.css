@@ -140,8 +140,8 @@
     border: 1px solid var(--border) !important;
     backdrop-filter: blur(10px);
 }
-.leaflet-control a { color: white !important; background: transparent !important; }
-.leaflet-control a:hover { background: rgba(255,255,255,0.1) !important; }
+.leaflet-control a { color: white !important; background-color: transparent !important; }
+.leaflet-control a:hover { background-color: rgba(255,255,255,0.1) !important; }
 
 /* ── Responsive: panels ──────────────────────────────────────────── */
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   bindTargetInteractions,
+  formatPlanTime,
   renderMoonCard,
   renderShootingPlan,
   renderTargetResults,
@@ -193,5 +194,14 @@ describe('renderShootingPlan', () => {
     const container = document.createElement('div');
     renderShootingPlan({ ...plan, slots: [] }, [], container);
     expect(container.textContent).toContain('无可用拍摄计划');
+  });
+});
+
+
+describe('plan wall times', () => {
+  it('uses the observer timezone and makes the day rollover visible', () => {
+    expect(formatPlanTime('2026-11-12T17:30:00+00:00', 'Asia/Shanghai')).toBe('11-13 01:30');
+    expect(formatPlanTime('2026-11-12T17:30:00+00:00')).toBe('11-12 17:30');
+    expect(formatPlanTime('unknown')).toBe('时间未核实');
   });
 });

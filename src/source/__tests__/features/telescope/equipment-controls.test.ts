@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({ load: vi.fn(), apply: vi.fn(), overlay: vi.fn(
 vi.mock('@/core/search', () => ({ syncSearchMode: vi.fn() }));
 vi.mock('@/features/telescope/presets', () => ({ loadTelescopePresets: mocks.load }));
 vi.mock('@/features/telescope/aladin-core', () => ({ ensureAladinReady: vi.fn(), updateFovOverlay: mocks.overlay, applyPreset: mocks.apply }));
-vi.mock('@/features/telescope/targets', () => ({ matchTelescopeTargets: mocks.match, fetchShootingPlan: mocks.plan }));
+vi.mock('@/features/telescope/targets', () => ({ matchTelescopeTargets: mocks.match, fetchShootingPlan: mocks.plan, invalidateTargetRequests: vi.fn() }));
 vi.mock('@/features/telescope/target-renderer', () => ({ bindTargetInteractions: mocks.bind }));
 vi.mock('@/utils/dom', () => ({ showToast: mocks.toast }));
 beforeEach(() => {

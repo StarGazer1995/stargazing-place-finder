@@ -152,3 +152,66 @@
     .bortle-bar-label { font-size: 10px; }
     #search-input { font-size: 14px; padding: 10px 16px; }
 }
+
+/* Shared workspace chrome and accessible map overlays. */
+[hidden], #loading-overlay.hidden { display: none !important; }
+:focus-visible { outline: 2px solid #9ed6ff; outline-offset: 3px; }
+.top-right-buttons { top: 16px; right: 16px; padding: 4px; border: 1px solid #465368; border-radius: 12px; background: #111b2bed; }
+.top-right-buttons .mode-toggle-btn, .top-right-buttons .telescope-toggle-btn { background: transparent; border: 1px solid transparent; border-radius: 8px; box-shadow: none; padding: 10px 14px; transform: none; color: #c8d4e3; }
+.top-right-buttons button.active { background: #214866; border-color: #75b9e7; color: #fff; }
+#language-btn { border-radius: 8px; padding: 8px 12px; }
+.search-container { top: 16px; left: 60px; transform: none; width: min(400px, calc(100vw - 480px)); padding: 0; }
+#search-input { border-radius: 10px; background: #111b2bf2; }
+.panel-intro, .panel-note { font-size: 13px; line-height: 1.6; color: #c0cedd; margin-bottom: 12px; }
+.secondary-button { padding: 10px 12px; min-height: 42px; border: 1px solid #617b96; border-radius: 6px; background: #213249; color: #f2f6fb; cursor: pointer; }
+#stargazing-control-panel .secondary-button { width: 100%; margin-bottom: 8px; }
+.advanced-options { margin: 14px 0; border-top: 1px solid #3d4c60; padding-top: 12px; }
+summary { cursor: pointer; padding: 8px 0; color: #dbeaff; font-size: 14px; }
+.advanced-options[open] > summary { margin-bottom: 12px; }
+.layer-options { position: relative; }
+.layer-options[open] { width: 250px; }
+.layer-options label, .layer-options p { display: block; font-size: 12px; line-height: 1.6; }
+.layer-options input { width: 100%; }
+.bortle-bar-container { flex-wrap: wrap; max-width: calc(100vw - 32px); background: #111b2bf2; }
+.layer-options summary { padding: 0; font-size: 12px; }
+body.telescope-workspace .search-container { left: 330px; width: min(350px, calc(100vw - 750px)); }
+#stargazing-control-panel { top: 90px; right: 16px; transform: none; min-width: 0; width: 340px; max-height: calc(100dvh - 170px); overflow-y: auto; background: #141f30f5; border: 1px solid #536e8a; padding: 18px; }
+#stargazing-control-panel h3 { text-align: left; color: #e0edff; border-color: #3d4c60; }
+.clear-button { background: transparent; border: 1px solid #52657b; color: #d4deeb; }
+.clear-button:disabled { display: none; }
+.status-indicator { max-width: min(620px, calc(100vw - 40px)); white-space: normal; text-align: center; }
+.drawing-area #stargazing-control-panel { pointer-events: none; opacity: .45; }
+.drawing-area #cancel-draw-button { pointer-events: auto; }
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip { background: #142438; color: #edf4ff; }
+.leaflet-popup-content-wrapper .popup-content { background: none; color: inherit; box-shadow: none; border: none; padding: 8px; }
+.leaflet-popup-content-wrapper h4, .leaflet-popup-content-wrapper h5 { color: #d8e9ff; }
+.leaflet-popup-content { line-height: 1.6; }
+.leaflet-popup-content .popup-actions { position: sticky; bottom: 0; background: #142438; padding-top: 8px; }
+.leaflet-popup-content .btn-jump-telescope { width: 100%; min-height: 42px; cursor: pointer; background: #266593; color: white; border: 1px solid #8cbee0; border-radius: 6px; }
+.leaflet-container .leaflet-popup a.leaflet-popup-close-button {
+    color: #edf4ff; background-color: #142438; border-radius: 6px;
+}
+.leaflet-container .popup-content li { color: #edf4ff; }
+#results-panel { top: 90px; bottom: 20px; right: 372px; width: 340px; max-height: none; padding: 18px; overflow-y: auto; color: #e8f0fc; background: #142438f5; border: 1px solid #536e8a; }
+#results-panel h3, #results-panel h5, #results-panel .location-name { color: #e8f0fc; }
+#results-panel .results-summary, #results-panel .results-list { margin-top: 14px; }
+#results-panel .location-card { padding: 14px 0; border-bottom: 1px solid #536175; }
+@media (max-width: 768px) {
+  .top-right-buttons { top: 10px; right: 10px; left: 10px; justify-content: flex-end; }
+  .top-right-buttons .mode-toggle-btn, .top-right-buttons .telescope-toggle-btn { padding: 8px 12px; }
+  .search-container, body.telescope-workspace .search-container { top: 72px; left: 10px; width: calc(100% - 20px); max-width: none; }
+  #stargazing-control-panel { top: auto; bottom: 72px; left: 10px; right: 10px; width: auto; max-width: none; max-height: 44dvh; transform: none; }
+  .drawing-area #stargazing-control-panel { max-height: 100px; overflow: hidden; }
+  #results-panel { top: auto; bottom: 72px; left: 10px; right: 10px; width: auto; max-height: 44dvh; }
+  .status-indicator { bottom: 10px; left: 10px; right: 10px; transform: none; max-width: none; }
+  .bortle-bar-container { left: 10px; right: auto; bottom: 10px; }
+  body:has(#stargazing-control-panel[style*="block"]) .bortle-bar-container { display: none; }
+  .leaflet-top.leaflet-left { top: 122px; }
+}
+
+.leaflet-popup-content-wrapper .popup-content { min-width: 0; max-height: none; overflow: visible; }
+.drawing-area #stargazing-control-panel { max-height: 180px; }
+.drawing-area #stargazing-control-panel > :not(h3):not(#cancel-draw-button):not(#selection-status) { display: none; }
+
+#stargazing-control-panel .clear-button { background: transparent; border: 1px solid #52657b; color: #d4deeb; }

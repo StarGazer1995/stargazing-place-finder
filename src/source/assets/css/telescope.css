@@ -286,3 +286,48 @@
 .target-score small { display: block; font-size: 9px; font-weight: normal; color: var(--text-muted); }
 .target-ranking-note, .target-method { font-size: 11px; line-height: 1.6; color: var(--text-muted); margin: 8px 0; }
 .target-method p { margin: 5px 0; }
+
+/* Planner: one scroll area and a persistent action footer. */
+.telescope-control-panel { top: 90px; bottom: auto; right: 16px; width: 360px; min-width: 0; max-width: calc(100vw - 32px); max-height: calc(100dvh - 110px); padding: 0; overflow: hidden; border: 1px solid #536e8a; border-radius: 12px; background: #141f30f5; }
+.telescope-control-panel h3 { margin: 0; padding: 14px 18px; border-bottom: 1px solid #3d4c60; color: #e0edff; cursor: default; }
+.workspace-scroll { max-height: calc(100dvh - 260px); overflow-y: auto; padding: 14px 18px; overscroll-behavior: contain; }
+.workspace-actions { padding: 12px 18px; background: #141f30; border-top: 1px solid #3d4c60; }
+.workspace-actions button { min-height: 44px; background: #286493; }
+.workspace-actions .plan-btn { background: #224838; }
+.observation-context { margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #3d4c60; }
+.coordinate-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.observation-context input { min-width: 0; }
+.observation-context .secondary-button { margin-bottom: 12px; }
+.telescope-location-display { color: #e0edff; font-size: 14px; line-height: 1.6; }
+.telescope-config-body { overflow: visible; }
+.telescope-control-panel .fov-display { padding: 8px; background: #223449; border-color: #526982; }
+.telescope-control-panel .fov-display span { color: #b8ddff; font-size: 18px; }
+.target-results-body { max-height: none; overflow: visible; }
+.target-results-header { color: #e0edff; }
+.target-results-header .collapse-arrow { display: none; }
+.target-card { padding: 14px 0; border-bottom: 1px solid #3d4c60; cursor: default; align-items: flex-start; }
+.target-info { min-width: 0; flex: 1; }
+.target-select { display: block; width: 100%; padding: 0; text-align: left; border: 0; background: none; cursor: pointer; font: inherit; font-weight: 650; color: white; font-size: 15px; }
+.target-select > span { display: block; color: #a4d2f7; font-size: 12px; font-weight: normal; margin: 5px 0; }
+.target-type, .target-detail, .target-window, .target-sho, .target-sho-details, .target-ranking-note, .target-method { font-size: 13px; line-height: 1.6; }
+.target-score { font-size: 12px; color: #c2cfdf; font-weight: normal; }
+.target-window { display: block; color: #e2efff; }
+.telescope-status { max-width: calc(100vw - 420px); color: #d5e4f7; border-color: #536e8a; }
+@media (max-width: 768px) {
+ .telescope-control-panel { top: auto; bottom: 10px; left: 10px; right: 10px; width: auto; max-width: none; max-height: 56dvh; }
+ .workspace-scroll { max-height: calc(56dvh - 150px); }
+ .telescope-status { display: none !important; }
+ .telescope-workspace .aladin-location { top: 122px !important; }
+ .altitude-chart-panel { bottom: 58dvh; left: 10px; right: 10px; max-width: calc(100vw - 20px); }
+}
+.plan-header, .plan-row { display: grid; grid-template-columns: 100px minmax(0, 1fr) 70px; gap: 8px; align-items: start; padding: 10px 0; border-bottom: 1px solid #3d4c60; font-size: 12px; line-height: 1.6; }
+.plan-row > span { overflow-wrap: anywhere; }
+.plan-summary { line-height: 1.6; }
+@media (max-width: 768px) { .altitude-chart-panel { width: auto; right: 10px; } }
+
+#telescope-control-panel[style*="block"] { display: flex !important; flex-direction: column; }
+.workspace-scroll { flex: 1 1 auto; min-height: 0; }
+.workspace-actions, #telescope-panel-header { flex: 0 0 auto; }
+@media (max-width: 768px) {
+  .telescope-workspace .aladin-cooFrame, .telescope-workspace .aladin-location { display: none; }
+}

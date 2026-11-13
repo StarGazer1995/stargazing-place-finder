@@ -66,7 +66,7 @@ export function showAltitudeChart(target: TelescopeTarget): void {
   const sc = target.suitability_score != null ? target.suitability_score.toFixed(0) : '?';
   const fov = target.fov_fit_score != null ? (target.fov_fit_score * 100).toFixed(0) : '?';
   const flt = target.filter_match_score != null ? (target.filter_match_score * 100).toFixed(0) : '?';
-  if (title) title.textContent = `📈 ${target.name} — 综合${sc} | FOV${fov}% | 滤镜${flt}%`;
+  if (title) title.textContent = `📈 ${target.name} — 参考${sc} | FOV${fov}% | 滤镜${flt}%`;
   panel.style.display = 'block';
 
   requestAnimationFrame(() => {

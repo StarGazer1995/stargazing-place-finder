@@ -9,7 +9,7 @@ describe('getText', () => {
 
   it('returns Chinese text for top-level keys', () => {
     expect(getText('title')).toBe('观星地点查找器');
-    expect(getText('searchPlaceholder')).toBe('搜索地点...');
+    expect(getText('searchPlaceholder')).toBe('搜索地点，如上海、安吉（回车确认）');
   });
 
   it('returns English text after switching language', () => {

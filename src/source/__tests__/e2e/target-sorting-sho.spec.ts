@@ -29,7 +29,7 @@ test('shows sorting intent and camera-aware SHO advice without treating unknown 
   await expect(page.locator('#telescope-target-sort')).toHaveValue('imaging_time');
   await page.locator('#match-targets-btn').click();
   await expect(page.locator('.target-card').first()).toContainText('M 42');
-  await expect(page.locator('#target-query-time')).toContainText('计算于');
+  await expect(page.locator('#target-query-time')).toContainText('观测时间');
   await expect(page.locator('.target-card').first()).toContainText('剩余 180 分钟 · 最长连续 120 分钟');
   await expect(page.locator('.target-sho-consider')).toContainText('先核实 SII');
   await expect(page.locator('.target-sho-not_primary')).toContainText('不建议');
@@ -42,6 +42,7 @@ test('shows sorting intent and camera-aware SHO advice without treating unknown 
   await expect(page.locator('#altitude-chart-panel')).toBeHidden();
   expect(requests[0]).toMatchObject({sort_by:'imaging_time',camera_type:'color',focal_length_mm:280});
   await page.locator('#target-results-section').screenshot({path: testInfo.outputPath('target-sorting-sho.png')});
+  await page.locator('#telescope-config-details > summary').click();
   await page.locator('#telescope-camera-type').selectOption('mono');
   await expect(page.locator('#target-results-section')).toBeHidden();
   await expect(page.locator('#plan-btn')).toBeHidden();

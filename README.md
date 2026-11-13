@@ -43,6 +43,13 @@
 显式重建后的瓦片缓存也区分有效性变化：有效零值与 NoData/掩膜/NaN 之间可双向更新，
 旧 handle 的晚到 PNG 不会覆盖新 handle 的有效性。这不增加文件自动监听或客户端缓存清理。
 
+### Web 操作流程（当前开发版）
+
+- **找观测地**：点击“在地图框选”，拖拽选择区域，再选择交通方式并分析。高级设置包含结果数量与分析选项；可取消等待并保留区域重试。取消只停止客户端等待，服务端地图查询可能继续完成。
+- **拍摄规划**：明确显示观测坐标、时间与 IANA 时区，支持修改或使用地图中心。地图“在此拍摄”仅设置地理观测位置，不把地理坐标当成赤经赤纬。设备预设与 FOV 默认可见，详细参数可展开；匹配和计划按钮保持在面板底部。
+- **推荐结果**：可拍时段与画幅适配优先展示，参考分收进依据详情；修改设备、观测条件或排序后清除旧结果，迟到的请求不会覆盖新设置。
+- **地图图层**：图例可展开调整覆盖透明度。Bortle / SQM 为模型估计，不代表天气或实际通行情况；Leaflet 及绘制控件样式随应用打包，不依赖外部样式 CDN。
+
 ## 快速开始
 
 ### 安装依赖
@@ -436,3 +443,5 @@ REST `/api/telescope/targets` 新增顶层参数：
 [ZWO ASI2600MC/MM Air](https://www.zwoastro.com/product/zwo-asi2600mc-air/)、
 [Astronomik窄带滤镜](https://www.astronomik.com/en/Narrowband-Filters/)、
 [Optolong彩色相机配对双窄带](https://www.optolong.com/cms/document/detail/id/485.html)。
+
+前端打包样式回归：在 `src/source/` 运行 `npm run build`，再运行 `SPF_E2E_PREVIEW=1 npm run test:e2e -- popup-theme.spec.ts`。该模式启动生产预览，检查地点弹窗在手机和桌面上的实际文字对比度及跳转操作。
