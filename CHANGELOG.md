@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.7 (2026-11-13) — Observing workspaces and readable map popups
 
 - Make place/sky workspace activation mutually exclusive, add direct area selection, and preserve selections through cancellation, bounded waits and retries.
 - Show editable observer coordinates, wall-clock time and IANA timezone; keep planner actions visible on desktop and mobile. Map actions no longer treat terrestrial coordinates as RA/Dec.
